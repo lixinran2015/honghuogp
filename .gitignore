@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 测试/脚本输出
+test_darwin_filter.log
+*.log
+
+# 环境与配置
+.env
+.env.local
+*.db
+*.sqlite
+config.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+frontend-vue/node_modules/
+
+# 数据与缓存
+.chroma_db/
+*.xlsx
+logs/
+*.log
+
+# 归档（若不想提交归档目录可取消注释）
+# archive/

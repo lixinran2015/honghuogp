@@ -1,0 +1,27 @@
+# 红火量化 - 后端 API
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制依赖文件并安装
+COPY requirements.txt .
+COPY backend/requirements.txt backend/
+RUN pip install --no-cache-dir -r requirements.txt -r backend/requirements.txt
+
+# 复制项目代码（backend、data_warehouse 等）
+COPY backend/ backend/
+COPY data_warehouse/ data_warehouse/
+# config.json 可选，需 Tushare 等功能时自行挂载
+# 示例：volumes: - ./config.json:/app/config.json
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["python", "backend/app.py"]

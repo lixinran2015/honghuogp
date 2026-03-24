@@ -1,0 +1,53 @@
+# 红火量化 - Docker Compose 一键部署
+# 使用：docker-compose up -d
+# 访问：http://localhost （前端）| http://localhost:8000 （API）
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: honghuo-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-qazwsx}
+      POSTGRES_DB: ${DB_NAME:-quantitative_trading}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: honghuo-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-qazwsx}
+      DB_NAME: ${DB_NAME:-quantitative_trading}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy()
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: honghuo-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,47 @@
+ # OpenBB配置
+openbb:
+  # 默认设置
+  default_market: "us"
+  default_interval: "1d"
+  cache_enabled: true
+  cache_duration: 3600  # 缓存时间（秒）
+  
+  # API设置
+  api:
+    timeout: 30
+    retry_attempts: 3
+    retry_delay: 1
+  
+  # 数据源优先级
+  data_sources:
+    - "openbb"
+    - "akshare"
+    - "tushare"
+  
+  # 支持的指标
+  technical_indicators:
+    - "sma"
+    - "ema"
+    - "rsi"
+    - "macd"
+    - "bbands"
+    - "stoch"
+    - "adx"
+    - "cci"
+  
+  # 市场配置
+  markets:
+    us:
+      name: "美国市场"
+      symbols: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    cn:
+      name: "中国市场"
+      symbols: ["000001.SZ", "000002.SZ", "600000.SH", "600036.SH"]
+    hk:
+      name: "香港市场"
+      symbols: ["0700.HK", "0941.HK", "9988.HK"]
+  
+  # 加密货币配置
+  crypto:
+    default_symbols: ["BTC-USD", "ETH-USD", "ADA-USD", "DOT-USD"]
+    supported_intervals: ["1m", "5m", "15m", "30m", "1h", "1d"]

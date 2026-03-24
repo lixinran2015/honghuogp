@@ -1,0 +1,148 @@
+# 月度题材适配清单
+# 用于轮动策略，根据当前月份自动应用题材权重
+
+themes:
+  - month: 1
+    name: "春节消费"
+    keywords: ["消费", "白酒", "旅游", "餐饮", "零售"]
+    commodity_signals:
+      - commodity: "AU"  # 黄金
+        weight: 0.3
+        related_stocks: ["600519", "000858", "600809"]  # 茅台、五粮液、山西汾酒
+      - commodity: "CU"  # 铜（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]  # 海康威视、中兴通讯
+    
+  - month: 2
+    name: "春季开工"
+    keywords: ["基建", "建材", "钢铁", "水泥", "工程机械"]
+    commodity_signals:
+      - commodity: "RB"  # 螺纹钢
+        weight: 0.4
+        related_stocks: ["000709", "600019", "000825"]  # 河钢股份、宝钢股份、太钢不锈
+      - commodity: "CU"  # 铜
+        weight: 0.3
+        related_stocks: ["000831", "600362", "600111"]  # 中国稀土、江西铜业、北方稀土
+      - commodity: "AL"  # 铝
+        weight: 0.2
+        related_stocks: ["000612", "600219"]  # 焦作万方、南山铝业
+  
+  - month: 3
+    name: "春季开工延续"
+    keywords: ["基建", "建材", "钢铁", "有色", "新能源"]
+    commodity_signals:
+      - commodity: "CU"  # 铜
+        weight: 0.4
+        related_stocks: ["000831", "600362", "600111"]
+      - commodity: "AL"  # 铝
+        weight: 0.3
+        related_stocks: ["000612", "600219"]
+      - commodity: "NI"  # 镍（新能源）
+        weight: 0.2
+        related_stocks: ["300750", "002594"]  # 宁德时代、比亚迪
+  
+  - month: 4
+    name: "消费复苏"
+    keywords: ["消费", "旅游", "餐饮", "零售", "家电"]
+    commodity_signals:
+      - commodity: "CU"  # 铜（家电）
+        weight: 0.3
+        related_stocks: ["000333", "000651"]  # 美的集团、格力电器
+      - commodity: "AL"  # 铝（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]
+  
+  - month: 5
+    name: "新能源旺季"
+    keywords: ["新能源", "光伏", "储能", "电动车", "电池"]
+    commodity_signals:
+      - commodity: "NI"  # 镍
+        weight: 0.4
+        related_stocks: ["300750", "002594", "002460"]  # 宁德时代、比亚迪、赣锋锂业
+      - commodity: "LI"  # 锂
+        weight: 0.3
+        related_stocks: ["002460", "000762"]  # 赣锋锂业、西藏矿业
+      - commodity: "CU"  # 铜（新能源设备）
+        weight: 0.2
+        related_stocks: ["000831", "600362"]
+  
+  - month: 6
+    name: "夏季消费"
+    keywords: ["消费", "饮料", "啤酒", "空调", "家电"]
+    commodity_signals:
+      - commodity: "AL"  # 铝（空调、家电）
+        weight: 0.3
+        related_stocks: ["000333", "000651"]
+      - commodity: "CU"  # 铜（家电）
+        weight: 0.2
+        related_stocks: ["000333", "000651"]
+  
+  - month: 7
+    name: "中报行情"
+    keywords: ["业绩", "成长", "科技", "新能源", "军工"]
+    commodity_signals:
+      - commodity: "CU"  # 铜（科技、新能源）
+        weight: 0.3
+        related_stocks: ["002261", "000831"]  # 拓维信息、中国稀土
+      - commodity: "AU"  # 黄金（避险）
+        weight: 0.2
+        related_stocks: ["600489", "002155"]  # 中金黄金、湖南黄金
+  
+  - month: 8
+    name: "秋季开工"
+    keywords: ["基建", "建材", "钢铁", "有色", "工程"]
+    commodity_signals:
+      - commodity: "RB"  # 螺纹钢
+        weight: 0.4
+        related_stocks: ["000709", "600019"]
+      - commodity: "CU"  # 铜
+        weight: 0.3
+        related_stocks: ["000831", "600362"]
+      - commodity: "AL"  # 铝
+        weight: 0.2
+        related_stocks: ["000612", "600219"]
+  
+  - month: 9
+    name: "科技旺季"
+    keywords: ["科技", "消费电子", "AI", "算力", "芯片"]
+    commodity_signals:
+      - commodity: "CU"  # 铜（消费电子）
+        weight: 0.3
+        related_stocks: ["002415", "000063", "002261"]  # 海康威视、中兴通讯、拓维信息
+      - commodity: "AL"  # 铝（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]
+  
+  - month: 10
+    name: "国庆消费"
+    keywords: ["消费", "旅游", "餐饮", "零售", "白酒"]
+    commodity_signals:
+      - commodity: "AU"  # 黄金
+        weight: 0.3
+        related_stocks: ["600519", "000858", "600809"]  # 茅台、五粮液、山西汾酒
+      - commodity: "CU"  # 铜（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]
+  
+  - month: 11
+    name: "双十一消费"
+    keywords: ["消费", "电商", "零售", "物流", "家电"]
+    commodity_signals:
+      - commodity: "CU"  # 铜（家电）
+        weight: 0.3
+        related_stocks: ["000333", "000651"]
+      - commodity: "AL"  # 铝（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]
+  
+  - month: 12
+    name: "年末消费"
+    keywords: ["消费", "白酒", "旅游", "餐饮", "零售"]
+    commodity_signals:
+      - commodity: "AU"  # 黄金
+        weight: 0.3
+        related_stocks: ["600519", "000858", "600809"]  # 茅台、五粮液、山西汾酒
+      - commodity: "CU"  # 铜（消费电子）
+        weight: 0.2
+        related_stocks: ["002415", "000063"]
+

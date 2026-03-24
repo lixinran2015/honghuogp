@@ -1,0 +1,111 @@
+{
+  "api_sources": {
+    "akshare": {
+      "enabled": true,
+      "type": "python_library",
+      "description": "AKShare开源财经数据Python库 - 直接调用，无需配置",
+      "documentation_url": "https://akfamily.xyz/",
+      "github_url": "https://github.com/akfamily/akshare",
+      "install_command": "pip install akshare --upgrade",
+      "mirror_sources": [
+        "pip install -i https://mirrors.aliyun.com/pypi/simple/ akshare",
+        "pip install -i https://pypi.tuna.tsinghua.edu.cn/simple/ akshare"
+      ],
+      "usage_note": "import akshare as ak 后直接调用函数，无任何配置参数"
+    },
+    "tushare": {
+      "enabled": true,
+      "token": "YOUR_TUSHARE_TOKEN_HERE",
+      "base_url": "http://api.tushare.pro",
+      "timeout": 10,
+      "description": "Tushare Pro数据源 - 财务数据、资金流向、板块数据"
+    },
+    "sina_finance": {
+      "enabled": true,
+      "type": "web_api",
+      "base_url": "http://hq.sinajs.cn",
+      "timeout": 8,
+      "description": "新浪财经API - akshare的数据源之一"
+    },
+    "eastmoney": {
+      "enabled": true,
+      "type": "web_api",
+      "base_url": "https://quote.eastmoney.com/center/gridlist.html#hs_a_board",
+      "timeout": 10,
+      "description": "东方财富API - akshare的数据源之一"
+    }
+  },
+
+  "ai_services": {
+    "openai": {
+      "enabled": true,
+      "api_key": "YOUR_OPENAI_API_KEY_HERE",
+      "base_url": "https://api.openai.com/v1/chat/completions",
+      "model": "gpt-4o-mini",
+      "timeout": 30,
+      "max_tokens": 500,
+      "temperature": 0.3,
+      "description": "OpenAI GPT分析服务"
+    },
+    "deepseek": {
+      "enabled": true,
+      "api_key": "YOUR_DEEPSEEK_API_KEY_HERE",
+      "api_url": "https://api.deepseek.com/v1/chat/completions",
+      "model": "deepseek-chat",
+      "timeout": 60,
+      "max_tokens": 200,
+      "temperature": 0.1,
+      "description": "Deepseek AI分析服务"
+    },
+    "zhipu": {
+      "enabled": true,
+      "api_key": "YOUR_ZHIPU_API_KEY_HERE",
+      "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "model": "glm-4.6v",
+      "timeout": 60,
+      "max_tokens": 2000,
+      "temperature": 0.1,
+      "description": "智谱 GLM-4.6V 图片识别"
+    }
+  },
+
+  "trading_config": {
+    "position_file": "data/position_data.txt",
+    "cache_duration": 300,
+    "max_recommendations": 5,
+    "filter_conditions": {
+      "min_change_pct": 1.0,
+      "max_change_pct": 8.0,
+      "min_volume": 30000,
+      "exclude_st": true,
+      "exclude_delisted": true
+    },
+    "risk_management": {
+      "max_position_size": 0.1,
+      "stop_loss_pct": 0.08,
+      "take_profit_pct": 0.15
+    }
+  },
+
+  "network_settings": {
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "headers": {
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+      "Accept-Encoding": "gzip, deflate",
+      "Connection": "keep-alive",
+      "Cache-Control": "no-cache"
+    },
+    "proxies": {
+      "http": null,
+      "https": null
+    },
+    "verify_ssl": false
+  },
+
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": "logs/trading_system.log"
+  }
+}

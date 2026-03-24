@@ -1,0 +1,1602 @@
+{
+  "600000": {
+    "roe_ttm": 0.3982,
+    "gross_margin": 0.0,
+    "net_margin": 0.1492,
+    "debt_ratio": 0.9756999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600004": {
+    "roe_ttm": 0.2188,
+    "gross_margin": 0.0,
+    "net_margin": 0.2588,
+    "debt_ratio": 0.174,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600006": {
+    "roe_ttm": 0.1017,
+    "gross_margin": 0.0,
+    "net_margin": 0.0275,
+    "debt_ratio": 0.6561,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600007": {
+    "roe_ttm": 0.9872,
+    "gross_margin": 0.0,
+    "net_margin": 0.561,
+    "debt_ratio": 0.7437999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600008": {
+    "roe_ttm": 0.0342,
+    "gross_margin": 0.0,
+    "net_margin": 0.19399999999999998,
+    "debt_ratio": 0.33840000000000003,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600009": {
+    "roe_ttm": 1.0908,
+    "gross_margin": 0.0,
+    "net_margin": 0.7099,
+    "debt_ratio": 0.4416,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600010": {
+    "roe_ttm": 0.2841,
+    "gross_margin": 0.0,
+    "net_margin": 0.0397,
+    "debt_ratio": 0.474,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600011": {
+    "roe_ttm": 0.0956,
+    "gross_margin": 0.0,
+    "net_margin": 0.23190000000000002,
+    "debt_ratio": 0.48619999999999997,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600012": {
+    "roe_ttm": 0.0562,
+    "gross_margin": 0.0,
+    "net_margin": 0.4139,
+    "debt_ratio": 0.1463,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600015": {
+    "roe_ttm": 0.2635,
+    "gross_margin": 0.0,
+    "net_margin": 0.10300000000000001,
+    "debt_ratio": 0.9854,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600016": {
+    "roe_ttm": 0.1091,
+    "gross_margin": 0.0,
+    "net_margin": 0.2091,
+    "debt_ratio": 0.9159,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600017": {
+    "roe_ttm": 0.17129999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.2469,
+    "debt_ratio": 0.5257000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600018": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.5959,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600019": {
+    "roe_ttm": 0.18,
+    "gross_margin": 0.0,
+    "net_margin": 0.08900000000000001,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600020": {
+    "roe_ttm": 0.0706,
+    "gross_margin": 0.0,
+    "net_margin": 0.2616,
+    "debt_ratio": 0.4802,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600021": {
+    "roe_ttm": 0.0966,
+    "gross_margin": 0.0,
+    "net_margin": 0.0917,
+    "debt_ratio": 0.5817,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600022": {
+    "roe_ttm": 0.2186,
+    "gross_margin": 0.0,
+    "net_margin": 0.0489,
+    "debt_ratio": 0.6347,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600023": {
+    "roe_ttm": 0.0974,
+    "gross_margin": 0.0,
+    "net_margin": 0.0916,
+    "debt_ratio": 0.5294,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600025": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.2643,
+    "debt_ratio": 0.5327000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600026": {
+    "roe_ttm": 0.0331,
+    "gross_margin": 0.0,
+    "net_margin": 0.0501,
+    "debt_ratio": 0.4629,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600027": {
+    "roe_ttm": 0.17079999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.1945,
+    "debt_ratio": 0.5583,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600028": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.19,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600029": {
+    "roe_ttm": 0.0641,
+    "gross_margin": 0.0,
+    "net_margin": 0.0412,
+    "debt_ratio": 0.6890999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600030": {
+    "roe_ttm": 0.1215,
+    "gross_margin": 0.0,
+    "net_margin": 0.3766,
+    "debt_ratio": 0.7293999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600031": {
+    "roe_ttm": 0.35350000000000004,
+    "gross_margin": 0.0,
+    "net_margin": 0.1527,
+    "debt_ratio": 0.7204999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600032": {
+    "roe_ttm": 0.1208,
+    "gross_margin": 0.0,
+    "net_margin": 0.4668,
+    "debt_ratio": 0.4285,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600033": {
+    "roe_ttm": 0.04,
+    "gross_margin": 0.0,
+    "net_margin": 0.099,
+    "debt_ratio": 0.6071,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600035": {
+    "roe_ttm": 0.0785,
+    "gross_margin": 0.0,
+    "net_margin": 0.3728,
+    "debt_ratio": 0.1795,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600036": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.0,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600037": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.7295,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600038": {
+    "roe_ttm": 0.10619999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.0633,
+    "debt_ratio": 0.6923,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600039": {
+    "roe_ttm": 0.2805,
+    "gross_margin": 0.0,
+    "net_margin": 0.0397,
+    "debt_ratio": 0.6633,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600048": {
+    "roe_ttm": 0.1732,
+    "gross_margin": 0.0,
+    "net_margin": 0.1063,
+    "debt_ratio": 0.7095999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600050": {
+    "roe_ttm": 0.9,
+    "gross_margin": 0.0,
+    "net_margin": 0.0302,
+    "debt_ratio": 0.7543000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600051": {
+    "roe_ttm": 0.337,
+    "gross_margin": 0.0,
+    "net_margin": 0.060899999999999996,
+    "debt_ratio": 0.7726999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600052": {
+    "roe_ttm": 0.1955,
+    "gross_margin": 0.0,
+    "net_margin": 0.10099999999999999,
+    "debt_ratio": 0.5415,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600053": {
+    "roe_ttm": 0.1837,
+    "gross_margin": 0.0,
+    "net_margin": 0.0895,
+    "debt_ratio": 0.715,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600054": {
+    "roe_ttm": 0.5239,
+    "gross_margin": 0.0,
+    "net_margin": 0.3788,
+    "debt_ratio": 0.524,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600055": {
+    "roe_ttm": 0.5446,
+    "gross_margin": 0.0,
+    "net_margin": 0.21489999999999998,
+    "debt_ratio": 0.655,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600056": {
+    "roe_ttm": 0.4064,
+    "gross_margin": 0.0,
+    "net_margin": 0.0275,
+    "debt_ratio": 0.7193999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600057": {
+    "roe_ttm": 0.41359999999999997,
+    "gross_margin": 0.0,
+    "net_margin": 0.0421,
+    "debt_ratio": 0.8491,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600058": {
+    "roe_ttm": 0.6468,
+    "gross_margin": 0.0,
+    "net_margin": 0.049800000000000004,
+    "debt_ratio": 0.7576,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600059": {
+    "roe_ttm": 0.6933,
+    "gross_margin": 0.0,
+    "net_margin": 0.21539999999999998,
+    "debt_ratio": 0.6374,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600060": {
+    "roe_ttm": 0.9958,
+    "gross_margin": 0.0,
+    "net_margin": 0.0688,
+    "debt_ratio": 0.8158,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600061": {
+    "roe_ttm": 0.349,
+    "gross_margin": 0.0,
+    "net_margin": 0.08650000000000001,
+    "debt_ratio": 0.6426999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600062": {
+    "roe_ttm": 0.33149999999999996,
+    "gross_margin": 0.0,
+    "net_margin": 0.2007,
+    "debt_ratio": 0.2773,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600063": {
+    "roe_ttm": 0.29410000000000003,
+    "gross_margin": 0.0,
+    "net_margin": 0.1467,
+    "debt_ratio": 0.5747,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600064": {
+    "roe_ttm": 0.33039999999999997,
+    "gross_margin": 0.0,
+    "net_margin": 0.3935,
+    "debt_ratio": 0.5478000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600066": {
+    "roe_ttm": 0.1934,
+    "gross_margin": 0.0,
+    "net_margin": 0.018500000000000003,
+    "debt_ratio": 0.8865999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600067": {
+    "roe_ttm": 0.10830000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.0687,
+    "debt_ratio": 0.6169,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600071": {
+    "roe_ttm": 0.4083,
+    "gross_margin": 0.0,
+    "net_margin": 0.1586,
+    "debt_ratio": 0.6738,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600072": {
+    "roe_ttm": 0.2727,
+    "gross_margin": 0.0,
+    "net_margin": 0.12890000000000001,
+    "debt_ratio": 0.4294,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600073": {
+    "roe_ttm": 0.1675,
+    "gross_margin": 0.0,
+    "net_margin": 0.07629999999999999,
+    "debt_ratio": 0.6936,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600075": {
+    "roe_ttm": 0.5466,
+    "gross_margin": 0.0,
+    "net_margin": 0.18469999999999998,
+    "debt_ratio": 0.7351000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600076": {
+    "roe_ttm": 0.217,
+    "gross_margin": 0.0,
+    "net_margin": 0.09609999999999999,
+    "debt_ratio": 0.6672,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600078": {
+    "roe_ttm": 0.2109,
+    "gross_margin": 0.0,
+    "net_margin": 0.046,
+    "debt_ratio": 0.6114,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600079": {
+    "roe_ttm": 0.2611,
+    "gross_margin": 0.0,
+    "net_margin": 0.22579999999999997,
+    "debt_ratio": 0.5128,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600080": {
+    "roe_ttm": 0.4219,
+    "gross_margin": 0.0,
+    "net_margin": 0.6103000000000001,
+    "debt_ratio": 0.489,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600081": {
+    "roe_ttm": 0.5949,
+    "gross_margin": 0.0,
+    "net_margin": 0.1343,
+    "debt_ratio": 0.604,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600082": {
+    "roe_ttm": 0.09720000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.046,
+    "debt_ratio": 0.3045,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600084": {
+    "roe_ttm": 0.4899,
+    "gross_margin": 0.0,
+    "net_margin": 0.23399999999999999,
+    "debt_ratio": 0.6559,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600085": {
+    "roe_ttm": 0.3599,
+    "gross_margin": 0.0,
+    "net_margin": 0.1377,
+    "debt_ratio": 0.7212999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600088": {
+    "roe_ttm": 0.45630000000000004,
+    "gross_margin": 0.0,
+    "net_margin": 0.7012999999999999,
+    "debt_ratio": 0.0521,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600089": {
+    "roe_ttm": 0.2545,
+    "gross_margin": 0.0,
+    "net_margin": 0.1784,
+    "debt_ratio": 0.6192,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600094": {
+    "roe_ttm": 0.1477,
+    "gross_margin": 0.0,
+    "net_margin": 0.09,
+    "debt_ratio": 0.5075,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600095": {
+    "roe_ttm": 0.1937,
+    "gross_margin": 0.0,
+    "net_margin": 0.1814,
+    "debt_ratio": 0.7417,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600096": {
+    "roe_ttm": 1.2556,
+    "gross_margin": 0.0,
+    "net_margin": 0.3458,
+    "debt_ratio": 0.35590000000000005,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600097": {
+    "roe_ttm": 0.4698,
+    "gross_margin": 0.0,
+    "net_margin": 0.6452,
+    "debt_ratio": 0.5809000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600098": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.0,
+    "debt_ratio": 0.34990000000000004,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600099": {
+    "roe_ttm": 0.409,
+    "gross_margin": 0.0,
+    "net_margin": 0.054000000000000006,
+    "debt_ratio": 0.8027,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600100": {
+    "roe_ttm": 0.45020000000000004,
+    "gross_margin": 0.0,
+    "net_margin": 0.2465,
+    "debt_ratio": 0.6156,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600101": {
+    "roe_ttm": 0.15039999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.4606,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600103": {
+    "roe_ttm": 0.1323,
+    "gross_margin": 0.0,
+    "net_margin": 0.1518,
+    "debt_ratio": 0.36869999999999997,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600104": {
+    "roe_ttm": 0.43670000000000003,
+    "gross_margin": 0.0,
+    "net_margin": 0.2813,
+    "debt_ratio": 0.6085,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600105": {
+    "roe_ttm": 0.2112,
+    "gross_margin": 0.0,
+    "net_margin": 0.16510000000000002,
+    "debt_ratio": 0.37689999999999996,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600106": {
+    "roe_ttm": 0.7661,
+    "gross_margin": 0.0,
+    "net_margin": 0.9109,
+    "debt_ratio": 0.14859999999999998,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600107": {
+    "roe_ttm": 0.3934,
+    "gross_margin": 0.0,
+    "net_margin": 0.2909,
+    "debt_ratio": 0.5824,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600108": {
+    "roe_ttm": 6.5552,
+    "gross_margin": 0.0,
+    "net_margin": 0.278,
+    "debt_ratio": 0.9451,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600109": {
+    "roe_ttm": 0.09300000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.0127,
+    "debt_ratio": 0.7182,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600110": {
+    "roe_ttm": 0.34380000000000005,
+    "gross_margin": 0.0,
+    "net_margin": 0.6041,
+    "debt_ratio": 0.2841,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600111": {
+    "roe_ttm": 0.3882,
+    "gross_margin": 0.0,
+    "net_margin": 0.1552,
+    "debt_ratio": 0.7670999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600113": {
+    "roe_ttm": 0.4128,
+    "gross_margin": 0.0,
+    "net_margin": 1.1768,
+    "debt_ratio": 0.4082,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600114": {
+    "roe_ttm": 0.2761,
+    "gross_margin": 0.0,
+    "net_margin": 0.1315,
+    "debt_ratio": 0.7081000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600115": {
+    "roe_ttm": 0.245,
+    "gross_margin": 0.0,
+    "net_margin": 0.065,
+    "debt_ratio": 0.8865000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600116": {
+    "roe_ttm": 0.3193,
+    "gross_margin": 0.0,
+    "net_margin": 0.5139,
+    "debt_ratio": 0.5004,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600117": {
+    "roe_ttm": 0.5932999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.0866,
+    "debt_ratio": 0.7693000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600118": {
+    "roe_ttm": 0.2872,
+    "gross_margin": 0.0,
+    "net_margin": 0.0761,
+    "debt_ratio": 0.7955,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600119": {
+    "roe_ttm": 0.2686,
+    "gross_margin": 0.0,
+    "net_margin": 0.1905,
+    "debt_ratio": 0.7008,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600120": {
+    "roe_ttm": 0.154,
+    "gross_margin": 0.0,
+    "net_margin": 0.016,
+    "debt_ratio": 0.7491,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600121": {
+    "roe_ttm": 0.3121,
+    "gross_margin": 0.0,
+    "net_margin": 0.23070000000000002,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600123": {
+    "roe_ttm": 0.2206,
+    "gross_margin": 0.0,
+    "net_margin": 0.08380000000000001,
+    "debt_ratio": 0.6645,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600125": {
+    "roe_ttm": 0.2773,
+    "gross_margin": 0.0,
+    "net_margin": 0.1942,
+    "debt_ratio": 0.5999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600126": {
+    "roe_ttm": 0.7879999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.1191,
+    "debt_ratio": 0.6816,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600127": {
+    "roe_ttm": 0.39020000000000005,
+    "gross_margin": 0.0,
+    "net_margin": 0.1072,
+    "debt_ratio": 0.7023,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600128": {
+    "roe_ttm": 0.6168,
+    "gross_margin": 0.0,
+    "net_margin": 0.0537,
+    "debt_ratio": 0.7543000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600129": {
+    "roe_ttm": 0.3017,
+    "gross_margin": 0.0,
+    "net_margin": 0.2298,
+    "debt_ratio": 0.5562,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600130": {
+    "roe_ttm": 0.7478,
+    "gross_margin": 0.0,
+    "net_margin": 0.3514,
+    "debt_ratio": 0.557,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600131": {
+    "roe_ttm": 0.24850000000000003,
+    "gross_margin": 0.0,
+    "net_margin": 0.4171,
+    "debt_ratio": 0.45020000000000004,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600132": {
+    "roe_ttm": 0.2339,
+    "gross_margin": 0.0,
+    "net_margin": 0.0993,
+    "debt_ratio": 0.8343,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600133": {
+    "roe_ttm": 0.22,
+    "gross_margin": 0.0,
+    "net_margin": 0.17989999999999998,
+    "debt_ratio": 0.5522,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600135": {
+    "roe_ttm": 0.3636,
+    "gross_margin": 0.0,
+    "net_margin": 0.1406,
+    "debt_ratio": 0.57,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600136": {
+    "roe_ttm": 0.2721,
+    "gross_margin": 0.0,
+    "net_margin": 0.2334,
+    "debt_ratio": 0.44299999999999995,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600137": {
+    "roe_ttm": 0.1092,
+    "gross_margin": 0.0,
+    "net_margin": 0.0421,
+    "debt_ratio": 0.6788,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600138": {
+    "roe_ttm": 0.42950000000000005,
+    "gross_margin": 0.0,
+    "net_margin": 0.1174,
+    "debt_ratio": 0.6970999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600141": {
+    "roe_ttm": 0.1954,
+    "gross_margin": 0.0,
+    "net_margin": 0.1465,
+    "debt_ratio": 0.5600999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600143": {
+    "roe_ttm": 0.1912,
+    "gross_margin": 0.0,
+    "net_margin": 0.0462,
+    "debt_ratio": 0.6207,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600148": {
+    "roe_ttm": 0.43189999999999995,
+    "gross_margin": 0.0,
+    "net_margin": 0.23309999999999997,
+    "debt_ratio": 0.693,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600149": {
+    "roe_ttm": 0.17,
+    "gross_margin": 0.0,
+    "net_margin": 0.07980000000000001,
+    "debt_ratio": 0.7143,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600150": {
+    "roe_ttm": 0.2006,
+    "gross_margin": 0.0,
+    "net_margin": 0.0593,
+    "debt_ratio": 0.6856,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600151": {
+    "roe_ttm": 0.643,
+    "gross_margin": 0.0,
+    "net_margin": 0.1844,
+    "debt_ratio": 0.6091,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600152": {
+    "roe_ttm": 0.22899999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.0819,
+    "debt_ratio": 0.7114,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600153": {
+    "roe_ttm": 0.3287,
+    "gross_margin": 0.0,
+    "net_margin": 0.0483,
+    "debt_ratio": 0.6652,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600155": {
+    "roe_ttm": 0.2462,
+    "gross_margin": 0.0,
+    "net_margin": 0.1074,
+    "debt_ratio": 0.6159,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600156": {
+    "roe_ttm": 0.6526000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.1753,
+    "debt_ratio": 0.5904,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600157": {
+    "roe_ttm": 0.0711,
+    "gross_margin": 0.0,
+    "net_margin": 0.0785,
+    "debt_ratio": 0.68,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600158": {
+    "roe_ttm": 0.41509999999999997,
+    "gross_margin": 0.0,
+    "net_margin": 0.366,
+    "debt_ratio": 0.5738,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600159": {
+    "roe_ttm": 0.65,
+    "gross_margin": 0.0,
+    "net_margin": 0.2426,
+    "debt_ratio": 0.5925,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600160": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.09119999999999999,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600161": {
+    "roe_ttm": 0.5063,
+    "gross_margin": 0.0,
+    "net_margin": 0.3013,
+    "debt_ratio": 0.5221,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600162": {
+    "roe_ttm": 0.2434,
+    "gross_margin": 0.0,
+    "net_margin": 0.15259999999999999,
+    "debt_ratio": 0.6676000000000001,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600163": {
+    "roe_ttm": 0.2699,
+    "gross_margin": 0.0,
+    "net_margin": 0.08410000000000001,
+    "debt_ratio": 0.6949,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600165": {
+    "roe_ttm": 0.2066,
+    "gross_margin": 0.0,
+    "net_margin": 0.1375,
+    "debt_ratio": 0.4993,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600166": {
+    "roe_ttm": 0.45880000000000004,
+    "gross_margin": 0.0,
+    "net_margin": 0.0753,
+    "debt_ratio": 0.7735,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600167": {
+    "roe_ttm": 0.0894,
+    "gross_margin": 0.0,
+    "net_margin": 0.0373,
+    "debt_ratio": 0.6459,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600168": {
+    "roe_ttm": 0.2299,
+    "gross_margin": 0.0,
+    "net_margin": 0.33590000000000003,
+    "debt_ratio": 0.0433,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600169": {
+    "roe_ttm": 0.364,
+    "gross_margin": 0.0,
+    "net_margin": 0.13,
+    "debt_ratio": 0.6313,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600170": {
+    "roe_ttm": 0.3654,
+    "gross_margin": 0.0,
+    "net_margin": 0.0204,
+    "debt_ratio": 0.7206,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600171": {
+    "roe_ttm": 0.6141,
+    "gross_margin": 0.0,
+    "net_margin": 0.29359999999999997,
+    "debt_ratio": 0.5882999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600172": {
+    "roe_ttm": 0.3018,
+    "gross_margin": 0.0,
+    "net_margin": 0.1267,
+    "debt_ratio": 0.6722,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600173": {
+    "roe_ttm": 0.17679999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.0981,
+    "debt_ratio": 0.5445,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600176": {
+    "roe_ttm": 0.17980000000000002,
+    "gross_margin": 0.0,
+    "net_margin": 0.1209,
+    "debt_ratio": 0.5624,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600177": {
+    "roe_ttm": 0.35960000000000003,
+    "gross_margin": 0.0,
+    "net_margin": 0.1886,
+    "debt_ratio": 0.7372,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600178": {
+    "roe_ttm": 0.27149999999999996,
+    "gross_margin": 0.0,
+    "net_margin": 0.0703,
+    "debt_ratio": 0.6579999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600179": {
+    "roe_ttm": 0.2987,
+    "gross_margin": 0.0,
+    "net_margin": 0.1069,
+    "debt_ratio": 0.4692,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600180": {
+    "roe_ttm": 0.3741,
+    "gross_margin": 0.0,
+    "net_margin": 0.2648,
+    "debt_ratio": 0.5592,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600182": {
+    "roe_ttm": 0.1663,
+    "gross_margin": 0.0,
+    "net_margin": 0.0471,
+    "debt_ratio": 0.6629999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600183": {
+    "roe_ttm": 0.251,
+    "gross_margin": 0.0,
+    "net_margin": 0.11869999999999999,
+    "debt_ratio": 0.41619999999999996,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600184": {
+    "roe_ttm": 0.1648,
+    "gross_margin": 0.0,
+    "net_margin": 0.1274,
+    "debt_ratio": 0.6301,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600185": {
+    "roe_ttm": 0.2576,
+    "gross_margin": 0.0,
+    "net_margin": 0.1301,
+    "debt_ratio": 0.2457,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600186": {
+    "roe_ttm": 0.20809999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.039900000000000005,
+    "debt_ratio": 0.6581999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600187": {
+    "roe_ttm": 0.2625,
+    "gross_margin": 0.0,
+    "net_margin": 0.2528,
+    "debt_ratio": 0.6505,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600188": {
+    "roe_ttm": 0.8923000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.1575,
+    "debt_ratio": 0.8344,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600189": {
+    "roe_ttm": 0.2876,
+    "gross_margin": 0.0,
+    "net_margin": 0.2011,
+    "debt_ratio": 0.4549,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600191": {
+    "roe_ttm": 0.1953,
+    "gross_margin": 0.0,
+    "net_margin": 0.1315,
+    "debt_ratio": 0.5736,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600192": {
+    "roe_ttm": 0.1611,
+    "gross_margin": 0.0,
+    "net_margin": 0.0541,
+    "debt_ratio": 0.7042,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600193": {
+    "roe_ttm": 0.2382,
+    "gross_margin": 0.0,
+    "net_margin": 0.0554,
+    "debt_ratio": 0.682,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600195": {
+    "roe_ttm": 0.3635,
+    "gross_margin": 0.0,
+    "net_margin": 0.1002,
+    "debt_ratio": 0.723,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600196": {
+    "roe_ttm": 0.23,
+    "gross_margin": 0.0,
+    "net_margin": 0.0925,
+    "debt_ratio": 0.7601,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600197": {
+    "roe_ttm": 0.24710000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.1316,
+    "debt_ratio": 0.6418,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600198": {
+    "roe_ttm": 0.48,
+    "gross_margin": 0.0,
+    "net_margin": 0.61,
+    "debt_ratio": 0.5476,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600199": {
+    "roe_ttm": 0.4975,
+    "gross_margin": 0.0,
+    "net_margin": 0.09140000000000001,
+    "debt_ratio": 0.6995,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600200": {
+    "roe_ttm": 0.38530000000000003,
+    "gross_margin": 0.0,
+    "net_margin": 0.1485,
+    "debt_ratio": 0.5661,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600201": {
+    "roe_ttm": 0.2489,
+    "gross_margin": 0.0,
+    "net_margin": 0.2034,
+    "debt_ratio": 0.63,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600202": {
+    "roe_ttm": 0.2141,
+    "gross_margin": 0.0,
+    "net_margin": 0.154,
+    "debt_ratio": 0.6,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600203": {
+    "roe_ttm": 0.34259999999999996,
+    "gross_margin": 0.0,
+    "net_margin": 0.053099999999999994,
+    "debt_ratio": 0.7047,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600206": {
+    "roe_ttm": 0.5957,
+    "gross_margin": 0.0,
+    "net_margin": 0.23370000000000002,
+    "debt_ratio": 0.3337,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600207": {
+    "roe_ttm": 0.5074000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.1931,
+    "debt_ratio": 0.6969,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600208": {
+    "roe_ttm": 0.0983,
+    "gross_margin": 0.0,
+    "net_margin": 0.029300000000000003,
+    "debt_ratio": 0.8539,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600210": {
+    "roe_ttm": 0.10869999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.1016,
+    "debt_ratio": 0.6773,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600211": {
+    "roe_ttm": 0.3127,
+    "gross_margin": 0.0,
+    "net_margin": 0.2584,
+    "debt_ratio": 0.6206,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600212": {
+    "roe_ttm": 0.1346,
+    "gross_margin": 0.0,
+    "net_margin": 0.10869999999999999,
+    "debt_ratio": 0.4581,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600215": {
+    "roe_ttm": 0.2408,
+    "gross_margin": 0.0,
+    "net_margin": 0.3144,
+    "debt_ratio": 0.5919,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600216": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.030600000000000002,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600217": {
+    "roe_ttm": 0.1629,
+    "gross_margin": 0.0,
+    "net_margin": 0.1634,
+    "debt_ratio": 0.2066,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600218": {
+    "roe_ttm": 0.34490000000000004,
+    "gross_margin": 0.0,
+    "net_margin": 0.0883,
+    "debt_ratio": 0.6054999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600219": {
+    "roe_ttm": 0.19039999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.1323,
+    "debt_ratio": 0.3542,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600221": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.5861999999999999,
+    "debt_ratio": 0.7492,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600222": {
+    "roe_ttm": 0.172,
+    "gross_margin": 0.0,
+    "net_margin": 0.149,
+    "debt_ratio": 0.6223,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600223": {
+    "roe_ttm": 0.0837,
+    "gross_margin": 0.0,
+    "net_margin": 0.1909,
+    "debt_ratio": 0.2522,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600226": {
+    "roe_ttm": 0.0,
+    "gross_margin": 0.0,
+    "net_margin": 0.23600000000000002,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600227": {
+    "roe_ttm": 0.5284,
+    "gross_margin": 0.0,
+    "net_margin": 0.0839,
+    "debt_ratio": 0.5650999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600228": {
+    "roe_ttm": 0.3247,
+    "gross_margin": 0.0,
+    "net_margin": 0.1058,
+    "debt_ratio": 0.514,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600229": {
+    "roe_ttm": 0.1177,
+    "gross_margin": 0.0,
+    "net_margin": 0.0621,
+    "debt_ratio": 0.6343,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600230": {
+    "roe_ttm": 0.3478,
+    "gross_margin": 0.0,
+    "net_margin": 0.1491,
+    "debt_ratio": 0.4429,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600231": {
+    "roe_ttm": 0.1725,
+    "gross_margin": 0.0,
+    "net_margin": 0.08789999999999999,
+    "debt_ratio": 0.49329999999999996,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600232": {
+    "roe_ttm": 0.2122,
+    "gross_margin": 0.0,
+    "net_margin": 0.0984,
+    "debt_ratio": 0.6954,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600233": {
+    "roe_ttm": 0.1494,
+    "gross_margin": 0.0,
+    "net_margin": 0.063,
+    "debt_ratio": 0.5426,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600234": {
+    "roe_ttm": 0.10710000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.027999999999999997,
+    "debt_ratio": 0.5605,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600235": {
+    "roe_ttm": 0.3886,
+    "gross_margin": 0.0,
+    "net_margin": 0.168,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600236": {
+    "roe_ttm": 0.0875,
+    "gross_margin": 0.0,
+    "net_margin": 0.32170000000000004,
+    "debt_ratio": 0.3494,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600237": {
+    "roe_ttm": 0.18989999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.1729,
+    "debt_ratio": 0.6912999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600238": {
+    "roe_ttm": 0.1247,
+    "gross_margin": 0.0,
+    "net_margin": 0.1833,
+    "debt_ratio": 0.3834,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600239": {
+    "roe_ttm": 0.22469999999999998,
+    "gross_margin": 0.0,
+    "net_margin": 0.2328,
+    "debt_ratio": 0.2793,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600241": {
+    "roe_ttm": 0.3069,
+    "gross_margin": 0.0,
+    "net_margin": 0.027999999999999997,
+    "debt_ratio": 0.6607,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600243": {
+    "roe_ttm": 0.0801,
+    "gross_margin": 0.0,
+    "net_margin": 0.0436,
+    "debt_ratio": 0.6831,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600246": {
+    "roe_ttm": 0.3668,
+    "gross_margin": 0.0,
+    "net_margin": 0.2061,
+    "debt_ratio": 0.3529,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600248": {
+    "roe_ttm": 0.5938,
+    "gross_margin": 0.0,
+    "net_margin": 0.2534,
+    "debt_ratio": 0.532,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600249": {
+    "roe_ttm": 0.132,
+    "gross_margin": 0.0,
+    "net_margin": 0.1101,
+    "debt_ratio": 0.5282,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600250": {
+    "roe_ttm": 0.1492,
+    "gross_margin": 0.0,
+    "net_margin": 0.0143,
+    "debt_ratio": 0.8289,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600251": {
+    "roe_ttm": 0.12,
+    "gross_margin": 0.0,
+    "net_margin": 0.2768,
+    "debt_ratio": 0.3871,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600252": {
+    "roe_ttm": 0.17739999999999997,
+    "gross_margin": 0.0,
+    "net_margin": 0.17059999999999997,
+    "debt_ratio": 0.5849,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600255": {
+    "roe_ttm": 0.1765,
+    "gross_margin": 0.0,
+    "net_margin": 0.0316,
+    "debt_ratio": 0.6908,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600256": {
+    "roe_ttm": 0.20350000000000001,
+    "gross_margin": 0.0,
+    "net_margin": 0.23440000000000003,
+    "debt_ratio": 0.5801,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600257": {
+    "roe_ttm": 0.11779999999999999,
+    "gross_margin": 0.0,
+    "net_margin": 0.3812,
+    "debt_ratio": 0.48829999999999996,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600258": {
+    "roe_ttm": 0.21,
+    "gross_margin": 0.0,
+    "net_margin": 0.1467,
+    "debt_ratio": 0.0,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600259": {
+    "roe_ttm": 0.1519,
+    "gross_margin": 0.0,
+    "net_margin": 0.0558,
+    "debt_ratio": 0.7047,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600261": {
+    "roe_ttm": 0.2202,
+    "gross_margin": 0.0,
+    "net_margin": 0.1288,
+    "debt_ratio": 0.6278,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600262": {
+    "roe_ttm": 0.2414,
+    "gross_margin": 0.0,
+    "net_margin": 0.10189999999999999,
+    "debt_ratio": 0.6951,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600265": {
+    "roe_ttm": 0.2382,
+    "gross_margin": 0.0,
+    "net_margin": 0.0885,
+    "debt_ratio": 0.6917,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  },
+  "600266": {
+    "roe_ttm": 0.1893,
+    "gross_margin": 0.0,
+    "net_margin": 0.0218,
+    "debt_ratio": 0.7132999999999999,
+    "operating_cashflow": 0.0,
+    "profit_volatility": 0.0
+  }
+}

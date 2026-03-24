@@ -1,0 +1,185 @@
+industry_cycles:
+  rising:
+  - name: 电子
+    keywords:
+    - 电子
+    net_cash_ratio: 0.01
+    cash_receipt_ratio: 0.5
+    reason: 半导体/消费电子国产替代
+  - name: 国防军工
+    keywords:
+    - 国防军工
+    net_cash_ratio: 0.01
+    cash_receipt_ratio: 0.5
+    reason: 订单增长，回款有季节性
+  - name: 农林牧渔
+    keywords:
+    - 农林牧渔
+    net_cash_ratio: 0.01
+    cash_receipt_ratio: 0.5
+    reason: 种业养殖，周期性明显
+  - name: 房地产
+    keywords:
+    - 房地产
+    net_cash_ratio: 0.01
+    cash_receipt_ratio: 0.5
+    reason: 高杠杆，必须现金流为正
+  - name: 综合
+    keywords:
+    - 综合
+    net_cash_ratio: 0.01
+    cash_receipt_ratio: 0.5
+    reason: 多元经营，现金流需关注
+  mature:
+  - name: 银行
+    keywords:
+    - 银行
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.7
+    reason: 金融行业特殊，现金流计算方式不同
+  - name: 交通运输
+    keywords:
+    - 交通运输
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.7
+    reason: 物流航空铁路，受经济周期影响
+  - name: 家用电器
+    keywords:
+    - 家用电器
+    net_cash_ratio: 0.58
+    cash_receipt_ratio: 0.7
+    reason: 白电龙头现金流稳定
+  - name: 纺织服饰
+    keywords:
+    - 纺织服饰
+    - 纺织服装
+    net_cash_ratio: 0.99
+    cash_receipt_ratio: 0.7
+    reason: 需求放缓，竞争激烈
+  - name: 社会服务
+    keywords:
+    - 社会服务
+    net_cash_ratio: 1.16
+    cash_receipt_ratio: 0.7
+    reason: 教培酒店旅游，政策敏感
+  - name: 轻工制造
+    keywords:
+    - 轻工制造
+    net_cash_ratio: 0.95
+    cash_receipt_ratio: 0.7
+    reason: 家居造纸，地产关联
+  - name: 基础化工
+    keywords:
+    - 基础化工
+    net_cash_ratio: 0.84
+    cash_receipt_ratio: 0.7
+    reason: 传统化工产能过剩
+  declining:
+  - name: 钢铁
+    keywords:
+    - 钢铁
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 产能过剩，关注回款
+  - name: 建筑材料
+    keywords:
+    - 建筑材料
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 水泥玻璃，地产产业链
+  - name: 建筑装饰
+    keywords:
+    - 建筑装饰
+    net_cash_ratio: 1.1
+    cash_receipt_ratio: 0.85
+    reason: 地产关联，现金流压力
+  - name: 石油石化
+    keywords:
+    - 石油石化
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 能源景气，收现比通常较低
+  - name: 食品饮料
+    keywords:
+    - 食品饮料
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 现款现货，现金流优秀
+  - name: 商贸零售
+    keywords:
+    - 商贸零售
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 百货超市，现金流相对稳定
+  - name: 通信
+    keywords:
+    - 通信
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 算力/AI基础设施扩张
+  - name: 电力设备
+    keywords:
+    - 电力设备
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 新能源产能扩张期
+  - name: 非银金融
+    keywords:
+    - 非银金融
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 证券/保险，金融行业特殊
+  - name: 有色金属
+    keywords:
+    - 有色金属
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 金属周期，关注库存
+  - name: 公用事业
+    keywords:
+    - 公用事业
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 电力水务燃气，现金流稳定
+  - name: 计算机
+    keywords:
+    - 计算机
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: AI/软件扩张期，应收账款增加
+  - name: 医药生物
+    keywords:
+    - 医药生物
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 创新药/CXO研发投入大
+  - name: 传媒
+    keywords:
+    - 传媒
+    net_cash_ratio: 1.2
+    cash_receipt_ratio: 0.85
+    reason: 转型期，现金流不稳定
+defaults:
+  net_cash_ratio: 0.6
+  cash_receipt_ratio: 0.7
+  reason: 通用阈值，适用于汽车、机械设备等
+special_rules:
+  rising_with_high_growth:
+    revenue_growth_threshold: 20.0
+    discount_factor: 0.9
+    reason: 快速扩张期且营收高增，可放宽10%
+  declining_strict:
+    min_net_cash_ratio: 0.9
+    require_positive_cashflow: true
+    reason: 下滑期风险高，必须现金流为正
+industry_mapping:
+  纺织服装: 纺织服饰
+  商业贸易: 商贸零售
+  C25石油、煤炭及其他燃料加工业: 石油石化
+  B07石油和天然气开采业: 石油石化
+  D46水的生产和供应业: 公用事业
+  N77生态保护和环境治理业: 公用事业
+  K70房地产业: 房地产
+  J66货币金融服务: 银行
+  J67资本市场服务: 银行
+  J69其他金融业: 非银金融

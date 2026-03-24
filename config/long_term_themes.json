@@ -1,0 +1,34 @@
+{
+  "themes": [
+    {
+      "theme_code": "aging_health",
+      "theme_name": "老龄化与健康",
+      "sector_names": ["医疗器械", "生物制品", "化学制药", "中药", "医疗服务", "医药生物"]
+    },
+    {
+      "theme_code": "new_energy",
+      "theme_name": "新能源与低碳",
+      "sector_names": ["电力设备", "光伏设备", "电池", "风电设备", "环保"]
+    },
+    {
+      "theme_code": "semiconductor",
+      "theme_name": "半导体与高端制造",
+      "sector_names": ["半导体", "电子", "国防军工", "自动化设备", "光学光电子"]
+    },
+    {
+      "theme_code": "ai_digital",
+      "theme_name": "人工智能与数字化",
+      "sector_names": ["计算机应用", "计算机", "通信设备", "软件开发", "互联网电商", "IT服务"]
+    },
+    {
+      "theme_code": "consumption",
+      "theme_name": "消费升级",
+      "sector_names": ["食品饮料", "白酒", "白色家电", "小家电", "化妆品", "酒店餐饮", "零售"]
+    },
+    {
+      "theme_code": "agriculture",
+      "theme_name": "农业与粮食安全",
+      "sector_names": ["种植业", "农药", "农化", "农产品加工", "饲料", "林业", "农林牧渔"]
+    }
+  ]
+}

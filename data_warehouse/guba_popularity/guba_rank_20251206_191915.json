@@ -1,0 +1,222 @@
+[
+  {
+    "rank_position": 1,
+    "rank_change": 5,
+    "ts_code": "002660.SZ",
+    "stock_name": "茂硕电源",
+    "latest_price": 10.35,
+    "change_amount": 0.94,
+    "change_pct": 9.99,
+    "new_fans": 81.42,
+    "loyal_fans": 18.58
+  },
+  {
+    "rank_position": 2,
+    "rank_change": 11,
+    "ts_code": "300300.SZ",
+    "stock_name": "海峡创新",
+    "latest_price": 17.78,
+    "change_amount": 1.51,
+    "change_pct": 9.28,
+    "new_fans": 23.17,
+    "loyal_fans": 76.83
+  },
+  {
+    "rank_position": 3,
+    "rank_change": 14,
+    "ts_code": "688048.SH",
+    "stock_name": "长光华芯",
+    "latest_price": 128.82,
+    "change_amount": 21.47,
+    "change_pct": 20.0,
+    "new_fans": 42.2,
+    "loyal_fans": 57.8
+  },
+  {
+    "rank_position": 4,
+    "rank_change": 6,
+    "ts_code": "603015.SH",
+    "stock_name": "弘讯科技",
+    "latest_price": 12.18,
+    "change_amount": 1.11,
+    "change_pct": 10.03,
+    "new_fans": 78.18,
+    "loyal_fans": 21.82
+  },
+  {
+    "rank_position": 5,
+    "rank_change": 10,
+    "ts_code": "603886.SH",
+    "stock_name": "元祖股份",
+    "latest_price": 13.99,
+    "change_amount": 1.27,
+    "change_pct": 9.98,
+    "new_fans": 80.95,
+    "loyal_fans": 19.05
+  },
+  {
+    "rank_position": 6,
+    "rank_change": 18,
+    "ts_code": "603709.SH",
+    "stock_name": "中源家居",
+    "latest_price": 18.23,
+    "change_amount": 1.66,
+    "change_pct": 10.02,
+    "new_fans": 92.64,
+    "loyal_fans": 7.36
+  },
+  {
+    "rank_position": 7,
+    "rank_change": 2,
+    "ts_code": "002969.SZ",
+    "stock_name": "嘉美包装",
+    "latest_price": 4.32,
+    "change_amount": 0.39,
+    "change_pct": 9.92,
+    "new_fans": 87.9,
+    "loyal_fans": 12.1
+  },
+  {
+    "rank_position": 8,
+    "rank_change": 11,
+    "ts_code": "000002.SZ",
+    "stock_name": "万  科Ａ",
+    "latest_price": 4.95,
+    "change_amount": -0.02,
+    "change_pct": -0.4,
+    "new_fans": 38.64,
+    "loyal_fans": 61.36
+  },
+  {
+    "rank_position": 9,
+    "rank_change": 50,
+    "ts_code": "601318.SH",
+    "stock_name": "中国平安",
+    "latest_price": 61.99,
+    "change_amount": 3.44,
+    "change_pct": 5.88,
+    "new_fans": 47.63,
+    "loyal_fans": 52.37
+  },
+  {
+    "rank_position": 10,
+    "rank_change": 5,
+    "ts_code": "000536.SZ",
+    "stock_name": "华映科技",
+    "latest_price": 6.02,
+    "change_amount": 0.04,
+    "change_pct": 0.67,
+    "new_fans": 46.38,
+    "loyal_fans": 53.62
+  },
+  {
+    "rank_position": 11,
+    "rank_change": 41,
+    "ts_code": "600103.SH",
+    "stock_name": "青山纸业",
+    "latest_price": 4.24,
+    "change_amount": 0.2,
+    "change_pct": 4.95,
+    "new_fans": 35.86,
+    "loyal_fans": 64.14
+  },
+  {
+    "rank_position": 12,
+    "rank_change": 22,
+    "ts_code": "002632.SZ",
+    "stock_name": "道明光学",
+    "latest_price": 15.0,
+    "change_amount": 0.1,
+    "change_pct": 0.67,
+    "new_fans": 69.74,
+    "loyal_fans": 30.26
+  },
+  {
+    "rank_position": 13,
+    "rank_change": 1,
+    "ts_code": "603327.SH",
+    "stock_name": "福蓉科技",
+    "latest_price": 12.75,
+    "change_amount": -0.93,
+    "change_pct": -6.8,
+    "new_fans": 84.62,
+    "loyal_fans": 15.38
+  },
+  {
+    "rank_position": 14,
+    "rank_change": 3,
+    "ts_code": "600650.SH",
+    "stock_name": "锦江在线",
+    "latest_price": 15.68,
+    "change_amount": 1.43,
+    "change_pct": 10.04,
+    "new_fans": 81.35,
+    "loyal_fans": 18.65
+  },
+  {
+    "rank_position": 15,
+    "rank_change": 3,
+    "ts_code": "600721.SH",
+    "stock_name": "百花医药",
+    "latest_price": 10.77,
+    "change_amount": 0.98,
+    "change_pct": 10.01,
+    "new_fans": 50.82,
+    "loyal_fans": 49.18
+  },
+  {
+    "rank_position": 16,
+    "rank_change": 17,
+    "ts_code": "600218.SH",
+    "stock_name": "全柴动力",
+    "latest_price": 11.2,
+    "change_amount": 1.02,
+    "change_pct": 10.02,
+    "new_fans": 35.01,
+    "loyal_fans": 64.99
+  },
+  {
+    "rank_position": 17,
+    "rank_change": 43,
+    "ts_code": "001280.SZ",
+    "stock_name": "C中国铀",
+    "latest_price": 65.89,
+    "change_amount": -3.6,
+    "change_pct": -5.18,
+    "new_fans": 100.0,
+    "loyal_fans": 0.0
+  },
+  {
+    "rank_position": 18,
+    "rank_change": 56,
+    "ts_code": "001330.SZ",
+    "stock_name": "博纳影业",
+    "latest_price": 8.8,
+    "change_amount": 0.25,
+    "change_pct": 2.92,
+    "new_fans": 74.09,
+    "loyal_fans": 25.91
+  },
+  {
+    "rank_position": 19,
+    "rank_change": 13,
+    "ts_code": "603933.SH",
+    "stock_name": "睿能科技",
+    "latest_price": 29.61,
+    "change_amount": 0.9,
+    "change_pct": 3.13,
+    "new_fans": 63.18,
+    "loyal_fans": 36.82
+  },
+  {
+    "rank_position": 20,
+    "rank_change": 16,
+    "ts_code": "301486.SZ",
+    "stock_name": "致尚科技",
+    "latest_price": 91.85,
+    "change_amount": 15.31,
+    "change_pct": 20.0,
+    "new_fans": 87.9,
+    "loyal_fans": 12.1
+  }
+]

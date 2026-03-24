@@ -1,0 +1,39 @@
+# 核心依赖
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# 数据可视化
+plotly>=5.15.0
+
+# 数据获取
+akshare>=1.12.0
+easyquotation>=0.7.7
+openbb>=4.0.0
+
+# 工具库
+requests>=2.31.0
+python-dateutil>=2.8.2
+
+# 可选依赖（高级功能）
+# 如果需要技术指标分析，取消注释以下行：
+# ta-lib>=0.4.28
+
+# 如果需要机器学习功能，取消注释以下行：
+# scikit-learn>=1.4.0
+# scipy>=1.12.0 
+
+# 量化策略相关
+PyYAML>=6.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# 数据库相关
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+schedule>=1.2.0
+tushare>=1.2.89
+
+# RAG和向量数据库
+chromadb>=0.4.0
+sentence-transformers>=2.2.0 

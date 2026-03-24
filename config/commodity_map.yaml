@@ -1,0 +1,192 @@
+# 商品映射配置
+# 用于选股策略，将商品价格信号映射到相关股票
+
+commodities:
+  - code: "CU"  # 铜
+    name: "铜"
+    data_source: "akshare"  # 数据源：akshare 或 openbb
+    api_code: "shfe_cu"  # 数据源中的商品代码
+    related_industries:
+      - "有色金属"
+      - "新能源"
+      - "电力设备"
+      - "消费电子"
+      - "家电"
+    related_stocks:
+      - code: "000831"
+        name: "中国稀土"
+        weight: 0.3
+        reason: "稀土永磁材料，新能源需求"
+      - code: "600362"
+        name: "江西铜业"
+        weight: 0.4
+        reason: "铜矿开采和冶炼"
+      - code: "600111"
+        name: "北方稀土"
+        weight: 0.3
+        reason: "稀土加工，新能源应用"
+      - code: "002415"
+        name: "海康威视"
+        weight: 0.2
+        reason: "消费电子，铜材需求"
+      - code: "000063"
+        name: "中兴通讯"
+        weight: 0.2
+        reason: "通信设备，铜材需求"
+      - code: "000333"
+        name: "美的集团"
+        weight: 0.2
+        reason: "家电制造，铜材需求"
+      - code: "000651"
+        name: "格力电器"
+        weight: 0.2
+        reason: "家电制造，铜材需求"
+  
+  - code: "AL"  # 铝
+    name: "铝"
+    data_source: "akshare"
+    api_code: "shfe_al"
+    related_industries:
+      - "有色金属"
+      - "汽车制造"
+      - "消费电子"
+      - "家电"
+    related_stocks:
+      - code: "000612"
+        name: "焦作万方"
+        weight: 0.5
+        reason: "铝加工和冶炼"
+      - code: "600219"
+        name: "南山铝业"
+        weight: 0.5
+        reason: "铝材生产和加工"
+      - code: "002415"
+        name: "海康威视"
+        weight: 0.2
+        reason: "消费电子，铝材需求"
+      - code: "000063"
+        name: "中兴通讯"
+        weight: 0.2
+        reason: "通信设备，铝材需求"
+      - code: "000333"
+        name: "美的集团"
+        weight: 0.2
+        reason: "家电制造，铝材需求"
+      - code: "000651"
+        name: "格力电器"
+        weight: 0.2
+        reason: "家电制造，铝材需求"
+  
+  - code: "AU"  # 黄金
+    name: "黄金"
+    data_source: "akshare"
+    api_code: "shfe_au"
+    related_industries:
+      - "贵金属"
+      - "珠宝"
+      - "消费"
+    related_stocks:
+      - code: "600489"
+        name: "中金黄金"
+        weight: 0.4
+        reason: "黄金开采和冶炼"
+      - code: "002155"
+        name: "湖南黄金"
+        weight: 0.3
+        reason: "黄金开采"
+      - code: "600547"
+        name: "山东黄金"
+        weight: 0.3
+        reason: "黄金开采和冶炼"
+      - code: "600519"
+        name: "贵州茅台"
+        weight: 0.2
+        reason: "消费股，避险属性"
+      - code: "000858"
+        name: "五粮液"
+        weight: 0.2
+        reason: "消费股，避险属性"
+  
+  - code: "RB"  # 螺纹钢
+    name: "螺纹钢"
+    data_source: "akshare"
+    api_code: "shfe_rb"
+    related_industries:
+      - "钢铁"
+      - "基建"
+      - "房地产"
+    related_stocks:
+      - code: "000709"
+        name: "河钢股份"
+        weight: 0.4
+        reason: "钢铁生产"
+      - code: "600019"
+        name: "宝钢股份"
+        weight: 0.4
+        reason: "钢铁生产"
+      - code: "000825"
+        name: "太钢不锈"
+        weight: 0.2
+        reason: "不锈钢生产"
+  
+  - code: "NI"  # 镍
+    name: "镍"
+    data_source: "akshare"
+    api_code: "shfe_ni"
+    related_industries:
+      - "新能源"
+      - "电池"
+      - "电动车"
+    related_stocks:
+      - code: "300750"
+        name: "宁德时代"
+        weight: 0.4
+        reason: "电池制造，镍需求"
+      - code: "002594"
+        name: "比亚迪"
+        weight: 0.3
+        reason: "新能源汽车，电池需求"
+      - code: "002460"
+        name: "赣锋锂业"
+        weight: 0.3
+        reason: "锂电材料，新能源需求"
+  
+  - code: "LI"  # 锂
+    name: "锂"
+    data_source: "akshare"
+    api_code: "shfe_li"  # 注意：可能需要根据实际API调整
+    related_industries:
+      - "新能源"
+      - "电池"
+      - "电动车"
+    related_stocks:
+      - code: "002460"
+        name: "赣锋锂业"
+        weight: 0.5
+        reason: "锂资源开采和加工"
+      - code: "000762"
+        name: "西藏矿业"
+        weight: 0.3
+        reason: "锂资源开采"
+      - code: "300750"
+        name: "宁德时代"
+        weight: 0.2
+        reason: "电池制造，锂需求"
+      - code: "002594"
+        name: "比亚迪"
+        weight: 0.2
+        reason: "新能源汽车，电池需求"
+
+# 商品价格检查配置
+price_check_config:
+  lookback_days: 20  # 回看天数
+  thresholds:
+    weak_signal: 0.15    # 15% - 弱信号
+    medium_signal: 0.25  # 25% - 中等信号
+    strong_signal: 0.40  # 40% - 强信号
+  score_bonus:
+    weak: 5      # 弱信号加分
+    medium: 10   # 中等信号加分
+    strong: 20   # 强信号加分
+  priority_queue_threshold: 80  # 优先队列阈值
+

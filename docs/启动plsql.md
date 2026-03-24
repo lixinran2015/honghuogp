@@ -1,0 +1,1 @@
+pg_ctl.exe start -D D:\devTools\postgreSQL\data

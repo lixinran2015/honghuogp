@@ -1,0 +1,86 @@
+# 量化策略配置文件
+# 维稳+打板双策略系统
+
+universe:
+  exclude_st: true
+  ipo_days_min: 60
+  min_price: 3.0
+  min_amount: 5000000  # 5e6
+  industries_focus: 
+    - 国防军工
+    - 稀土
+    - 黄金
+    - 有色
+    - 机器人
+    - 算力
+    - 电力
+  etf_whitelist:
+    - 512810  # 军工ETF
+    - 512760  # 军工/装备制造
+    - 159995  # 军工/装备制造
+    - 518880  # 黄金ETF
+    - 518800  # 黄金ETF
+    - 510300  # 宽基CSI300
+    - 159919  # 宽基HS300
+
+portfolio:
+  max_gross_exposure: 0.95
+  max_single_weight_stock: 0.20
+  max_single_weight_etf: 0.30
+  risk_per_trade: 0.015
+  max_daily_drawdown: 0.03
+  max_single_drawdown: 0.015
+
+filters:
+  index_trend:
+    fast_ma: 20
+    slow_ma: 60
+    slope_ma: 60
+    min_slope: 0.001
+
+etf_pulls:
+  rsi_low: 40
+  rsi_high: 55
+  atr_mult_trail: 2.0
+  ma10_tolerance: 0.5
+  volume_mult: 1.2
+  time_stop_days: 30
+  time_stop_min_pnl: 0.03
+  take_profit_etf: 0.06
+  take_profit_stock: 0.10
+  stop_loss_stock: -0.04
+
+momentum_board:
+  first_limit_gap_max: 0.02
+  min_turnover_ratio: 0.08
+  vol_mult: 2.0
+  intraday_bar: "5min"
+  stop_loss: -0.025
+  time_stop_days: 3
+  limit_price_tolerance: 0.01
+  reseal_min_count: 2
+  industry_heat_rank: 30
+
+risk_management:
+  regime_filter:
+    index_drop_threshold: -0.025
+    vix_rise_threshold: 0.10
+    emergency_exposure: 0.40
+  position_sizing:
+    atr_multiplier: 2.0
+    max_position_risk: 0.015
+  t_plus_one:
+    high_open_threshold: 0.02
+    low_open_stop: -0.025
+
+costs:
+  commission: 0.0003
+  slippage_tick: 1
+  stamp_duty: 0.001
+  transfer_fee: 0.00002
+
+backtest:
+  start_date: "2019-01-01"
+  end_date: "2024-12-31"
+  initial_capital: 300000
+  benchmark: "000300.SH" 
