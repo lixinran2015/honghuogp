@@ -36,6 +36,14 @@ from backend.api.leaders import industry_leaders
 from backend.api import money_flow
 from backend.api.knowledge import ai_chat, knowledge_base
 from backend.api import stock_selector
+from backend.api import break_board
+
+# 导入模块配置
+from backend.api.modules.config import module_config
+
+# 从模块化聚合器导入路由
+from backend.api import short_term, long_term, common
+from backend.api.modules import router as modules_router
 
 # from backend.services.data.data_initializer import DataInitializer  # 已禁用启动时财务数据初始化
 
@@ -136,46 +144,49 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(LoggingMiddleware)
 
-# 注册新的API路由
-app.include_router(recommendations_rules.router)
-app.include_router(market.router)
-app.include_router(long_term.router)
-app.include_router(fund.router)
-app.include_router(reports.router)
-app.include_router(darwin.router)
-app.include_router(monthly_themes.router)
-app.include_router(data_warehouse.router)
-app.include_router(hot_sectors.router)
-app.include_router(engines.router)
-app.include_router(stock_filters.router)
-app.include_router(stock_universe.router)
-app.include_router(stock_kline.router)
-app.include_router(sector_rotation.router)
-app.include_router(hotspot_cluster_api.router)
-app.include_router(holdings.router)
-app.include_router(data_management.router)
-app.include_router(watchlist.router)
-app.include_router(monitor_near5.router)
-app.include_router(guba_popularity.router)
-app.include_router(startup_router)
-app.include_router(leader_tracking.router)
-app.include_router(recommendation.router)
-app.include_router(startup_watch.router)
-app.include_router(scheduled_task.router)
-app.include_router(sold_stock.router)
-app.include_router(hot_sector.router)
-app.include_router(ai_chat.router)
-app.include_router(industry_leaders.router)
-app.include_router(money_flow.router)
-app.include_router(knowledge_base.router)
-app.include_router(stock_selector.router)
-app.include_router(daily_review.router)
-app.include_router(abnormal_analysis.router)
-app.include_router(sentiment.router)
-app.include_router(backtest.router)
-app.include_router(factors.router)
-app.include_router(strategy_ai.router)
-logger.info("✅ 已注册新的API路由: recommendations, market, long_term, fund, reports, darwin, monthly_themes, data_warehouse, hot_sectors, engines, stock_filters, stock_universe, sector_rotation, hotspot_cluster_api, holdings, data_management, watchlist, monitor_near5, startup, recommendation, startup_watch, scheduled_task, sold_stock, hot_sector, industry_leaders, knowledge_base, stock_selector, daily_review, abnormal_analysis, sentiment, backtest, factors, strategy_ai")
+# ============================================================================
+# 模块化路由注册
+# ============================================================================
+
+# 注册公共模块路由（始终启用）
+try:
+    app.include_router(common.router)
+    logger.info("✅ 公共基础模块路由已注册")
+except Exception as e:
+    logger.error(f"❌ 公共基础模块路由注册失败: {e}")
+
+# 根据配置注册短线龙头模块
+if module_config.is_module_enabled("short_term"):
+    try:
+        app.include_router(short_term.router)
+        enabled_features = list(module_config.get_enabled_features("short_term").keys())
+        logger.info(f"✅ 短线龙头模块已启用，功能: {enabled_features}")
+    except Exception as e:
+        logger.error(f"❌ 短线龙头模块路由注册失败: {e}")
+else:
+    logger.info("ℹ️ 短线龙头模块已禁用")
+
+# 根据配置注册趋势长线模块
+if module_config.is_module_enabled("long_term"):
+    try:
+        app.include_router(long_term.router)
+        enabled_features = list(module_config.get_enabled_features("long_term").keys())
+        logger.info(f"✅ 趋势长线模块已启用，功能: {enabled_features}")
+    except Exception as e:
+        logger.error(f"❌ 趋势长线模块路由注册失败: {e}")
+else:
+    logger.info("ℹ️ 趋势长线模块已禁用")
+
+# ============================================================================
+# 兼容性保留：直接注册的路由（逐步迁移到模块化）
+# ============================================================================
+# 注意：以下路由已在 common/short_term 模块中注册，此处不再重复注册
+# 保留此区域用于未来可能需要单独注册的特殊路由
+
+# 模块管理路由（始终启用）
+app.include_router(modules_router)
+
+logger.info("✅ 兼容性路由已注册")
 
 # 初始化数据仓库（调度器延后到 startup 事件中创建，避免阻塞模块加载）
 from backend.services.service_manager import get_service_manager
@@ -289,6 +300,30 @@ async def root():
 async def health_check():
     """健康检查"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/api/modules")
+async def get_module_status():
+    """
+    获取模块状态
+
+    返回当前启用的模块和功能列表
+    """
+    return {
+        "modules": module_config.get_enabled_modules(),
+        "short_term": {
+            "enabled": module_config.is_module_enabled("short_term"),
+            "features": module_config.get_enabled_features("short_term")
+        },
+        "long_term": {
+            "enabled": module_config.is_module_enabled("long_term"),
+            "features": module_config.get_enabled_features("long_term")
+        },
+        "common": {
+            "enabled": module_config.is_module_enabled("common"),
+            "features": module_config.get_enabled_features("common")
+        }
+    }
 
 # ⚠️ 注意：analyze_stocks接口已重构，不再依赖旧的app.py
 @app.post("/api/ai-analysis")

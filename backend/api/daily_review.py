@@ -27,7 +27,7 @@ _service = DailyReviewService()
 
 def get_db_session():
     """获取数据库会话"""
-    session = _warehouse.warehouse_service.SessionLocal()
+    session = _warehouse.warehouse_service.get_session()
     try:
         yield session
     finally:

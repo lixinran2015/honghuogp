@@ -11,12 +11,17 @@
       <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
         <span class="text-white font-bold text-sm">选</span>
       </div>
-      <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">智能选股系统</h1>
+      <div class="flex-1 min-w-0">
+        <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">智能选股系统</h1>
+        <span :class="['text-xs px-1.5 py-0.5 rounded-full font-medium', systemModeClass]">
+          {{ systemModeText }}
+        </span>
+      </div>
     </div>
 
     <!-- 菜单区域 -->
     <nav class="p-4 space-y-1">
-      <div v-for="group in menuGroups" :key="group.id" class="mb-2">
+      <div v-for="group in visibleMenuGroups" :key="group.id" class="mb-2">
         <!-- 一级菜单标题（可点击） -->
         <button
           @click="toggleGroup(group.id)"
@@ -63,6 +68,7 @@
 import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLayout } from '../../composables/useLayout'
+import { useModuleConfig } from '../../composables/useModuleConfig'
 import {
   BriefcaseIcon,
   StarIcon,
@@ -82,11 +88,13 @@ import {
   CalendarDaysIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
+  SwatchIcon,
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
 const { sidebarOpen, closeSidebar } = useLayout()
+const { isShortTermEnabled, isLongTermEnabled, isCommonEnabled, systemMode, loadModuleStatus } = useModuleConfig()
 
 const currentPath = computed(() => route.path)
 
@@ -110,7 +118,7 @@ const toggleGroup = (groupId) => {
 // 根据当前路由自动展开对应的分组
 const autoExpandGroup = () => {
   const currentPathValue = currentPath.value
-  for (const group of menuGroups) {
+  for (const group of visibleMenuGroups.value) {
     const hasActiveItem = group.items.some(item => item.path === currentPathValue)
     if (hasActiveItem) {
       expandedGroups.value.add(group.id)
@@ -123,16 +131,26 @@ watch(currentPath, () => {
   autoExpandGroup()
 })
 
-// 组件挂载时自动展开当前路由所在的分组
-onMounted(() => {
+// 组件挂载时加载模块状态并展开当前路由所在的分组
+onMounted(async () => {
+  console.log('[Sidebar] 开始加载模块状态...')
+  await loadModuleStatus()
+  console.log('[Sidebar] 模块状态加载完成:', {
+    shortTerm: isShortTermEnabled.value,
+    longTerm: isLongTermEnabled.value,
+    common: isCommonEnabled.value,
+    visibleGroups: visibleMenuGroups.value.map(g => g.id)
+  })
   autoExpandGroup()
 })
 
-// 菜单分组配置（已按产品线拆分：启动龙头 / 周期股 / 共享底座）
-const menuGroups = [
+// 菜单分组配置（已按产品线拆分：短线龙头 / 长线趋势 / 共享底座）
+// module 字段: 'short_term' | 'long_term' | 'common' | 'all'
+const allMenuGroups = [
   {
     id: 'core',
     title: '选股中心',
+    module: 'common',
     items: [
       { path: '/holdings', label: '我的自选', icon: 'BriefcaseIcon' },
       { path: '/watchlist', label: '股票跟踪', icon: 'EyeIcon' },
@@ -142,7 +160,8 @@ const menuGroups = [
   },
   {
     id: 'startup',
-    title: '短线·主线龙头',
+    title: '短线龙头',
+    module: 'short_term',
     items: [
       { path: '/startup', label: '启动监控', icon: 'RocketLaunchIcon' },
       { path: '/startup-mainline', label: '主线雷达', icon: 'ChartBarIcon' },
@@ -151,11 +170,13 @@ const menuGroups = [
       { path: '/leader-buy-backtest', label: '龙头买点回测', icon: 'ChartBarIcon' },
       { path: '/leader-strategy-intro', label: '策略说明', icon: 'BookOpenIcon' },
       { path: '/diagnose', label: '单票诊断', icon: 'MagnifyingGlassIcon' },
+      { path: '/limit-up-2days', label: '2连板', icon: 'ArrowTrendingUpIcon' },
     ]
   },
   {
     id: 'sector',
     title: '板块与龙头',
+    module: 'long_term',
     items: [
       { path: '/hot-sector', label: '热门板块', icon: 'FireIcon' },
       { path: '/hot-sector-stocks', label: '板块股票', icon: 'ListBulletIcon' },
@@ -168,6 +189,7 @@ const menuGroups = [
   {
     id: 'cycle',
     title: '周期与长期',
+    module: 'long_term',
     items: [
       { path: '/industry-cycle', label: '行业周期', icon: 'ArrowPathIcon' },
       { path: '/theme-rotation', label: '长期主题轮动', icon: 'ArrowTrendingUpIcon' },
@@ -177,6 +199,7 @@ const menuGroups = [
   {
     id: 'research',
     title: '投研工具',
+    module: 'long_term',
     items: [
       { path: '/backtest', label: '通用回测', icon: 'ChartBarIcon' },
       { path: '/factor-lab', label: '因子实验室', icon: 'ChartBarIcon' },
@@ -188,10 +211,10 @@ const menuGroups = [
   {
     id: 'review',
     title: '复盘与情绪',
+    module: 'long_term',
     items: [
       { path: '/guba-popularity', label: '人气榜', icon: 'FireIcon' },
       { path: '/monitor-near5', label: '分时监控', icon: 'ClockIcon' },
-      { path: '/limit-up-2days', label: '2连板', icon: 'ArrowTrendingUpIcon' },
       { path: '/limit-up-today-60d-high', label: '60日新高', icon: 'FireIcon' },
       { path: '/stable-rise', label: '止跌企稳回升', icon: 'ArrowTrendingUpIcon' },
       { path: '/high-stocks', label: '180日新高', icon: 'ArrowTrendingUpIcon' },
@@ -204,6 +227,7 @@ const menuGroups = [
   {
     id: 'system',
     title: '设置与数据',
+    module: 'common',
     items: [
       { path: '/strategy', label: '策略引擎', icon: 'CogIcon' },
       { path: '/data-management', label: '数据管理', icon: 'ChartBarIcon' },
@@ -214,6 +238,40 @@ const menuGroups = [
     ]
   },
 ]
+
+// 根据模块启用状态过滤菜单组
+const visibleMenuGroups = computed(() => {
+  return allMenuGroups.filter(group => {
+    // 如果菜单组标记为 common，始终显示
+    if (group.module === 'common') return isCommonEnabled.value
+    // 如果标记为 short_term，根据短线模块状态
+    if (group.module === 'short_term') return isShortTermEnabled.value
+    // 如果标记为 long_term，根据长线模块状态
+    if (group.module === 'long_term') return isLongTermEnabled.value
+    // 默认显示
+    return true
+  })
+})
+
+// 系统模式显示文本
+const systemModeText = computed(() => {
+  switch (systemMode.value) {
+    case 'short_term': return '短线龙头'
+    case 'long_term': return '长线趋势'
+    case 'all': return '完整系统'
+    default: return '未知模式'
+  }
+})
+
+// 系统模式样式
+const systemModeClass = computed(() => {
+  switch (systemMode.value) {
+    case 'short_term': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    case 'long_term': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    case 'all': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+  }
+})
 
 // 图标映射
 const iconMap = {
@@ -233,6 +291,7 @@ const iconMap = {
   CalendarDaysIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
+  SwatchIcon,
 }
 
 const getIconComponent = (iconName) => {

@@ -33,15 +33,25 @@ from .limit_up_today_60d_high import FactLimitUpToday60dHigh
 # 涨停缩量模型
 from .limit_up_volume_shrink import FactLimitUpVolumeShrink
 
+# 涨停缩量回测模型
+from .limit_up_volume_shrink_backtest import FactLimitUpVolumeShrinkBacktest
+
 # 同花顺涨跌停模型
 from .tonghuashun_limit_up import FactTonghuashunLimitUp
-from .tonghuashun_limit_up import FactTonghuashunLimitUp
+
+# 股票启动候选模型
+from .startup_candidate import FactStockStartupCandidate
+
+# 推荐股票模型
+from .recommended_stock import FactRecommendedStock
+
+# 复盘报告模型
+from .daily_review_report import FactDailyReviewReport
 
 # 使用自动生成的模型（ORM类）
 from .generated_models import (
     DimHotspotCluster,
     DimTradeCalendar,
-    FactDailyPrice,
     FactDailyPriceQfq,
     FactDarwinResult,
     FactEventDrivenHotspot,
@@ -64,13 +74,22 @@ from .generated_models import (
     RawDailyPrice,
     RawFundamental,
     TaskExecutionLog,
-    FactDailyReviewReport,
     FactOperationAdviceHistory,
     FactAdviceCompliance,
 )
 
+# 别名：FactDailyPrice 指向 FactDailyPriceQfq（前复权价格）
+FactDailyPrice = FactDailyPriceQfq
+
 # 龙头跟踪池（持久化）
 from .leader_tracking import FactLeaderTrackingPool, FactLeaderTrackingPoolSyncLog
+
+# 断板监控模型
+from .watchlist_break_board import (
+    FactStockWatchlistBreakBoard,
+    FactBreakBoardPriceAlert,
+    FactBreakBoardMonitorLog,
+)
 
 __all__ = [
     'Base',
@@ -110,8 +129,11 @@ __all__ = [
     'FactSoldStock',
     'FactLimitUpToday60dHigh',
     'FactLimitUpVolumeShrink',
+    'FactLimitUpVolumeShrinkBacktest',
     'FactTonghuashunLimitUp',
     'FactHotSectorStock',
+    'FactStockStartupCandidate',
+    'FactRecommendedStock',
     # 原始表
     'RawDailyPrice',
     'RawFundamental',
@@ -122,6 +144,10 @@ __all__ = [
     # 龙头跟踪池（持久化）
     'FactLeaderTrackingPool',
     'FactLeaderTrackingPoolSyncLog',
+    # 断板监控
+    'FactStockWatchlistBreakBoard',
+    'FactBreakBoardPriceAlert',
+    'FactBreakBoardMonitorLog',
     # 复盘相关
     'FactDailyReviewReport',
     'FactOperationAdviceHistory',

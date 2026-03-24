@@ -126,6 +126,7 @@
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">代码</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
+            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">断板状态</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" @click="sortBy('industry')">
               行业 {{ sortField === 'industry' ? (sortOrder === 'desc' ? '↓' : '↑') : '' }}
             </th>
@@ -166,6 +167,25 @@
           >
             <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ stock.code }}</td>
             <td class="px-4 py-3 text-sm text-gray-700">{{ stock.name || '--' }}</td>
+            <td class="px-4 py-3 text-center">
+              <div v-if="stock.break_board_info" class="flex flex-col items-center gap-1">
+                <span
+                  :class="[
+                    'px-2 py-0.5 rounded-full text-xs font-medium',
+                    getBreakBoardStatusClass(stock.break_board_info.break_status)
+                  ]"
+                >
+                  {{ getBreakBoardStatusText(stock.break_board_info.break_status) }}
+                </span>
+                <span v-if="stock.break_board_info.consecutive_limit_up" class="text-xs text-gray-500">
+                  {{ stock.break_board_info.consecutive_limit_up }}连板
+                </span>
+                <span v-if="stock.break_board_info.price_change_pct !== null" class="text-xs" :class="getChangeClass(stock.break_board_info.price_change_pct)">
+                  断后{{ formatChange(stock.break_board_info.price_change_pct) }}%
+                </span>
+              </div>
+              <span v-else class="text-xs text-gray-400">--</span>
+            </td>
             <td class="px-4 py-3 text-xs text-gray-600">{{ stock.industry || '--' }}</td>
             <td v-if="showSectors" class="px-4 py-3">
               <div v-if="stock.sectors && stock.sectors.length > 0" class="flex flex-wrap gap-1">
@@ -468,11 +488,39 @@ async function fetchRealtimeData() {
       if (voiceEnabled.value) {
         checkAndAlert(oldStocks, stocks.value)
       }
+
+      // 获取断板信息
+      await fetchBreakBoardInfo()
     }
   } catch (error) {
     console.error('获取实时数据失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// 获取断板信息
+async function fetchBreakBoardInfo() {
+  try {
+    const response = await fetch('/api/break-board/stocks')
+    if (!response.ok) return
+
+    const breakBoardData = await response.json()
+    const breakBoardMap = {}
+
+    // 构建映射表
+    breakBoardData.forEach(item => {
+      breakBoardMap[item.ts_code] = item
+    })
+
+    // 合并到股票数据
+    stocks.value.forEach(stock => {
+      if (breakBoardMap[stock.ts_code]) {
+        stock.break_board_info = breakBoardMap[stock.ts_code]
+      }
+    })
+  } catch (error) {
+    console.error('获取断板信息失败:', error)
   }
 }
 
@@ -805,6 +853,28 @@ function getRowClass(stock) {
     return stock.change_pct > 0 ? 'bg-red-50' : 'bg-green-50'
   }
   return ''
+}
+
+// 断板状态样式
+function getBreakBoardStatusClass(status) {
+  const classes = {
+    'none': 'bg-green-100 text-green-700',
+    'broken': 'bg-orange-100 text-orange-700',
+    'rebound': 'bg-red-100 text-red-700',
+    'recovered': 'bg-blue-100 text-blue-700'
+  }
+  return classes[status] || 'bg-gray-100 text-gray-700'
+}
+
+// 断板状态文本
+function getBreakBoardStatusText(status) {
+  const texts = {
+    'none': '连板中',
+    'broken': '断板调整',
+    'rebound': '断板反弹',
+    'recovered': '已恢复'
+  }
+  return texts[status] || status
 }
 
 // 生命周期
