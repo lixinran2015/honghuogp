@@ -82,7 +82,13 @@ from .generated_models import (
 FactDailyPrice = FactDailyPriceQfq
 
 # 龙头跟踪池（持久化）
-from .leader_tracking import FactLeaderTrackingPool, FactLeaderTrackingPoolSyncLog
+from .leader_tracking import (
+    FactLeaderTrackingPool,
+    FactLeaderTrackingPoolSyncLog,
+    FactLeaderTrackingFailed,
+    FactLeaderScoreHistory,
+    FactLeaderBuySignal,
+)
 
 # 断板监控模型
 from .watchlist_break_board import (
@@ -144,6 +150,9 @@ __all__ = [
     # 龙头跟踪池（持久化）
     'FactLeaderTrackingPool',
     'FactLeaderTrackingPoolSyncLog',
+    'FactLeaderTrackingFailed',
+    'FactLeaderScoreHistory',
+    'FactLeaderBuySignal',
     # 断板监控
     'FactStockWatchlistBreakBoard',
     'FactBreakBoardPriceAlert',

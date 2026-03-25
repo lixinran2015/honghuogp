@@ -48,6 +48,7 @@ const routes = [
   { path: '/backtest', component: () => import('./views/BacktestView.vue') },
   { path: '/factor-lab', component: () => import('./views/FactorExperimentView.vue') },
   { path: '/ai-strategy', component: () => import('./views/AIStrategyAssistantView.vue') },
+  { path: '/leader-optimization', component: () => import('./views/LeaderOptimizationView.vue') },
 ]
 
 const router = createRouter({

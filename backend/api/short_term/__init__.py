@@ -147,4 +147,13 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ 短线仪表盘路由加载失败: {e}")
 
+# 龙头优化系统路由（Phase 1-6）
+try:
+    from backend.api.leader_optimization_routes import register_leader_optimization_routes
+    # 由于 register_leader_optimization_routes 需要 app 对象，我们在 app.py 中调用
+    # 这里先导入模块，稍后在 app.py 中统一注册
+    logger.info("✅ 龙头优化系统路由模块已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 龙头优化系统路由加载失败: {e}")
+
 logger.info("🚀 短线龙头系统路由聚合完成")

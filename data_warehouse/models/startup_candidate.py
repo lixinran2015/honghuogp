@@ -17,6 +17,7 @@ class FactStockStartupCandidate(Base):
     
     # 股票基本信息
     ts_code = Column(String(20), nullable=False, index=True, comment='股票代码')
+    name = Column(String(128), nullable=True, comment='股票名称')
     trade_date = Column(Date, nullable=False, index=True, comment='交易日期')
     
     # 启动判断结果

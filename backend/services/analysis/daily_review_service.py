@@ -125,8 +125,9 @@ def _build_review_prompt(data: Dict[str, Any]) -> str:
     # 遵从度分析文本
     compliance_text = ""
     if compliance.get("total_trades", 0) > 0:
+        compliance_days = compliance.get('history_days', 30)
         compliance_text = f"""
-## 操作建议遵从度分析（近{history_days}天）
+## 操作建议遵从度分析（近{compliance_days}天）
 总交易次数: {compliance.get('total_trades', 0)}
 平均遵从度评分: {compliance.get('avg_compliance_score', 0):.1f}/100
 """
@@ -417,6 +418,8 @@ class DailyReviewService:
                     from backend.services.analysis.advice_compliance_service import AdviceComplianceService
                     compliance_service = AdviceComplianceService(self.warehouse)
                     compliance_summary = compliance_service.get_compliance_summary(session, user_id, history_days)
+                    # 添加 history_days 到 compliance_summary，供提示词模板使用
+                    compliance_summary['history_days'] = history_days
         except Exception as e:
             logger.debug(f"获取遵从度分析失败: {e}")
 

@@ -161,6 +161,13 @@ if module_config.is_module_enabled("short_term"):
         app.include_router(short_term.router)
         enabled_features = list(module_config.get_enabled_features("short_term").keys())
         logger.info(f"✅ 短线龙头模块已启用，功能: {enabled_features}")
+
+        # 注册龙头优化系统路由（Phase 1-6）
+        try:
+            from backend.api.leader_optimization_routes import register_leader_optimization_routes
+            register_leader_optimization_routes(app)
+        except Exception as e:
+            logger.warning(f"⚠️ 龙头优化系统路由注册失败: {e}")
     except Exception as e:
         logger.error(f"❌ 短线龙头模块路由注册失败: {e}")
 else:

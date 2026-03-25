@@ -95,13 +95,8 @@ def update_daily_prices_from_snapshot(
         market_service = MarketDataService()
         
         # 检查接口状态（接口状态通）
-        if not market_service.daily_source or not market_service.daily_source.available:
-            logger.error("❌ 日线数据源不可用（接口状态不通）")
-            if log_entry:
-                log_entry.update_records_processed(0)  # 确保记录数为0
-            return False
-        
-        logger.info(f"✅ 使用数据源: {type(market_service.daily_source).__name__} (接口状态: 可用)")
+        # 注意：我们不再依赖 market_service.daily_source，而是直接管理 iFinD/Tushare 数据源
+        logger.info("📊 日线数据更新开始，将优先尝试 iFinD 数据源")
         
         # 确定目标日期
         if target_date is None:
@@ -275,38 +270,62 @@ def update_daily_prices_from_snapshot(
                 log_entry.update_records_processed(existing_complete_count)
             return True
         
-        # 1. 优先使用 iFinDPy（数据源优先级最高）
+        # 1. 强制优先使用 iFinDPy（用户明确要求日线数据从iFinD获取）
         try:
             from backend.services.data_sources.ifind_daily_source import IfindDailySource
             ifind = IfindDailySource()
             if ifind.available:
-                logger.info("📥 尝试使用 iFinDPy 获取数据...")
+                logger.info("📥 使用 iFinDPy 获取数据（用户配置的优先数据源）...")
                 df = ifind.get_daily_snapshot(date=date_str_dash, codes=stock_codes)
                 if df is not None and not df.empty:
                     all_dfs.append(df)
                     data_source_used = "iFinDPy"
                     logger.info(f"✅ iFinDPy 获取到 {len(df)} 条数据")
                 else:
-                    logger.warning("⚠️ iFinDPy 返回空数据")
+                    logger.warning("⚠️ iFinDPy 返回空数据，将尝试其他数据源")
+            else:
+                logger.warning("⚠️ iFinDPy 不可用（可能未登录），将尝试其他数据源")
         except Exception as e:
-            logger.warning(f"⚠️ iFinDPy 获取失败: {e}")
+            logger.warning(f"⚠️ iFinDPy 获取失败: {e}，将尝试其他数据源")
         
-        # 2. 降级到 Tushare（数据更及时）
+        # 2. 如果iFinD失败，根据操作系统决定是否降级
+        import platform
         if not all_dfs:
-            try:
-                from backend.services.data_sources.tushare_source import TushareDailySource
-                tushare = TushareDailySource()
-                if tushare.available:
-                    logger.info("📥 降级使用 Tushare 获取数据...")
-                    df = tushare.get_daily_snapshot(date_str)
-                    if df is not None and not df.empty:
-                        all_dfs.append(df)
-                        data_source_used = "Tushare"
-                        logger.info(f"✅ Tushare 获取到 {len(df)} 条数据")
+            if platform.system() == 'Darwin':
+                # macOS 开发环境：iFinD没有macOS版本，允许降级到Tushare
+                logger.warning("⚠️ macOS环境：iFinDPy库不兼容，降级到Tushare获取数据")
+                try:
+                    from backend.services.data_sources.tushare_source import TushareDailySource
+                    tushare = TushareDailySource()
+                    if tushare.available:
+                        logger.info("📥 使用 Tushare 获取数据...")
+                        df = tushare.get_daily_snapshot(date_str)
+                        if df is not None and not df.empty:
+                            all_dfs.append(df)
+                            data_source_used = "Tushare"
+                            logger.info(f"✅ Tushare 获取到 {len(df)} 条数据")
+                        else:
+                            logger.warning("⚠️ Tushare 返回空数据")
+                            if log_entry:
+                                log_entry.update_records_processed(0)
+                            return False
                     else:
-                        logger.warning("⚠️ Tushare 返回空数据")
-            except Exception as e:
-                logger.warning(f"⚠️ Tushare 获取失败: {e}")
+                        logger.error("❌ Tushare 不可用")
+                        if log_entry:
+                            log_entry.update_records_processed(0)
+                        return False
+                except Exception as e:
+                    logger.error(f"❌ Tushare 获取失败: {e}")
+                    if log_entry:
+                        log_entry.update_records_processed(0)
+                    return False
+            else:
+                # Linux生产环境：强制使用iFinD，不允许降级
+                logger.error("❌ iFinDPy 未能获取到数据，且用户要求使用iFinD作为日线数据源，不再尝试其他数据源")
+                logger.error("   请检查：1) iFinD是否已登录 2) 账号是否有足够额度 3) 网络连接")
+                if log_entry:
+                    log_entry.update_records_processed(0)
+                return False
         
         
         if data_source_used:
@@ -455,7 +474,7 @@ def update_daily_prices_from_snapshot(
                     continue
                 
                 # 保存到Raw层
-                source_name = type(market_service.daily_source).__name__.replace('DailySource', '').lower()
+                source_name = data_source_used.lower() if data_source_used else 'ifind'
                 raw_saved = raw_layer.save_daily_price(
                     ts_code=ts_code,
                     trade_date=target_date,
@@ -514,14 +533,20 @@ def update_daily_prices_from_snapshot(
         total_processed = success_count + failed_count + skip_count
         success_rate = (success_count / total_processed * 100) if total_processed > 0 else 0
         
+        # 任务成功判断：根据操作系统确定是否必须使用iFinD
+        # Linux生产环境：必须使用iFinD
+        # macOS开发环境：允许使用Tushare作为降级
+        is_macos = platform.system() == 'Darwin'
+        required_source = None if is_macos else "iFinDPy"  # macOS不强制数据源类型
+
         is_success = (
-            market_service.daily_source and market_service.daily_source.available and  # 接口状态通
             success_count > 0 and  # 至少成功处理一条
-            success_rate >= 80.0  # 成功率 >= 80%
+            success_rate >= 80.0 and  # 成功率 >= 80%
+            (required_source is None or data_source_used == required_source)  # 数据源要求
         )
-        
+
         if not is_success:
-            logger.warning(f"⚠️ 任务未完全成功: 接口可用={market_service.daily_source and market_service.daily_source.available}, 成功数={success_count}, 成功率={success_rate:.2f}%")
+            logger.warning(f"⚠️ 任务未完全成功: 数据源={data_source_used}, 成功数={success_count}, 成功率={success_rate:.2f}%")
         
         # 刷新物化视图 mv_base_universe_daily
         if is_success:

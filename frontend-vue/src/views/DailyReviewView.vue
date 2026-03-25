@@ -108,6 +108,50 @@
       </div>
     </div>
 
+    <!-- AI 复盘报告 -->
+    <div v-if="aiReport" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-medium text-gray-900">AI 复盘报告</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400">生成于 {{ reportGeneratedAt }}</span>
+          <Button size="xs" variant="outline" @click="saveReport('daily')" :disabled="saving">
+            {{ saving ? '保存中...' : '保存报告' }}
+          </Button>
+        </div>
+      </div>
+      <div class="prose prose-sm max-w-none text-gray-700" v-html="renderedReport"></div>
+    </div>
+
+    <!-- 操作模式分析 -->
+    <div v-if="patternAnalysis" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-medium text-gray-900">操作模式分析</h2>
+        <Button size="xs" variant="outline" @click="saveReport('pattern')" :disabled="saving">
+          {{ saving ? '保存中...' : '保存分析' }}
+        </Button>
+      </div>
+      <div class="prose prose-sm max-w-none text-gray-700" v-html="renderedPattern"></div>
+    </div>
+
+    <!-- 机会提示 -->
+    <div v-if="opportunities.length" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-medium text-gray-900 mb-4">监控中的机会</h2>
+      <div class="space-y-2">
+        <div
+          v-for="o in opportunities"
+          :key="o.symbol"
+          class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+        >
+          <div>
+            <span class="font-medium">{{ o.name }}</span>
+            <span class="text-gray-400 ml-1">{{ o.symbol }}</span>
+            <span v-if="o.sector" class="ml-2 text-xs text-blue-500">{{ o.sector }}</span>
+          </div>
+          <div class="text-sm text-gray-500 max-w-md truncate">{{ o.reason }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 操作回顾 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
@@ -256,50 +300,6 @@
       </div>
     </div>
 
-    <!-- AI 复盘报告 -->
-    <div v-if="aiReport" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-medium text-gray-900">AI 复盘报告</h2>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">生成于 {{ reportGeneratedAt }}</span>
-          <Button size="xs" variant="outline" @click="saveReport('daily')" :disabled="saving">
-            {{ saving ? '保存中...' : '保存报告' }}
-          </Button>
-        </div>
-      </div>
-      <div class="prose prose-sm max-w-none text-gray-700" v-html="renderedReport"></div>
-    </div>
-
-    <!-- 操作模式分析 -->
-    <div v-if="patternAnalysis" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-medium text-gray-900">操作模式分析</h2>
-        <Button size="xs" variant="outline" @click="saveReport('pattern')" :disabled="saving">
-          {{ saving ? '保存中...' : '保存分析' }}
-        </Button>
-      </div>
-      <div class="prose prose-sm max-w-none text-gray-700" v-html="renderedPattern"></div>
-    </div>
-
-    <!-- 机会提示 -->
-    <div v-if="opportunities.length" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-medium text-gray-900 mb-4">监控中的机会</h2>
-      <div class="space-y-2">
-        <div
-          v-for="o in opportunities"
-          :key="o.symbol"
-          class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-        >
-          <div>
-            <span class="font-medium">{{ o.name }}</span>
-            <span class="text-gray-400 ml-1">{{ o.symbol }}</span>
-            <span v-if="o.sector" class="ml-2 text-xs text-blue-500">{{ o.sector }}</span>
-          </div>
-          <div class="text-sm text-gray-500 max-w-md truncate">{{ o.reason }}</div>
-        </div>
-      </div>
-    </div>
-
     <!-- 历史报告弹窗 -->
     <div v-if="showSavedReports" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showSavedReports = false">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -405,8 +405,21 @@ const savedReports = ref([])
 const savedReportsLoading = ref(false)
 const viewingReport = ref(null)
 
-const renderedReport = computed(() => aiReport.value ? DOMPurify.sanitize(marked(aiReport.value)) : '')
-const renderedPattern = computed(() => patternAnalysis.value ? DOMPurify.sanitize(marked(patternAnalysis.value)) : '')
+const renderedReport = computed(() => {
+  if (!aiReport.value) return ''
+  // 过滤掉金额数字（如 -479元、+12789元 等）
+  const filtered = aiReport.value
+    .replace(/[+-]?\d+\.?\d*元/g, '')
+    .replace(/总浮盈为[^，。]+/g, '总浮盈为负')
+    .replace(/总亏损达[^，。]+/g, '总亏损较大')
+  return DOMPurify.sanitize(marked(filtered))
+})
+const renderedPattern = computed(() => {
+  if (!patternAnalysis.value) return ''
+  // 过滤掉金额数字
+  const filtered = patternAnalysis.value.replace(/[+-]?\d+\.?\d*元/g, '')
+  return DOMPurify.sanitize(marked(filtered))
+})
 const renderedViewingReport = computed(() => viewingReport.value ? DOMPurify.sanitize(marked(viewingReport.value.report_content)) : '')
 
 // 遵从度计算属性

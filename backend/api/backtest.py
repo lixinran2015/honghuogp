@@ -441,20 +441,20 @@ async def quick_test(
     """
     try:
         from backend.services.backtest.backtest_engine import get_available_strategies, BacktestEngine
-        
+
         end_dt = date.today()
         start_dt = end_dt - timedelta(days=days)
-        
+
         strategies = get_available_strategies()
         engine = BacktestEngine()
-        
+
         results = engine.compare_strategies(
             strategies=list(strategies.values()),
             symbol=symbol,
             start_date=start_dt,
             end_date=end_dt,
         )
-        
+
         return {
             "success": True,
             "symbol": symbol,
@@ -463,7 +463,165 @@ async def quick_test(
             "best_strategy": results[0] if results else None,
             "all_results": results,
         }
-        
+
     except Exception as e:
         logger.error(f"快速测试失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="快速测试失败")
+
+
+# ========== 龙头策略回测接口 (Phase 6) ==========
+
+@router.post("/leader/run")
+async def run_leader_backtest(
+    start_date: str = Body(..., description="开始日期 YYYY-MM-DD"),
+    end_date: str = Body(None, description="结束日期 YYYY-MM-DD，默认今天"),
+    min_grade: str = Body("A", description="最低评级 S/A/B/C"),
+    entry_threshold: int = Body(65, description="入池阈值"),
+    stop_loss_pct: float = Body(-3.0, description="止损比例%"),
+    take_profit_1st: float = Body(10.0, description="第一止盈位%"),
+    take_profit_2nd: float = Body(20.0, description="第二止盈位%"),
+    max_holding_days: int = Body(5, description="最大持仓天数"),
+    initial_capital: float = Body(100000.0, description="初始资金"),
+) -> Dict:
+    """
+    龙头策略回测
+
+    基于多因子评分系统的龙头策略回测
+    """
+    try:
+        from backend.services.leader_tracking.backtest_engine import BacktestEngine
+
+        # 解析日期
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else date.today()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
+
+        strategy_config = {
+            'min_grade': min_grade,
+            'entry_threshold': entry_threshold,
+            'stop_loss_pct': stop_loss_pct,
+            'take_profit_1st': take_profit_1st,
+            'take_profit_2nd': take_profit_2nd,
+            'max_holding_days': max_holding_days,
+        }
+
+        engine = BacktestEngine(
+            start_date=start_dt,
+            end_date=end_dt,
+            initial_capital=initial_capital,
+        )
+
+        result = engine.run_backtest(strategy_config)
+
+        if not result.get('success'):
+            raise HTTPException(status_code=500, detail=result.get('error', '回测失败'))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"龙头策略回测失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"龙头策略回测失败: {str(e)}")
+
+
+@router.post("/leader/optimize")
+async def optimize_leader_params(
+    start_date: str = Body(..., description="开始日期 YYYY-MM-DD"),
+    end_date: str = Body(None, description="结束日期 YYYY-MM-DD，默认今天"),
+) -> Dict:
+    """
+    龙头策略参数优化
+
+    网格搜索最优参数组合
+    """
+    try:
+        from backend.services.leader_tracking.backtest_engine import BacktestEngine
+
+        # 解析日期
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else date.today()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
+
+        engine = BacktestEngine(
+            start_date=start_dt,
+            end_date=end_dt,
+        )
+
+        param_grid = {
+            'min_grade': ['A', 'B'],
+            'entry_threshold': [60, 65, 70, 75],
+        }
+
+        result = engine.optimize_params(param_grid)
+
+        if not result.get('success'):
+            raise HTTPException(status_code=500, detail=result.get('error', '优化失败'))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"参数优化失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"参数优化失败: {str(e)}")
+
+
+@router.post("/leader/analyze")
+async def analyze_leader_performance(
+    total_return: float = Body(0.25, description="总收益率"),
+    annualized_return: float = Body(0.30, description="年化收益率"),
+    max_drawdown: float = Body(-0.15, description="最大回撤"),
+    win_rate: float = Body(0.48, description="胜率"),
+    profit_loss_ratio: float = Body(1.6, description="盈亏比"),
+    sharpe_ratio: float = Body(1.4, description="夏普比率"),
+    trade_count: int = Body(50, description="交易次数"),
+) -> Dict:
+    """
+    龙头策略绩效分析
+
+    分析回测结果，生成评估报告
+    """
+    try:
+        from backend.services.leader_tracking.backtest_engine import PerformanceAnalyzer
+
+        backtest_result = {
+            'result': {
+                'total_return': total_return,
+                'annualized_return': annualized_return,
+                'max_drawdown': max_drawdown,
+                'win_rate': win_rate,
+                'profit_loss_ratio': profit_loss_ratio,
+                'sharpe_ratio': sharpe_ratio,
+                'trade_count': trade_count,
+            }
+        }
+
+        analyzer = PerformanceAnalyzer()
+        result = analyzer.analyze(backtest_result)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"绩效分析失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"绩效分析失败: {str(e)}")
+
+
+@router.get("/leader/benchmarks")
+async def get_leader_benchmarks() -> Dict:
+    """
+    获取龙头策略绩效基准
+    """
+    return {
+        'success': True,
+        'benchmarks': {
+            'win_rate': {'min': 0.40, 'target': 0.45, 'excellent': 0.50},
+            'profit_loss_ratio': {'min': 1.3, 'target': 1.5, 'excellent': 2.0},
+            'max_drawdown': {'max': -0.20, 'good': -0.15, 'excellent': -0.10},
+            'sharpe_ratio': {'min': 1.0, 'target': 1.5, 'excellent': 2.0},
+        },
+    }

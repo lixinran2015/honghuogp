@@ -58,6 +58,7 @@ class MarketEnvironment:
     limit_down_count: int       # 跌停数
     north_flow: float           # 北向资金净流入（亿）
     analysis_date: str          # 分析日期
+    max_continuous_limit: int = 0  # 市场最高连板数
 
 
 @dataclass
@@ -129,7 +130,8 @@ class MarketEnvironmentAnalyzer:
                 limit_up_count=market_stats.get('limit_up_count', 0),
                 limit_down_count=market_stats.get('limit_down_count', 0),
                 north_flow=north_flow,
-                analysis_date=trade_date
+                analysis_date=trade_date,
+                max_continuous_limit=market_stats.get('max_continuous_limit', 0)
             )
             
             return {
@@ -347,7 +349,8 @@ class MarketEnvironmentAnalyzer:
                         'down_count': down_count,
                         'up_down_ratio': up_count / max(down_count, 1),
                         'limit_up_count': limit_up,
-                        'limit_down_count': limit_down
+                        'limit_down_count': limit_down,
+                        'max_continuous_limit': self._get_max_continuous_limit(session, trade_date),
                     }
                 
                 # 3. 回退：fact_stock_snapshot（仅 S1 池，每股取最新快照）
@@ -398,6 +401,56 @@ class MarketEnvironmentAnalyzer:
             logger.warning(f"获取市场统计失败: {e}")
             return {}
     
+
+    def _get_max_continuous_limit(self, session, trade_date: str) -> int:
+        """获取市场最高连板数
+
+        从 fact_limit_up_daily 和 fact_sector_leader_snapshot 表中获取当日最高连板数
+        """
+        max_limit = 0
+
+        # 1. 从 fact_limit_up_daily 获取
+        try:
+            result = session.execute(
+                text("""
+                    SELECT MAX(continuous_days) as max_limit
+                    FROM fact_limit_up_daily
+                    WHERE trade_date = (
+                        SELECT MAX(trade_date) FROM fact_limit_up_daily
+                        WHERE trade_date <= :trade_date
+                    )
+                """),
+                {'trade_date': trade_date}
+            )
+            row = result.fetchone()
+            if row and row[0]:
+                max_limit = max(max_limit, int(row[0]))
+                logger.info(f"从 fact_limit_up_daily 获取到最高连板数: {max_limit}")
+            else:
+                logger.warning(f"fact_limit_up_daily 中没有找到连板数据，日期: {trade_date}")
+        except Exception as e:
+            logger.warning(f"从 fact_limit_up_daily 获取最高连板数失败: {e}")
+
+        # 2. 从 fact_sector_leader_snapshot 获取
+        # 注意：window_id 是字符串如 'current_rolling_30d'，不是日期
+        try:
+            result = session.execute(
+                text("""
+                    SELECT MAX(continuous_limit) as max_limit
+                    FROM fact_sector_leader_snapshot
+                    WHERE window_id = 'current_rolling_30d'
+                """),
+            )
+            row = result.fetchone()
+            if row and row[0]:
+                max_limit = max(max_limit, int(row[0]))
+                logger.info(f"从 fact_sector_leader_snapshot 获取到最高连板数: {row[0]}, 当前最大值: {max_limit}")
+        except Exception as e:
+            logger.warning(f"从 fact_sector_leader_snapshot 获取最高连板数失败: {e}")
+
+        logger.info(f"最终市场高度: {max_limit}")
+        return max_limit
+
     def _get_north_flow(self, trade_date: str) -> float:
         """获取北向资金净流入"""
         try:

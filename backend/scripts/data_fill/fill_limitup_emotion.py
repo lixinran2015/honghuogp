@@ -71,6 +71,16 @@ def fill_limit_up_daily(trade_date: str):
                     except (ValueError, TypeError):
                         pass
 
+            # 封板资金（封单金额）
+            seal_amount = None
+            for col in ('封板资金', '封单资金', 'fd'):
+                if col in row.index and pd.notna(row.get(col)):
+                    try:
+                        seal_amount = float(row[col])
+                        break
+                    except (ValueError, TypeError):
+                        pass
+
             rows.append({
                 'ts_code': ts_code,
                 'trade_date': trade_date,
@@ -79,6 +89,7 @@ def fill_limit_up_daily(trade_date: str):
                 'change_pct': float(row.get('涨跌幅', 0)) if pd.notna(row.get('涨跌幅')) else None,
                 'turnover_rate': float(row.get('换手率', 0)) if pd.notna(row.get('换手率')) else None,
                 'amount': float(row.get('成交额', 0)) if pd.notna(row.get('成交额')) else None,
+                'seal_amount': seal_amount,
                 'first_hit_time': first_ts,
                 'last_hit_time': last_ts,
                 'limit_reason': str(row.get('涨停原因', '')) if pd.notna(row.get('涨停原因')) else None,
@@ -113,19 +124,20 @@ def fill_limit_up_daily(trade_date: str):
             
             # 批量插入（列名与 fact_limit_up_daily 表一致）
             sql = f"""
-            INSERT INTO fact_limit_up_daily 
-            (ts_code, trade_date, source, close, change_pct, turnover_rate, amount,
+            INSERT INTO fact_limit_up_daily
+            (ts_code, trade_date, source, close, change_pct, turnover_rate, amount, seal_amount,
              first_hit_time, last_hit_time, limit_reason, is_continuous, continuous_days)
-            SELECT ts_code, trade_date::date, source, close, change_pct, turnover_rate, amount,
+            SELECT ts_code, trade_date::date, source, close, change_pct, turnover_rate, amount, seal_amount,
                    first_hit_time::timestamp, last_hit_time::timestamp, limit_reason,
                    is_continuous, continuous_days
             FROM {temp_table_name}
-            ON CONFLICT (ts_code, trade_date) 
+            ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
                 close = EXCLUDED.close,
                 change_pct = EXCLUDED.change_pct,
                 turnover_rate = EXCLUDED.turnover_rate,
                 amount = EXCLUDED.amount,
+                seal_amount = EXCLUDED.seal_amount,
                 first_hit_time = EXCLUDED.first_hit_time,
                 last_hit_time = EXCLUDED.last_hit_time,
                 limit_reason = EXCLUDED.limit_reason,
