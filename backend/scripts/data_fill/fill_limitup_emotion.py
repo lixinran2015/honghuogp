@@ -5,13 +5,16 @@
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 import logging
 import time
 import pandas as pd
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
+load_dotenv()
+
 from data_warehouse.config import DATABASE_URL
 
 logging.basicConfig(

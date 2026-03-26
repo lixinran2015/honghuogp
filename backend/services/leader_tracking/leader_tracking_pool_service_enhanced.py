@@ -524,6 +524,17 @@ class LeaderTrackingPoolServiceEnhanced(LeaderTrackingPoolService):
             query = query.order_by(FactLeaderTrackingPool.score.desc())
             rows = query.all()
 
+            # 检查是否有今天的数据
+            has_today_data = any(
+                r.last_seen_date == trade_date for r in rows
+            )
+
+            # 检查主线雷达是否有今天的数据
+            from data_warehouse.models.startup_candidate import FactStockStartupCandidate
+            startup_count = session.query(FactStockStartupCandidate).filter(
+                FactStockStartupCandidate.trade_date == trade_date
+            ).count()
+
             pool_list = []
             for r in rows:
                 pool_list.append({
@@ -558,7 +569,7 @@ class LeaderTrackingPoolServiceEnhanced(LeaderTrackingPoolService):
                     } if r.startup_score is not None else None,
                 })
 
-            return {
+            result = {
                 'success': True,
                 'trade_date': trade_date.isoformat(),
                 'pool': pool_list,
@@ -569,7 +580,19 @@ class LeaderTrackingPoolServiceEnhanced(LeaderTrackingPoolService):
                     'min_grade': min_grade,
                     'max_risk_level': max_risk_level,
                 },
+                'data_status': {
+                    'has_today_data': has_today_data,
+                    'startup_candidates_count': startup_count,
+                    'needs_sync': not has_today_data and startup_count > 0,
+                },
             }
+
+            # 如果没有今天的数据，但有主线雷达数据，提示需要同步
+            if not has_today_data and startup_count > 0:
+                result['message'] = f'跟踪池数据未同步：主线雷达有 {startup_count} 条今日数据，请调用 sync-pool 接口同步'
+                logger.warning(f"跟踪池数据未同步：请求日期 {trade_date}，主线雷达有 {startup_count} 条数据")
+
+            return result
 
         except Exception as e:
             logger.error(f"获取跟踪池失败: {e}")

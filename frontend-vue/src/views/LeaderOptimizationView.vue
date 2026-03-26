@@ -10,6 +10,9 @@
         <Button size="sm" variant="outline" @click="checkDataStatus" :disabled="checkingData">
           {{ checkingData ? '检查中...' : '数据诊断' }}
         </Button>
+        <Button size="sm" variant="outline" @click="fillLimitUpData" :disabled="fillingLimitUp">
+          {{ fillingLimitUp ? '补充中...' : '补充涨停数据' }}
+        </Button>
         <Button size="sm" variant="primary" @click="refreshAll" :disabled="loading">
           {{ loading ? '加载中...' : '刷新数据' }}
         </Button>
@@ -412,6 +415,7 @@ const syncing = ref(false)
 const batchSyncing = ref(false)
 const calculating = ref(false)
 const checkingData = ref(false)
+const fillingLimitUp = ref(false)
 const showBuySignalTypes = ref(false)
 const selectedStock = ref(null)
 const dataStatus = ref(null)
@@ -567,6 +571,8 @@ async function fetchScoredPool() {
     const params = new URLSearchParams()
     if (poolFilter.value.grade) params.append('min_grade', poolFilter.value.grade)
     params.append('emotion_cycle', emotionCycle.value.cycle || '震荡期')
+    // 传入今天的日期，确保获取最新数据
+    params.append('trade_date', new Date().toISOString().split('T')[0])
 
     const res = await fetch(`/api/leader-score/pool?${params}`)
     const json = await res.json()
@@ -591,6 +597,7 @@ async function syncPool() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        trade_date: new Date().toISOString().split('T')[0],
         emotion_cycle: emotionCycle.value.cycle || '震荡期',
       }),
     })
@@ -722,6 +729,34 @@ async function checkDataStatus() {
     console.error('检查数据状态失败', e)
   } finally {
     checkingData.value = false
+  }
+}
+
+// 补充涨停数据
+async function fillLimitUpData() {
+  fillingLimitUp.value = true
+  try {
+    const tradeDate = new Date().toISOString().split('T')[0]
+    const res = await fetch(`/api/leader-optimization/fill-limit-up?trade_date=${tradeDate}`, {
+      method: 'POST',
+    })
+    const json = await res.json()
+    if (json.success) {
+      if (json.skipped) {
+        alert(json.message)
+      } else {
+        alert(`涨停数据补充完成！\n日期: ${json.trade_date}\n新增: ${json.added_count} 条\n总计: ${json.new_count} 条`)
+        // 刷新数据
+        await refreshAll()
+      }
+    } else {
+      alert('补充失败: ' + (json.message || '未知错误'))
+    }
+  } catch (e) {
+    console.error('补充涨停数据失败', e)
+    alert('补充涨停数据失败')
+  } finally {
+    fillingLimitUp.value = false
   }
 }
 

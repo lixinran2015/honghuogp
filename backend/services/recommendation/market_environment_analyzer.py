@@ -298,14 +298,12 @@ class MarketEnvironmentAnalyzer:
                 # 1. 涨停/跌停：优先 fact_market_emotion_daily（含涨停板采集、跌停从日线统计写入）
                 limit_up = None
                 limit_down = None
+                actual_data_date = None
                 try:
                     r_emotion = session.execute(
                         text("""
-                            SELECT total_limit_up, total_limit_down FROM fact_market_emotion_daily
-                            WHERE trade_date = (
-                                SELECT MAX(trade_date) FROM fact_market_emotion_daily
-                                WHERE trade_date <= :trade_date
-                            )
+                            SELECT total_limit_up, total_limit_down, trade_date FROM fact_market_emotion_daily
+                            WHERE trade_date = :trade_date
                         """),
                         params
                     )
@@ -315,22 +313,21 @@ class MarketEnvironmentAnalyzer:
                             limit_up = em[0]
                         if em[1] is not None:
                             limit_down = em[1]
+                        actual_data_date = em[2]
                 except Exception:
                     pass
-                
+
                 # 2. 涨跌比 + 备用涨停跌停：从 fact_daily_price_qfq 统计（全市场）
                 result = session.execute(
                     text("""
-                        SELECT 
+                        SELECT
                             COUNT(*) FILTER (WHERE change_pct > 0) as up_count,
                             COUNT(*) FILTER (WHERE change_pct < 0) as down_count,
                             COUNT(*) FILTER (WHERE change_pct >= 9.5) as limit_up,
-                            COUNT(*) FILTER (WHERE change_pct <= -9.5) as limit_down
+                            COUNT(*) FILTER (WHERE change_pct <= -9.5) as limit_down,
+                            MAX(trade_date) as actual_date
                         FROM fact_daily_price_qfq
-                        WHERE trade_date = (
-                            SELECT MAX(trade_date) FROM fact_daily_price_qfq
-                            WHERE trade_date <= :trade_date
-                        )
+                        WHERE trade_date = :trade_date
                     """),
                     params
                 )

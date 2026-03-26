@@ -270,3 +270,78 @@ async def get_data_status(
         raise HTTPException(status_code=500, detail=f"获取状态失败: {str(e)}")
     finally:
         session.close()
+
+
+@router.post("/fill-limit-up")
+async def fill_limit_up_data(
+    trade_date: Optional[date] = Query(None, description="交易日期，默认今天"),
+    force_update: bool = Query(False, description="强制更新，即使数据已存在"),
+) -> Dict:
+    """
+    补充涨停数据（fill_limitup_emotion.py 的 API 封装）
+
+    示例：
+        POST /api/leader-optimization/fill-limit-up?trade_date=2026-03-26
+    """
+    if trade_date is None:
+        trade_date = date.today()
+
+    ws = WarehouseService()
+    session = ws.get_session()
+
+    try:
+        # 检查现有数据
+        result = session.execute(
+            text("SELECT COUNT(*) FROM fact_limit_up_daily WHERE trade_date = :d"),
+            {'d': trade_date}
+        )
+        existing_count = result.scalar() or 0
+
+        if existing_count > 0 and not force_update:
+            return {
+                'success': True,
+                'trade_date': trade_date.isoformat(),
+                'skipped': True,
+                'existing_count': existing_count,
+                'message': f'涨停数据已存在 ({existing_count} 条)，跳过填充。如需强制更新，请设置 force_update=true',
+            }
+
+        # 执行填充
+        logger.info(f"开始补充涨停数据: {trade_date}")
+        from backend.scripts.data_fill.fill_limitup_emotion import fill_limit_up_daily, calculate_market_emotion
+
+        success = fill_limit_up_daily(trade_date.strftime('%Y-%m-%d'))
+
+        if success:
+            # 同时计算市场情绪
+            emotion_success = calculate_market_emotion(trade_date.strftime('%Y-%m-%d'))
+
+            # 获取填充后的数量
+            result = session.execute(
+                text("SELECT COUNT(*) FROM fact_limit_up_daily WHERE trade_date = :d"),
+                {'d': trade_date}
+            )
+            new_count = result.scalar() or 0
+
+            return {
+                'success': True,
+                'trade_date': trade_date.isoformat(),
+                'filled': True,
+                'previous_count': existing_count,
+                'new_count': new_count,
+                'added_count': new_count - existing_count,
+                'emotion_calculated': emotion_success,
+                'message': f'涨停数据填充完成，共 {new_count} 条{"（新增 " + str(new_count - existing_count) + " 条）" if new_count > existing_count else ""}',
+            }
+        else:
+            return {
+                'success': False,
+                'trade_date': trade_date.isoformat(),
+                'message': '涨停数据填充失败，请检查日志',
+            }
+
+    except Exception as e:
+        logger.error(f"填充涨停数据失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"填充失败: {str(e)}")
+    finally:
+        session.close()

@@ -98,6 +98,8 @@ class AdviceComplianceService:
         buy_date: date,
         close_date: date,
         profit_rate: float,
+        close_price: Optional[float] = None,
+        daily_close_price: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         在清仓时分析整个持仓周期的遵从度
@@ -166,8 +168,14 @@ class AdviceComplianceService:
             if should_reduce_date and days_ignored_reduce >= 2 and profit_rate < 0:
                 review_tags.append("该减仓没减")
 
-            # 3. 卖飞了（盈利但提前清仓）
-            if profit_rate > 10 and last_advice in ["hold", "add"]:
+            # 3. 卖飞了（清仓后当日收盘价较清仓价上涨超过4%）
+            # 计算清仓后涨幅：当日收盘价 vs 清仓价格
+            post_close_gain = 0.0
+            if close_price and daily_close_price and close_price > 0:
+                post_close_gain = (daily_close_price - close_price) / close_price * 100
+
+            # 卖飞条件：清仓后涨幅超过4%，且最后建议为持有/加仓
+            if post_close_gain > 4 and last_advice in ["hold", "add"]:
                 review_tags.append("卖飞了")
 
             # 4. 拿太久（持股超5天建议离场但未离场）
@@ -200,7 +208,7 @@ class AdviceComplianceService:
 
             # 生成复盘评语
             review_comment = self._generate_review_comment(
-                review_tags, profit_rate, days_ignored_close, days_ignored_reduce
+                review_tags, profit_rate, days_ignored_close, days_ignored_reduce, post_close_gain
             )
 
             result = {
@@ -218,6 +226,9 @@ class AdviceComplianceService:
                 "should_close_date": should_close_date.isoformat() if should_close_date else None,
                 "actual_close_date": close_date.isoformat(),
                 "profit_rate": profit_rate,
+                "close_price": close_price,
+                "daily_close_price": daily_close_price,
+                "post_close_gain": post_close_gain,
                 "compliance_type": compliance_type,
                 "compliance_score": compliance_score,
                 "review_tags": review_tags,
@@ -281,6 +292,7 @@ class AdviceComplianceService:
         profit_rate: float,
         days_ignored_close: int,
         days_ignored_reduce: int,
+        post_close_gain: float = 0.0,
     ) -> str:
         """生成人性化复盘评语"""
         comments = []
@@ -292,7 +304,7 @@ class AdviceComplianceService:
             comments.append(f"系统在{days_ignored_reduce}天前已建议减仓，但未执行，错失锁定部分利润的机会。")
 
         if "卖飞了" in review_tags:
-            comments.append("清仓时机偏早，系统当时仍建议持有，后续股价继续上涨。")
+            comments.append(f"清仓时机偏早，系统当时仍建议持有，当日收盘价较清仓价上涨{post_close_gain:.1f}%。")
 
         if "拿太久" in review_tags:
             comments.append("持股时间过长，系统多次建议离场但未能执行，资金效率偏低。")
@@ -332,6 +344,13 @@ class AdviceComplianceService:
                 existing.compliance_score = result["compliance_score"]
                 existing.review_tags = result["review_tags"]
                 existing.review_comment = result["review_comment"]
+                # 更新清仓价格相关字段（如果有）
+                if "close_price" in result:
+                    existing.close_price = result.get("close_price")
+                if "daily_close_price" in result:
+                    existing.daily_close_price = result.get("daily_close_price")
+                if "post_close_gain" in result:
+                    existing.post_close_gain = result.get("post_close_gain")
             else:
                 # 新建
                 record = FactAdviceCompliance(
@@ -349,6 +368,9 @@ class AdviceComplianceService:
                     should_close_date=result["should_close_date"],
                     actual_close_date=result["actual_close_date"],
                     profit_rate=result["profit_rate"],
+                    close_price=result.get("close_price"),
+                    daily_close_price=result.get("daily_close_price"),
+                    post_close_gain=result.get("post_close_gain"),
                     compliance_type=result["compliance_type"],
                     compliance_score=result["compliance_score"],
                     review_tags=result["review_tags"],

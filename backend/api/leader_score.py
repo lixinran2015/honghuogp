@@ -3,7 +3,7 @@
 Phase 2: 为跟踪池和推荐系统提供一致的评分接口
 """
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, Body, HTTPException
 from typing import Dict, List, Optional
 from datetime import date
 import logging
@@ -171,9 +171,9 @@ async def get_failed_cases_analysis(
 
 @router.post("/sync-pool")
 async def sync_pool_with_scoring(
-    trade_date: Optional[date] = Query(None, description="交易日，默认今日"),
-    emotion_cycle: str = Query("震荡期", description="情绪周期"),
-    record_failures: bool = Query(True, description="是否记录失败案例"),
+    trade_date: Optional[date] = Body(None, description="交易日，默认今日"),
+    emotion_cycle: str = Body("震荡期", description="情绪周期"),
+    record_failures: bool = Body(True, description="是否记录失败案例"),
 ) -> Dict:
     """
     同步跟踪池（带评分）

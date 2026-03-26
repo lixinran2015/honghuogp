@@ -453,6 +453,18 @@ class HoldingsService:
                 from backend.services.analysis.advice_compliance_service import AdviceComplianceService
                 compliance_service = AdviceComplianceService(self.warehouse)
                 profit_rate = ((final_close_price - avg_cost) / avg_cost * 100) if avg_cost > 0 else 0
+
+                # 获取当日收盘价（从实时数据）
+                daily_close_price = None
+                try:
+                    realtime_data = self._fetch_realtime_data([holding.symbol]) or {}
+                    c6 = code_6(holding.symbol)
+                    ri = realtime_data.get(c6) or realtime_data.get(holding.symbol, {})
+                    # 尝试获取收盘价，如果没有则使用当前价作为近似
+                    daily_close_price = ri.get("close") or ri.get("current_price") or final_close_price
+                except Exception:
+                    daily_close_price = final_close_price
+
                 compliance_service.analyze_compliance_on_close(
                     session=session,
                     user_id=user_id,
@@ -461,6 +473,8 @@ class HoldingsService:
                     buy_date=holding.buy_date,
                     close_date=date.today(),
                     profit_rate=profit_rate,
+                    close_price=final_close_price,
+                    daily_close_price=daily_close_price,
                 )
             except Exception as e:
                 logger.error("分析遵从度失败: %s", e)
