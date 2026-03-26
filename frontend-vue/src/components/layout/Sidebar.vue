@@ -1,58 +1,58 @@
 <template>
   <aside
     :class="[
-      'fixed left-0 top-0 w-64 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 overflow-y-auto z-40 transition-transform duration-300 ease-out',
+      'fixed left-0 top-0 w-64 h-screen bg-warmgray-50 border-r border-border overflow-y-auto z-40 transition-transform duration-300 ease-out',
       sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       'lg:translate-x-0'
     ]"
   >
     <!-- Logo区域 -->
-    <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 dark:border-gray-700">
-      <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-        <span class="text-white font-bold text-sm">选</span>
+    <div class="h-16 flex items-center gap-3 px-4 border-b border-border bg-warm-50">
+      <div class="w-8 h-8 bg-cta rounded-lg flex items-center justify-center shadow-lg shadow-cta/20">
+        <span class="text-white font-bold text-sm">龙</span>
       </div>
       <div class="flex-1 min-w-0">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">智能选股系统</h1>
-        <span :class="['text-xs px-1.5 py-0.5 rounded-full font-medium', systemModeClass]">
+        <h1 class="text-base font-semibold text-warmgray-800 truncate">短线龙头系统</h1>
+        <span :class="['text-xs px-1.5 py-0.5 rounded font-medium', systemModeClass]">
           {{ systemModeText }}
         </span>
       </div>
     </div>
 
     <!-- 菜单区域 -->
-    <nav class="p-4 space-y-1">
-      <div v-for="group in visibleMenuGroups" :key="group.id" class="mb-2">
+    <nav class="p-3 space-y-1">
+      <div v-for="group in visibleMenuGroups" :key="group.id" class="mb-1">
         <!-- 一级菜单标题（可点击） -->
         <button
           @click="toggleGroup(group.id)"
-          class="w-full px-3 py-2 text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between"
+          class="w-full px-3 py-2 text-xs font-semibold text-warmgray-500 uppercase tracking-wider hover:bg-warm-100 rounded-md transition-colors duration-150 flex items-center justify-between"
         >
           <span>{{ group.title }}</span>
           <component
             :is="isGroupExpanded(group.id) ? ChevronDownIcon : ChevronRightIcon"
-            class="w-4 h-4 text-gray-400"
+            class="w-3.5 h-3.5 text-warmgray-400"
           />
         </button>
-        
+
         <!-- 二级菜单项（可折叠） -->
         <transition name="slide-down">
-          <div v-show="isGroupExpanded(group.id)" class="mt-1 space-y-1">
+          <div v-show="isGroupExpanded(group.id)" class="mt-0.5 space-y-0.5">
             <button
               v-for="item in group.items"
               :key="item.path"
               @click="handleNavClick(item)"
               :class="[
-                'w-full px-3 py-2 rounded-lg text-base font-medium transition-colors flex items-center gap-3',
+                'w-full px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 flex items-center gap-2.5',
                 isActive(item.path)
-                  ? 'text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  ? 'text-warmgray-900 bg-primary-100 border-l-2 border-cta'
+                  : 'text-warmgray-600 hover:text-warmgray-900 hover:bg-warm-100'
               ]"
             >
               <component
                 :is="getIconComponent(item.icon)"
                 :class="[
-                  'w-5 h-5 flex-shrink-0',
-                  isActive(item.path) ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'
+                  'w-4 h-4 flex-shrink-0',
+                  isActive(item.path) ? 'text-cta' : 'text-warmgray-400'
                 ]"
               />
               <span>{{ item.label }}</span>
@@ -61,6 +61,14 @@
         </transition>
       </div>
     </nav>
+
+    <!-- 底部信息 -->
+    <div class="absolute bottom-0 left-0 right-0 p-3 border-t border-border bg-warmgray-50">
+      <div class="flex items-center gap-2 text-xs text-warmgray-500">
+        <div class="w-2 h-2 rounded-full bg-profit live-indicator"></div>
+        <span>系统运行正常</span>
+      </div>
+    </div>
   </aside>
 </template>
 
@@ -267,10 +275,10 @@ const systemModeText = computed(() => {
 // 系统模式样式
 const systemModeClass = computed(() => {
   switch (systemMode.value) {
-    case 'short_term': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-    case 'long_term': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-    case 'all': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-    default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+    case 'short_term': return 'bg-cta/15 text-cta'
+    case 'long_term': return 'bg-primary-100 text-primary-700'
+    case 'all': return 'bg-profit/15 text-profit'
+    default: return 'bg-warm-100 text-warmgray-500'
   }
 })
 
@@ -312,19 +320,19 @@ const handleNavClick = (item) => {
 <style scoped>
 /* 折叠展开动画 */
 .slide-down-enter-active {
-  transition: all 0.3s ease-out;
+  transition: all 0.2s ease-out;
   overflow: hidden;
 }
 
 .slide-down-leave-active {
-  transition: all 0.3s ease-in;
+  transition: all 0.15s ease-in;
   overflow: hidden;
 }
 
 .slide-down-enter-from {
   opacity: 0;
   max-height: 0;
-  transform: translateY(-10px);
+  transform: translateY(-5px);
 }
 
 .slide-down-enter-to {
@@ -342,6 +350,6 @@ const handleNavClick = (item) => {
 .slide-down-leave-to {
   opacity: 0;
   max-height: 0;
-  transform: translateY(-10px);
+  transform: translateY(-5px);
 }
 </style>

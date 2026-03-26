@@ -1,49 +1,52 @@
 <template>
-  <div class="container mx-auto px-4 py-6">
+  <div class="p-4 lg:p-6 bg-warm-50 min-h-screen">
     <!-- 标题 -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">龙头跟踪</h1>
-        <p class="text-sm text-gray-500 mt-1">
-          与「主线雷达」一致：仅纳入<strong class="text-gray-700">主线强度 &gt; 5</strong> 板块中强度排名前 <strong class="text-gray-700">10</strong> 的空间龙头与刚启动；并与<strong class="text-gray-700">持久跟踪池</strong>合并展示（池中「刚启动」入池条件略宽于雷达当日标签，避免滚动快照一日游导致从未入库）。右侧为最近 20 日收盘与 MA20，便于跟踪节奏与支撑。若升级规则后需重灌历史池，可在地址栏加参数 <code class="text-xs bg-gray-100 px-1 rounded">?replayPoolSync=1</code> 后点刷新。
+        <h1 class="text-xl font-bold text-warmgray-900">龙头跟踪</h1>
+        <p class="text-sm text-warmgray-500 mt-1 max-w-4xl">
+          与「主线雷达」一致：仅纳入<strong class="text-warmgray-900">主线强度 &gt; 5</strong> 板块中强度排名前 <strong class="text-warmgray-900">10</strong> 的空间龙头与刚启动；并与<strong class="text-warmgray-900">持久跟踪池</strong>合并展示。
         </p>
       </div>
       <button
-        class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
+        class="px-4 py-2 rounded-md text-sm font-medium text-warmgray-900 bg-cta hover:bg-cta-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         :disabled="loading"
         @click="fetchData"
       >
-        {{ loading ? '加载中...' : '刷新' }}
+        {{ loading ? '加载中...' : '刷新数据' }}
       </button>
     </div>
 
     <!-- 错误提示 -->
     <div
       v-if="error"
-      class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg"
+      class="mb-4 bg-loss/10 border border-loss/30 text-loss text-sm px-4 py-3 rounded-lg"
     >
-      {{ error }}
+      <div class="flex items-center gap-2">
+        <ExclamationCircleIcon class="w-4 h-4" />
+        {{ error }}
+      </div>
     </div>
 
     <div class="space-y-4">
       <!-- 龙头列表 + 日线图 -->
       <div class="space-y-4">
         <!-- 全局筛选条 -->
-        <div class="bg-white rounded-xl shadow border border-gray-100 p-3 flex flex-wrap items-center gap-3 text-xs">
+        <div class="bg-warmgray-100 rounded-lg border border-warmgray-200 p-3 flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
-            <span class="text-gray-500">筛选</span>
+            <span class="text-2xs text-warmgray-500 uppercase">筛选</span>
             <input
               v-model="keyword"
               type="text"
-              class="px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+              class="px-2 py-1.5 bg-warmgray-50 border border-warmgray-200 rounded-md text-sm text-warmgray-900 focus:outline-none focus:border-primary-700 transition-colors"
               placeholder="按股票名称 / 代码 / 题材关键词过滤"
             />
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500">状态</span>
+            <span class="text-2xs text-warmgray-500 uppercase">状态</span>
             <select
               v-model="retreatFilter"
-              class="px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+              class="px-2 py-1.5 bg-warmgray-50 border border-warmgray-200 rounded-md text-sm text-warmgray-900 focus:outline-none focus:border-primary-700 transition-colors"
             >
               <option value="">全部</option>
               <option value="强势">强势</option>
@@ -52,10 +55,10 @@
             </select>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500">类型</span>
+            <span class="text-2xs text-warmgray-500 uppercase">类型</span>
             <select
               v-model="leaderTypeFilter"
-              class="px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+              class="px-2 py-1.5 bg-warmgray-50 border border-warmgray-200 rounded-md text-sm text-warmgray-900 focus:outline-none focus:border-primary-700 transition-colors"
             >
               <option value="">全部</option>
               <option value="space">空间龙头</option>
@@ -63,10 +66,10 @@
             </select>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500">成交额</span>
+            <span class="text-2xs text-warmgray-500 uppercase">成交额</span>
             <select
               v-model="amountFilter"
-              class="px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+              class="px-2 py-1.5 bg-warmgray-50 border border-warmgray-200 rounded-md text-sm text-warmgray-900 focus:outline-none focus:border-primary-700 transition-colors"
             >
               <option value="">全部</option>
               <option value="1">≥ 1 亿</option>
@@ -76,73 +79,73 @@
             </select>
           </div>
         <div class="flex items-center gap-2" title="用于「历史买点回测」接口筛选；龙头列表当日主线口径固定为强度>5 的前 10 条，不受此项影响">
-          <span class="text-gray-500">回测·主线强度下限</span>
+          <span class="text-2xs text-warmgray-500 uppercase">回测·主线强度下限</span>
           <input
             v-model.number="minStrength"
             type="number"
             min="0"
             max="20"
             step="0.5"
-            class="w-20 px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+            class="w-20 px-2 py-1.5 bg-warmgray-50 border border-warmgray-200 rounded-md text-sm text-warmgray-900 focus:outline-none focus:border-primary-700 transition-colors"
           />
         </div>
-          <label class="inline-flex items-center gap-1 text-gray-600 cursor-pointer">
+          <label class="inline-flex items-center gap-1 text-warmgray-500 cursor-pointer hover:text-warmgray-900 transition-colors">
             <input
               v-model="onlyBuyCandidates"
               type="checkbox"
-              class="h-3 w-3 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="w-3.5 h-3.5 rounded border-warmgray-200 bg-warmgray-50 text-cta focus:ring-cta focus:ring-offset-0"
             />
             <span>只看买点候选</span>
           </label>
-          <label class="inline-flex items-center gap-1 text-gray-600 cursor-pointer">
+          <label class="inline-flex items-center gap-1 text-warmgray-500 cursor-pointer hover:text-warmgray-900 transition-colors">
             <input
               v-model="onlyMultiSectors"
               type="checkbox"
-              class="h-3 w-3 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="w-3.5 h-3.5 rounded border-warmgray-200 bg-warmgray-50 text-cta focus:ring-cta focus:ring-offset-0"
             />
             <span>只看涉及 ≥2 个题材/板块 的龙头</span>
           </label>
-          <label class="inline-flex items-center gap-1 text-emerald-700 cursor-pointer" title="强势/震荡排在前列；退潮风险沉底，避免长线龙头被挤到后页">
+          <label class="inline-flex items-center gap-1 text-profit cursor-pointer hover:text-profit/80 transition-colors" title="强势/震荡排在前列；退潮风险沉底，避免长线龙头被挤到后页">
             <input
               v-model="prioritizeTrendAlive"
               type="checkbox"
-              class="h-3 w-3 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+              class="w-3.5 h-3.5 rounded border-warmgray-200 bg-warmgray-50 text-profit focus:ring-profit focus:ring-offset-0"
             />
             <span>优先趋势未断（强势/震荡靠前）</span>
           </label>
           <label
-            class="inline-flex items-center gap-1 text-indigo-700 cursor-pointer"
+            class="inline-flex items-center gap-1 text-primary-400 cursor-pointer hover:text-primary-300 transition-colors"
             title="取消勾选可查看池中已标为退潮风险的标的（便于复盘）"
           >
             <input
               v-model="onlyTrendAlive"
               type="checkbox"
-              class="h-3 w-3 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="w-3.5 h-3.5 rounded border-warmgray-200 bg-warmgray-50 text-cta focus:ring-cta focus:ring-offset-0"
             />
             <span>龙头列表仅展示趋势未断（隐藏退潮）</span>
           </label>
         </div>
 
         <!-- 综合龙头列表：一行一个股票 -->
-        <div class="bg-white rounded-xl shadow border border-gray-100 p-4">
+        <div class="bg-warmgray-100 rounded-lg border border-warmgray-200 overflow-hidden">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-sm font-semibold text-gray-800">龙头列表（空间龙头 / 刚启动）</div>
-              <div class="text-xs text-gray-400 mt-0.5">
-                列表 = <span class="text-gray-600">持久跟踪池</span> ∪ <span class="text-gray-600">当日雷达（强度 &gt; 5 的前 10 条主线上的空间/刚启动）</span>，按票去重。日线计算强势 / 震荡 / 退潮。勾选「仅展示趋势未断」会隐藏退潮；取消勾选可看退潮票。「优先趋势未断」排序时强势/震荡靠前。
+              <div class="text-sm font-semibold text-warmgray-900">龙头列表（空间龙头 / 刚启动）</div>
+              <div class="text-2xs text-warmgray-500 mt-0.5">
+                列表 = <span class="text-warmgray-500">持久跟踪池</span> ∪ <span class="text-warmgray-500">当日雷达（强度 &gt; 5 的前 10 条主线上的空间/刚启动）</span>，按票去重。日线计算强势 / 震荡 / 退潮。勾选「仅展示趋势未断」会隐藏退潮；取消勾选可看退潮票。「优先趋势未断」排序时强势/震荡靠前。
               </div>
             </div>
             <div class="flex items-center gap-3">
               <button
                 type="button"
-                class="text-[11px] text-indigo-600 hover:text-indigo-800 underline"
+                class="text-2xs text-cta hover:text-cta-hover underline transition-colors"
                 @click="openLeaderBuyBacktest"
               >
                 查看历史买点表现
               </button>
               <button
                 type="button"
-                class="px-2.5 py-1 rounded-md text-[11px] font-medium border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                class="px-3 py-1.5 rounded-md text-2xs font-medium border border-profit/30 text-profit bg-profit/10 hover:bg-profit/10 disabled:opacity-50"
                 :disabled="leaderRowsPaged.length === 0"
                 @click="bulkTrack('page')"
               >
@@ -154,22 +157,22 @@
           <!-- 今日真龙头推荐（Top3） -->
           <div
             v-if="dailyTrueDragons.length"
-            class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-3"
+            class="bg-primary-700/20 border border-primary-700/30 rounded-lg p-3 mb-3"
             title="自动从当前龙头列表中选 Top3：连板高度/主线数/量能/末次信号，并受“仅展示趋势未断”过滤"
           >
-            <div class="text-sm font-semibold text-indigo-800">今日真龙头（3只）</div>
-            <div class="text-[11px] text-indigo-700/90 mt-0.5">
+            <div class="text-sm font-semibold text-primary-400">今日真龙头（3只）</div>
+            <div class="text-2xs text-primary-400/80 mt-0.5">
               Top3 排序后展示；如勾选「仅展示趋势未断」，退潮风险会被过滤。
             </div>
             <div class="flex flex-wrap gap-2 mt-2">
               <div
                 v-for="(d, i) in dailyTrueDragons"
                 :key="d.row.ts_code"
-                class="bg-white/70 border border-indigo-100 rounded-lg px-2 py-1.5 min-w-[220px]"
+                class="bg-warmgray-50/70 border border-primary-700/20 rounded-lg px-2 py-1.5 min-w-[220px]"
               >
                 <div class="flex items-center justify-between gap-2">
-              <div class="text-[10px] text-indigo-700 font-mono">#{{ i + 1 }}</div>
-                  <div class="text-[10px] text-gray-500">
+              <div class="text-2xs text-primary-400 font-mono">#{{ i + 1 }}</div>
+                  <div class="text-[10px] text-2xs text-warmgray-500 uppercase">
                     {{
                       d.row.is_space && d.row.is_new
                         ? '空间+刚启动'
@@ -179,20 +182,20 @@
                     }}
                   </div>
                 </div>
-                <div class="text-xs font-semibold text-gray-800 truncate mt-0.5">
+                <div class="text-sm font-semibold text-warmgray-900 truncate mt-0.5">
                   {{ d.row.name || d.row.ts_code }}
                 </div>
-                <div class="text-[10px] text-indigo-700/90 mt-0.5">
+                <div class="text-2xs text-primary-400/80 mt-0.5">
                   {{ d.buyText }}
                 </div>
-                <div v-if="d.possibleText" class="text-[10px] text-indigo-700/70 mt-0.5">
+                <div v-if="d.possibleText" class="text-2xs text-primary-400/60 mt-0.5">
                   {{ d.possibleText }}
                 </div>
-                <div class="text-[10px] text-gray-600 mt-0.5">{{ d.reason }}</div>
+                <div class="text-2xs text-warmgray-500 mt-0.5">{{ d.reason }}</div>
               </div>
             </div>
           </div>
-          <div class="text-[11px] text-gray-400 border-b border-gray-100 pb-1 mb-2 grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center">
+          <div class="text-2xs text-warmgray-500 border-b border-warmgray-200 pb-1 mb-2 grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center">
             <div class="text-center">序号</div>
             <div class="text-center">自选</div>
             <div>名称 / 代码 / 类型</div>
@@ -209,7 +212,7 @@
               @click="toggleSort('pctToday')"
             >
               <span>今日涨幅</span>
-              <span v-if="sortKey === 'pctToday'" class="text-[10px] text-gray-400">
+              <span v-if="sortKey === 'pctToday'" class="text-[10px] text-warmgray-500">
                 {{ sortOrder === 'desc' ? '↓' : '↑' }}
               </span>
             </button>
@@ -219,7 +222,7 @@
               @click="toggleSort('pct20d')"
             >
               <span>近20日涨幅</span>
-              <span v-if="sortKey === 'pct20d'" class="text-[10px] text-gray-400">
+              <span v-if="sortKey === 'pct20d'" class="text-[10px] text-warmgray-500">
                 {{ sortOrder === 'desc' ? '↓' : '↑' }}
               </span>
             </button>
@@ -229,7 +232,7 @@
               @click="toggleSort('pct60d')"
             >
               <span>近60日涨幅</span>
-              <span v-if="sortKey === 'pct60d'" class="text-[10px] text-gray-400">
+              <span v-if="sortKey === 'pct60d'" class="text-[10px] text-warmgray-500">
                 {{ sortOrder === 'desc' ? '↓' : '↑' }}
               </span>
             </button>
@@ -239,7 +242,7 @@
               @click="toggleSort('dd20')"
             >
               <span>20日最大回撤</span>
-              <span v-if="sortKey === 'dd20'" class="text-[10px] text-gray-400">
+              <span v-if="sortKey === 'dd20'" class="text-[10px] text-warmgray-500">
                 {{ sortOrder === 'asc' ? '↑' : '↓' }}
               </span>
             </button>
@@ -256,7 +259,7 @@
             <div class="text-center">20日线图</div>
             <div class="text-right">收盘价</div>
           </div>
-          <div v-if="leaderRows.length === 0" class="text-xs text-gray-400">暂无数据。</div>
+          <div v-if="leaderRows.length === 0" class="text-xs text-warmgray-500">暂无数据。</div>
           <div v-else class="space-y-1 pr-1">
             <div class="min-h-[320px]">
             <button
@@ -266,16 +269,16 @@
               class="w-full text-left px-1 py-1.5 rounded-lg text-xs grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center"
               :class="selectedTsCode === row.ts_code
                 ? 'bg-indigo-50 border border-indigo-200'
-                : 'hover:bg-gray-50 border border-transparent'"
+                : 'hover:bg-warmgray-50 border border-transparent'"
               @click="selectStock(row.ts_code, row.name)"
             >
-              <div class="text-center text-gray-500 font-mono text-[11px]">
+              <div class="text-center text-2xs text-warmgray-500 uppercase font-mono text-[11px]">
                 {{ (currentPage - 1) * PAGE_SIZE + index + 1 }}
               </div>
               <div class="flex justify-center">
                 <span
                   class="text-[11px] cursor-pointer"
-                  :class="isPinned(row.ts_code) ? 'text-yellow-500' : 'text-gray-300'"
+                  :class="isPinned(row.ts_code) ? 'text-yellow-500' : '--text-warmgray-500'"
                   @click.stop="togglePin(row.ts_code)"
                 >
                   {{ isPinned(row.ts_code) ? '★' : '☆' }}
@@ -287,7 +290,7 @@
                   <button
                     type="button"
                     class="ml-1 px-1.5 py-0.5 rounded text-[10px] border"
-                    :class="trackingPoolPlain[row.ts_code] ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-gray-500 border-gray-200'"
+                    :class="trackingPoolPlain[row.ts_code] ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-2xs text-warmgray-500 uppercase border-warmgray-200'"
                     @click.stop="toggleTrack(row)"
                     :title="trackingPoolPlain[row.ts_code]?.reason || trackReasonForRow(row)"
                   >
@@ -295,7 +298,7 @@
                   </button>
                 </div>
                 <div class="flex items-center gap-1 min-w-0">
-                  <span class="font-mono text-[11px] text-gray-500 truncate">{{ row.ts_code }}</span>
+                  <span class="font-mono text-[11px] text-2xs text-warmgray-500 uppercase truncate">{{ row.ts_code }}</span>
                   <span
                     v-if="row.is_space && row.is_new"
                     class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 flex-shrink-0"
@@ -315,7 +318,7 @@
                     刚启动
                   </span>
                 </div>
-                <div class="flex flex-wrap gap-1 text-[10px] text-gray-500">
+                <div class="flex flex-wrap gap-1 text-[10px] text-2xs text-warmgray-500 uppercase">
                   <span v-if="row.continuous_limit != null">
                     连板: {{ row.continuous_limit }}
                   </span>
@@ -352,7 +355,7 @@
                 </div>
               </div>
               <div
-                class="text-left text-[10px] text-gray-600 leading-snug pl-0.5 min-w-0"
+                class="text-left text-[10px] text-warmgray-500 leading-snug pl-0.5 min-w-0"
                 :title="poolInTimeTitle(row)"
               >
                 {{ formatPoolInTime(row) }}
@@ -362,83 +365,83 @@
                   v-if="realtimeQuotesMap[row.ts_code]?.pct_chg != null"
                   class="text-xs font-medium"
                   :class="(realtimeQuotesMap[row.ts_code].pct_chg ?? 0) > 0
-                    ? 'text-red-600'
+                    ? 'text-loss'
                     : (realtimeQuotesMap[row.ts_code].pct_chg ?? 0) < 0
-                      ? 'text-green-600'
-                      : 'text-gray-600'"
+                      ? 'text-profit'
+                      : 'text-warmgray-500'"
                 >
                   {{ (realtimeQuotesMap[row.ts_code].pct_chg >= 0 ? '+' : '') + Number(realtimeQuotesMap[row.ts_code].pct_chg).toFixed(2) }}%
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="rowStatsPlain[row.ts_code]?.pct20dText"
                   class="text-xs"
                   :class="(rowStatsPlain[row.ts_code]?.pct20d ?? 0) > 0
-                    ? 'text-red-600'
+                    ? 'text-loss'
                     : (rowStatsPlain[row.ts_code]?.pct20d ?? 0) < 0
-                      ? 'text-green-600'
-                      : 'text-gray-600'"
+                      ? 'text-profit'
+                      : 'text-warmgray-500'"
                 >
                   {{ rowStatsPlain[row.ts_code].pct20dText }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="rowStatsPlain[row.ts_code]?.pct60dText"
                   class="text-xs"
                   :class="(rowStatsPlain[row.ts_code]?.pct60d ?? 0) > 0
-                    ? 'text-red-600'
+                    ? 'text-loss'
                     : (rowStatsPlain[row.ts_code]?.pct60d ?? 0) < 0
-                      ? 'text-green-600'
-                      : 'text-gray-600'"
+                      ? 'text-profit'
+                      : 'text-warmgray-500'"
                 >
                   {{ rowStatsPlain[row.ts_code].pct60dText }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="rowStatsPlain[row.ts_code]?.maxDrawdown20Text"
                   class="text-xs"
                   :class="(rowStatsPlain[row.ts_code]?.maxDrawdown20 ?? 0) <= -15
-                    ? 'text-red-600'
+                    ? 'text-loss'
                     : (rowStatsPlain[row.ts_code]?.maxDrawdown20 ?? 0) <= -5
-                      ? 'text-yellow-600'
-                      : 'text-green-600'"
+                      ? 'text-warning'
+                      : 'text-profit'"
                 >
                   {{ rowStatsPlain[row.ts_code].maxDrawdown20Text }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="rowStatsPlain[row.ts_code]?.lastAmountEText"
-                  class="text-xs text-gray-700"
+                  class="text-xs text-warmgray-600"
                 >
                   {{ rowStatsPlain[row.ts_code].lastAmountEText }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="getRowBacktest(row)"
-                  class="text-xs text-gray-700"
+                  class="text-xs text-warmgray-600"
                 >
                   {{ formatPct(getRowBacktest(row).ret_5d_avg) }} / {{ formatPct(getRowBacktest(row).ret_5d_win_rate) }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-right">
                 <span
                   v-if="getRowBacktest(row)"
-                  class="text-xs text-gray-700"
+                  class="text-xs text-warmgray-600"
                 >
                   {{ formatPct(getRowBacktest(row).ret_10d_avg) }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-center">
                 <span
@@ -459,7 +462,7 @@
                 >
                   刚启动
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div class="text-center" :title="(rowStatsPlain[row.ts_code]?.retreat_reasons || []).join('；')">
                 <span
@@ -473,7 +476,7 @@
                 >
                   {{ rowStatsPlain[row.ts_code].retreat_label }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
               <div>
                 <MiniKLine
@@ -484,24 +487,24 @@
               <div class="text-right">
                 <span
                   v-if="rowStatsPlain[row.ts_code]?.lastClose != null"
-                  class="text-xs text-gray-700"
+                  class="text-xs text-warmgray-600"
                 >
                   {{ rowStatsPlain[row.ts_code].lastClose.toFixed(2) }}
                 </span>
-                <span v-else class="text-gray-300">--</span>
+                <span v-else class="--text-warmgray-500">--</span>
               </div>
             </button>
             </div>
             <!-- 翻页：仅当总数 > 10 时显示 -->
             <div
               v-if="leaderRows.length > PAGE_SIZE"
-              class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600"
+              class="mt-3 pt-3 border-t border-warmgray-200-light flex items-center justify-between text-xs text-warmgray-500"
             >
               <span>共 {{ leaderRows.length }} 只</span>
               <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="px-2 py-1 rounded border border-warmgray-200 hover:bg-warmgray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="currentPage <= 1"
                   @click="currentPage = Math.max(1, currentPage - 1)"
                 >
@@ -510,7 +513,7 @@
                 <span class="min-w-[80px] text-center">第 {{ currentPage }} / {{ totalPages }} 页</span>
                 <button
                   type="button"
-                  class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="px-2 py-1 rounded border border-warmgray-200 hover:bg-warmgray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="currentPage >= totalPages"
                   @click="currentPage = Math.min(totalPages, currentPage + 1)"
                 >
@@ -530,6 +533,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import MiniKLine from '../components/MiniKLine.vue'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
