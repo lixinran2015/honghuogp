@@ -148,5 +148,13 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load leader_optimization_quick router: {e}")
 
+    # 因子验证系统（Phase 1）
+    try:
+        from backend.api.factor_validation import router as factor_validation_router
+        routers.append(factor_validation_router)
+        logger.info("Loaded short_term route: factor_validation")
+    except ImportError as e:
+        logger.warning(f"Failed to load factor_validation router: {e}")
+
     logger.info(f"Total short_term routes loaded: {len(routers)}")
     return routers
