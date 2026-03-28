@@ -18,10 +18,10 @@ __all__ = [
 # 动态加载并导出模型
 try:
     _models = load_models()
-    for _model in _models:
-        globals()[_model.__name__] = _model
-        if _model.__name__ not in __all__:
-            __all__.append(_model.__name__)
+    for _attr_name, _model in _models:
+        globals()[_attr_name] = _model
+        if _attr_name not in __all__:
+            __all__.append(_attr_name)
 except Exception as e:
     import logging
     logging.warning(f"Failed to load models dynamically: {e}")

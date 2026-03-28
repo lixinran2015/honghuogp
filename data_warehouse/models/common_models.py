@@ -44,6 +44,9 @@ from .sold_stock import FactSoldStock
 from .hot_sector import DimHotSector
 from .scheduled_task import DimScheduledTask
 
+# 别名：FactDailyPrice 指向 FactDailyPriceQfq（前复权价格）- 保持向后兼容
+FactDailyPrice = FactDailyPriceQfq
+
 __all__ = [
     # 基础
     'Base',
@@ -58,6 +61,7 @@ __all__ = [
     'DimScheduledTask',
     'DimSectorRotationConfig',
     # 事实表 - 价格/基础数据
+    'FactDailyPrice',
     'FactDailyPriceQfq',
     'FactFundamental',
     'FactDailyFundamental',
