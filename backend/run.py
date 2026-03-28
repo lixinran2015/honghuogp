@@ -1,28 +1,91 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-启动FastAPI后端服务
+统一启动入口
+
+根据参数启动不同服务
 """
-
 import os
-import uvicorn
+import sys
+import argparse
+from pathlib import Path
 
-# 尝试从项目根目录的 .env 文件加载环境变量
-try:
-    from dotenv import load_dotenv
-    _env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-    if os.path.exists(_env_path):
-        load_dotenv(_env_path)
-except ImportError:
-    pass  # python-dotenv 未安装时忽略，依赖系统环境变量
+# 添加项目根目录到路径
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=False,  # 关闭热重载，减少内存占用
-        log_level="info",
-        access_log=False  # 禁用 uvicorn 的访问日志，避免后台任务执行时的文件流关闭错误（应用已有自定义日志中间件）
+
+def main():
+    """统一启动入口"""
+    parser = argparse.ArgumentParser(description='启动量化交易系统')
+    parser.add_argument(
+        '--service', '-s',
+        choices=['short', 'long', 'all'],
+        default='all',
+        help='启动的服务类型 (short:短线, long:长线, all:全部)'
+    )
+    parser.add_argument(
+        '--port', '-p',
+        type=int,
+        default=None,
+        help='服务端口号'
+    )
+    parser.add_argument(
+        '--host',
+        default='0.0.0.0',
+        help='服务绑定地址'
+    )
+    parser.add_argument(
+        '--no-reload',
+        action='store_true',
+        help='禁用热重载（生产环境）'
     )
 
+    args = parser.parse_args()
+
+    # 设置服务类型
+    service_map = {
+        'short': 'short_term',
+        'long': 'long_term',
+        'all': 'all'
+    }
+    os.environ['SERVICE_TYPE'] = service_map[args.service]
+
+    # 设置端口
+    if args.port is None:
+        port_map = {
+            'short': 8000,
+            'long': 8001,
+            'all': 8000
+        }
+        args.port = port_map[args.service]
+
+    # 启动服务
+    import uvicorn
+
+    service_names = {
+        'short': '短线龙头',
+        'long': '长线趋势',
+        'all': '完整系统'
+    }
+
+    print("=" * 50)
+    print(f"🚀 启动{service_names[args.service]}服务...")
+    print("=" * 50)
+    print(f"   服务类型: {service_map[args.service]}")
+    print(f"   访问地址: http://{args.host}:{args.port}")
+    print(f"   API文档: http://{args.host}:{args.port}/docs")
+    print(f"   热重载: {'禁用' if args.no_reload else '启用'}")
+    print("=" * 50 + "\n")
+
+    uvicorn.run(
+        "backend.app:app",
+        host=args.host,
+        port=args.port,
+        reload=not args.no_reload,
+        reload_dirs=["backend"] if not args.no_reload else None
+    )
+
+
+if __name__ == "__main__":
+    main()
