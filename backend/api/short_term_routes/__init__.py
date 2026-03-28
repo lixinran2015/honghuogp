@@ -140,5 +140,13 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load leader_optimization_diag router: {e}")
 
+    # 龙头优化快捷操作
+    try:
+        from backend.api.leader_optimization_quick import router as leader_optimization_quick_router
+        routers.append(leader_optimization_quick_router)
+        logger.info("Loaded short_term route: leader_optimization_quick")
+    except ImportError as e:
+        logger.warning(f"Failed to load leader_optimization_quick router: {e}")
+
     logger.info(f"Total short_term routes loaded: {len(routers)}")
     return routers
