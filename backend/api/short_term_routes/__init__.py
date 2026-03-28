@@ -92,5 +92,53 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load sectors/sector_rotation router: {e}")
 
+    # 情绪周期
+    try:
+        from backend.api.emotion_cycle import router as emotion_cycle_router
+        routers.append(emotion_cycle_router)
+        logger.info("Loaded short_term route: emotion_cycle")
+    except ImportError as e:
+        logger.warning(f"Failed to load emotion_cycle router: {e}")
+
+    # 模型监控
+    try:
+        from backend.api.model_monitor import router as model_monitor_router
+        routers.append(model_monitor_router)
+        logger.info("Loaded short_term route: model_monitor")
+    except ImportError as e:
+        logger.warning(f"Failed to load model_monitor router: {e}")
+
+    # 龙头推荐
+    try:
+        from backend.api.leader_recommendation import router as leader_recommendation_router
+        routers.append(leader_recommendation_router)
+        logger.info("Loaded short_term route: leader_recommendation")
+    except ImportError as e:
+        logger.warning(f"Failed to load leader_recommendation router: {e}")
+
+    # 龙头评分
+    try:
+        from backend.api.leader_score import router as leader_score_router
+        routers.append(leader_score_router)
+        logger.info("Loaded short_term route: leader_score")
+    except ImportError as e:
+        logger.warning(f"Failed to load leader_score router: {e}")
+
+    # 龙头信号
+    try:
+        from backend.api.leader_signals import router as leader_signals_router
+        routers.append(leader_signals_router)
+        logger.info("Loaded short_term route: leader_signals")
+    except ImportError as e:
+        logger.warning(f"Failed to load leader_signals router: {e}")
+
+    # 龙头优化诊断
+    try:
+        from backend.api.leader_optimization_diag import router as leader_optimization_diag_router
+        routers.append(leader_optimization_diag_router)
+        logger.info("Loaded short_term route: leader_optimization_diag")
+    except ImportError as e:
+        logger.warning(f"Failed to load leader_optimization_diag router: {e}")
+
     logger.info(f"Total short_term routes loaded: {len(routers)}")
     return routers
