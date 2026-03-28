@@ -20,6 +20,9 @@ from . import (
     leader_buy_backtest,
 )
 
+# 导入启动监控路由（来自 watch 模块）
+from backend.api.watch import startup_watch
+
 # 创建主路由
 router = APIRouter(prefix="/api/startup", tags=["startup"])
 
@@ -36,6 +39,9 @@ router.include_router(financial_check.router)
 router.include_router(sector_strength.router)
 router.include_router(rotation_hint.router)
 router.include_router(leader_buy_backtest.router)
+
+# 注册监控路由（前缀 /api/startup/watch）
+router.include_router(startup_watch.router)
 
 __all__ = ["router"]
 
