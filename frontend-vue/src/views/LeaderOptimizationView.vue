@@ -512,7 +512,12 @@ async function fetchEmotionCycle() {
     const json = await res.json()
     console.log('情绪周期API返回:', json)
     if (json.success) {
-      emotionCycle.value = json.data
+      // 合并 data 和 entry_threshold、data_source
+      emotionCycle.value = {
+        ...json.data,
+        entry_threshold: json.entry_threshold,
+        data_source: json.data_source,
+      }
       console.log('情绪周期数据已设置:', emotionCycle.value)
     }
   } catch (e) {
