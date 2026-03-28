@@ -92,6 +92,65 @@ data_warehouse/
 └── sources/                # 数据源实现
 ```
 
+## 双服务架构
+
+本项目支持以三种模式运行：
+
+### 1. 短线龙头服务（推荐）
+只启动短线相关功能，端口8000：
+```bash
+python backend/run_short_term.py
+# 或
+python backend/run.py --service short
+```
+
+### 2. 长线趋势服务
+只启动长线相关功能，端口8001：
+```bash
+python backend/run_long_term.py
+# 或
+python backend/run.py --service long --port 8001
+```
+
+### 3. 完整系统
+启动所有功能（开发调试）：
+```bash
+python backend/run.py --service all
+```
+
+### 服务类型说明
+
+通过环境变量 `SERVICE_TYPE` 控制服务类型：
+- `short_term`: 只加载短线模块和共享模块
+- `long_term`: 只加载长线模块和共享模块
+- `all`: 加载所有模块（默认）
+
+### 数据库隔离（可选）
+
+使用PostgreSQL schema隔离数据：
+```bash
+# 初始化schema
+python data_warehouse/schema_manager.py init
+
+# 列出所有schema
+python data_warehouse/schema_manager.py list
+
+# 重置schema（谨慎使用）
+python data_warehouse/schema_manager.py reset
+```
+
+### 模块系统与双服务的关系
+
+模块配置（config.json）控制功能开关，服务类型（SERVICE_TYPE）控制加载哪些模块的路由和服务：
+
+| 服务类型 | 加载的模块 |
+|---------|-----------|
+| short_term | common + short_term |
+| long_term | common + long_term |
+| all | common + short_term + long_term |
+
+推荐生产环境根据需求选择 `short_term` 或 `long_term` 模式，减少资源占用。
+
 ## 虚拟环境配置
 
 ### 创建并激活虚拟环境
@@ -128,17 +187,8 @@ deactivate
 ### 启动服务
 
 ```bash
-# 同时启动前后端（推荐）
-./start_all.sh
-
-# 仅启动后端 (http://localhost:8000)
-./start_backend.sh
-
-# 仅启动前端 (http://localhost:3000)
-./start_frontend.sh
-
 # 手动启动后端
-cd backend && python run.py
+python backend/run_short_term.py
 
 # 手动启动前端
 cd frontend-vue && npm run dev
@@ -147,17 +197,12 @@ cd frontend-vue && npm run dev
 ### 数据操作
 
 ```bash
-# 初始化数据库表
-python -m data_warehouse.db_init
-
 # 更新日线数据
 python backend/scripts/data_update/update_daily_from_snapshot.py
 
 # 更新财务数据
 python backend/scripts/data_update/run_fundamental_update_complete.py --limit 1000
 
-# 初始化股票维表
-python -m data_warehouse.etl.init_stock_dim
 ```
 
 ### 前端命令
@@ -174,8 +219,6 @@ npm run dev
 # 生产构建
 npm run build
 
-# 预览构建结果
-npm run preview
 ```
 
 ## 模块系统
