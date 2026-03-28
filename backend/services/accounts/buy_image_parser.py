@@ -44,7 +44,8 @@ def parse_buy_image(image_bytes: bytes, config_manager=None) -> Dict[str, Any]:
         
         api_url = (zhipu_config.get("api_url") or "https://open.bigmodel.cn/api/paas/v4/chat/completions").rstrip("/")
         model = zhipu_config.get("model", "glm-4.6v")
-        timeout = zhipu_config.get("timeout", 120)  # 视觉模型较慢，默认 120 秒
+        timeout = zhipu_config.get("timeout", 120)
+        timeout = max(timeout, 120)  # 视觉模型较慢，强制最低120秒
         max_retries = zhipu_config.get("max_retries", 2)  # 除首次外最多重试 2 次
         
         # 检测图片格式
