@@ -20,13 +20,21 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load leader_tracking router: {e}")
 
-    # 启动股
+    # 启动股（旧版单个文件）
     try:
         from backend.api.stock_startup import router as startup_router
         routers.append(startup_router)
         logger.info("Loaded short_term route: stock_startup")
     except ImportError as e:
         logger.warning(f"Failed to load stock_startup router: {e}")
+
+    # 启动股（新版模块，包含 sector_strength 等）
+    try:
+        from backend.api.startup import router as startup_module_router
+        routers.append(startup_module_router)
+        logger.info("Loaded short_term route: startup module")
+    except ImportError as e:
+        logger.warning(f"Failed to load startup module router: {e}")
 
     # 断板监控
     try:
