@@ -173,76 +173,22 @@ def _add_middlewares(app: FastAPI):
 
 def _register_routers(app: FastAPI, service_type: ServiceType):
     """注册路由"""
-    logger.info(f"Registering routers for {service_type.value}")
+    from backend.api import common_routes, short_term_routes, long_term_routes
 
-    # 共享路由（所有服务都需要）
-    _register_shared_routers(app)
+    # 始终注册共享路由
+    for router in common_routes.get_routers():
+        app.include_router(router)
 
-    # 短线路由（仅短线服务）
+    # 根据服务类型注册专用路由
     if service_type in [ServiceType.SHORT_TERM, ServiceType.ALL]:
-        _register_short_term_routers(app)
+        for router in short_term_routes.get_routers():
+            app.include_router(router)
 
-    # 长线路由（仅长线服务）
     if service_type in [ServiceType.LONG_TERM, ServiceType.ALL]:
-        _register_long_term_routers(app)
-
-
-def _register_shared_routers(app: FastAPI):
-    """注册共享路由"""
-    shared_routers = [
-        ('backend.api.market', 'router', 'market_router'),
-        ('backend.api.fund', 'router', 'fund_router'),
-        ('backend.api.stock_kline', 'router', 'kline_router'),
-        ('backend.api.accounts.holdings', 'router', 'holdings_router'),
-        ('backend.api.daily_review', 'router', 'review_router'),
-        ('backend.api.ai_chat', 'router', 'chat_router'),
-    ]
-
-    for module_path, attr_name, router_name in shared_routers:
-        try:
-            module = __import__(module_path, fromlist=[attr_name])
-            router = getattr(module, attr_name)
+        for router in long_term_routes.get_routers():
             app.include_router(router)
-            logger.info(f"✅ Registered: {router_name}")
-        except ImportError as e:
-            logger.warning(f"⚠️  Skipped {router_name}: {e}")
 
-
-def _register_short_term_routers(app: FastAPI):
-    """注册短线路由"""
-    short_term_routers = [
-        ('backend.api.leader_tracking', 'router', 'leader_router'),
-        ('backend.api.stock_startup', 'router', 'startup_router'),
-        ('backend.api.sentiment', 'router', 'sentiment_router'),
-        ('backend.api.abnormal_analysis', 'router', 'abnormal_router'),
-    ]
-
-    for module_path, attr_name, router_name in short_term_routers:
-        try:
-            module = __import__(module_path, fromlist=[attr_name])
-            router = getattr(module, attr_name)
-            app.include_router(router)
-            logger.info(f"✅ Registered: {router_name}")
-        except ImportError as e:
-            logger.warning(f"⚠️  Skipped {router_name}: {e}")
-
-
-def _register_long_term_routers(app: FastAPI):
-    """注册长线路由"""
-    long_term_routers = [
-        ('backend.api.darwin', 'router', 'darwin_router'),
-        ('backend.api.long_term', 'router', 'long_term_router'),
-        ('backend.api.industry_leaders', 'router', 'industry_router'),
-    ]
-
-    for module_path, attr_name, router_name in long_term_routers:
-        try:
-            module = __import__(module_path, fromlist=[attr_name])
-            router = getattr(module, attr_name)
-            app.include_router(router)
-            logger.info(f"✅ Registered: {router_name}")
-        except ImportError as e:
-            logger.warning(f"⚠️  Skipped {router_name}: {e}")
+    logger.info(f"Router registration complete for {service_type.value}")
 
 
 def _initialize_services(service_type: ServiceType):
