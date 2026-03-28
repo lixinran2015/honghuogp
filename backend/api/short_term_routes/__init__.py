@@ -156,5 +156,13 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load factor_validation router: {e}")
 
+    # LSTM-MAB评分引擎（Phase 2）
+    try:
+        from backend.api.lstm_mab import router as lstm_mab_router
+        routers.append(lstm_mab_router)
+        logger.info("Loaded short_term route: lstm_mab")
+    except ImportError as e:
+        logger.warning(f"Failed to load lstm_mab router: {e}")
+
     logger.info(f"Total short_term routes loaded: {len(routers)}")
     return routers

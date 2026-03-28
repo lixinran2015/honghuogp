@@ -16,3 +16,10 @@ plotly>=5.15.0
 matplotlib>=3.5.0
 seaborn>=0.11.0
 
+# Phase 2: LSTM-MAB 机器学习依赖
+scikit-learn>=1.4.0
+scipy>=1.12.0
+statsmodels>=0.14.0
+# tensorflow>=2.15.0  # 可选：用于完整LSTM实现
+# torch>=2.0.0       # 可选：用于完整LSTM实现
+
