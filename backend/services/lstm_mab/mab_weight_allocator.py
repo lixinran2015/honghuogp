@@ -394,10 +394,8 @@ class EmotionAdaptiveAllocator:
         # 融合权重（50% MAB + 50% 情绪周期）
         final_weights = {}
         for name in mab_weights:
-            if name in base_weights:
-                final_weights[name] = 0.5 * mab_weights[name] + 0.5 * base_weights[name]
-            else:
-                final_weights[name] = mab_weights[name]
+            base = base_weights.get(name, 1.0 / len(mab_weights))
+            final_weights[name] = 0.5 * mab_weights[name] + 0.5 * base
 
         # 归一化
         total = sum(final_weights.values())
