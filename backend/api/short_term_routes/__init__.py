@@ -164,5 +164,13 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load lstm_mab router: {e}")
 
+    # 六周期情绪模型（Phase 3）
+    try:
+        from backend.api.emotion_cycle_v2 import router as emotion_cycle_v2_router
+        routers.append(emotion_cycle_v2_router)
+        logger.info("Loaded short_term route: emotion_cycle_v2")
+    except ImportError as e:
+        logger.warning(f"Failed to load emotion_cycle_v2 router: {e}")
+
     logger.info(f"Total short_term routes loaded: {len(routers)}")
     return routers
