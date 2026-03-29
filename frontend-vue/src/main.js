@@ -49,6 +49,7 @@ const routes = [
   { path: '/factor-lab', component: () => import('./views/FactorExperimentView.vue') },
   { path: '/ai-strategy', component: () => import('./views/AIStrategyAssistantView.vue') },
   { path: '/leader-optimization', component: () => import('./views/LeaderOptimizationView.vue') },
+  { path: '/lstm-mab', component: () => import('./views/LSTMMABView.vue') },
 ]
 
 const router = createRouter({
