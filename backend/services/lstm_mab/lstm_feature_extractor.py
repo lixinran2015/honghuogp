@@ -199,6 +199,40 @@ class LSTMFeatureExtractor:
             'n_samples': len(X),
         }
 
+    def train_from_arrays(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        validation_split: float = 0.2,
+    ) -> Dict[str, float]:
+        """直接从已经准备好的 X, y 数组训练"""
+        if len(X) < 100:
+            raise ValueError(f"训练样本不足: {len(X)} < 100")
+
+        X_scaled = self.scaler.fit_transform(X)
+        split_idx = int(len(X) * (1 - validation_split))
+        X_train, X_val = X_scaled[:split_idx], X_scaled[split_idx:]
+        y_train, y_val = y[:split_idx], y[split_idx:]
+
+        self.model = self._build_model()
+        self.model.fit(X_train, y_train)
+
+        train_score = self.model.score(X_train, y_train)
+        val_score = self.model.score(X_val, y_val)
+
+        y_val_pred = self.model.predict(X_val)
+        residuals = y_val - y_val_pred
+        self.prediction_std = np.std(residuals)
+        self.is_trained = True
+
+        logger.info(f"训练完成: 训练集R²={train_score:.4f}, 验证集R²={val_score:.4f}")
+        return {
+            'train_r2': train_score,
+            'val_r2': val_score,
+            'prediction_std': self.prediction_std,
+            'n_samples': len(X),
+        }
+
     def predict(self, sequence: np.ndarray) -> LSTMPrediction:
         """
         预测未来收益

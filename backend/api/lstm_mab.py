@@ -10,9 +10,16 @@ Phase 2: 机器学习评分 + 样本外测试
 """
 
 from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from typing import Dict, List, Optional
 from datetime import date
 import logging
+
+
+class PredictRequest(BaseModel):
+    ts_code: str
+    factor_values: Dict[str, float]
+
 
 from backend.services.lstm_mab import (
     LSTMMABModel,
@@ -74,13 +81,15 @@ async def train_model(
             from sqlalchemy import text
 
             query = text("""
-                SELECT trade_date, open, high, low, close, vol as volume
+                SELECT ts_code, trade_date, open, high, low, close, vol as volume
                 FROM fact_daily_price_qfq
                 WHERE trade_date BETWEEN :start_date AND :end_date
-                ORDER BY trade_date
+                ORDER BY ts_code, trade_date
             """)
 
             import pandas as pd
+            import numpy as np
+
             price_data = pd.read_sql(
                 query,
                 session.bind,
@@ -93,14 +102,37 @@ async def train_model(
             if len(price_data) < 100:
                 return {
                     'success': False,
-                    'error': f'训练数据不足: {len(price_data)} < 100天',
+                    'error': f'训练数据不足: {len(price_data)} < 100条',
                 }
 
         finally:
             session.close()
 
+        # 按股票分别生成序列，合并训练
+        X_all, y_all = [], []
+        valid_stocks = 0
+        for ts_code, group in price_data.groupby('ts_code'):
+            group = group.sort_values('trade_date')
+            try:
+                X, y = model.lstm.prepare_sequences(group, target_horizon)
+                if len(X) > 0:
+                    X_all.append(X)
+                    y_all.append(y)
+                    valid_stocks += 1
+            except Exception as e:
+                logger.warning(f"生成 {ts_code} 序列失败: {e}")
+
+        if not X_all:
+            return {
+                'success': False,
+                'error': '没有足够的有效训练样本',
+            }
+
+        X_all = np.vstack(X_all)
+        y_all = np.concatenate(y_all)
+
         # 训练模型
-        metrics = model.train(price_data, target_horizon)
+        metrics = model.lstm.train_from_arrays(X_all, y_all)
 
         # 更新状态
         _model_status['is_trained'] = True
@@ -119,19 +151,17 @@ async def train_model(
 
 
 @router.post("/predict")
-async def predict_score(
-    ts_code: str = Query(..., description="股票代码"),
-    leader_position: float = Query(0, description="龙头地位得分", ge=0, le=100),
-    technical: float = Query(0, description="技术形态得分", ge=0, le=100),
-    money_flow: float = Query(0, description="资金流向得分", ge=0, le=100),
-    sentiment: float = Query(0, description="情绪热度得分", ge=0, le=100),
-) -> Dict:
+async def predict_score(request: PredictRequest) -> Dict:
     """
     使用LSTM-MAB模型预测股票评分
 
     示例:
     ```
-    POST /api/lstm-mab/predict?ts_code=000001.SZ&leader_position=80&technical=75&money_flow=70&sentiment=65
+    POST /api/lstm-mab/predict
+    {
+        "ts_code": "000001.SZ",
+        "factor_values": {"leader_position": 80, "technical": 75}
+    }
     ```
     """
     try:
@@ -143,18 +173,10 @@ async def predict_score(
                 'error': '模型未训练，请先调用/train接口',
             }
 
-        # 构建因子值
-        factor_values = {
-            'leader_position': leader_position,
-            'technical': technical,
-            'money_flow': money_flow,
-            'sentiment': sentiment,
-        }
-
         # 预测
         result = model.predict(
-            ts_code=ts_code,
-            factor_values=factor_values,
+            ts_code=request.ts_code,
+            factor_values=request.factor_values,
         )
 
         return {
