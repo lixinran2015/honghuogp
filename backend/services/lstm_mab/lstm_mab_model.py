@@ -72,8 +72,6 @@ class LSTMMABModel:
         self.factor_names = factor_names or [
             'leader_position',
             'technical',
-            'money_flow',
-            'sentiment',
         ]
 
         # 初始化LSTM特征提取器
@@ -281,14 +279,28 @@ class LSTMMABModel:
 
         model_data = joblib.load(path)
 
-        self.factor_names = model_data['factor_names']
+        saved_factors = model_data.get('factor_names', self.factor_names)
+        self.factor_names = saved_factors
         self.lstm = model_data['lstm']
 
-        # 重建MAB
+        # 重建MAB，确保因子列表一致
         from .mab_weight_allocator import ThompsonSampling, UCB
-        self.mab.base_allocator = model_data['mab_base']
-        self.mab.current_emotion = model_data.get('current_emotion', '震荡期')
+        saved_mab = model_data['mab_base']
 
+        if isinstance(saved_mab, ThompsonSampling):
+            self.mab.base_allocator = ThompsonSampling(saved_factors)
+            self.mab.base_allocator.successes = saved_mab.successes
+            self.mab.base_allocator.failures = saved_mab.failures
+            self.mab.base_allocator.total_pulls = saved_mab.total_pulls
+        elif isinstance(saved_mab, UCB):
+            self.mab.base_allocator = UCB(saved_factors)
+            self.mab.base_allocator.total_rewards = saved_mab.total_rewards
+            self.mab.base_allocator.pull_counts = saved_mab.pull_counts
+            self.mab.base_allocator.reward_history = saved_mab.reward_history
+        else:
+            self.mab.base_allocator = saved_mab
+
+        self.mab.current_emotion = model_data.get('current_emotion', '震荡期')
         self.factor_performance = model_data.get('factor_performance', {name: [] for name in self.factor_names})
 
-        logger.info(f"模型已从{path}加载")
+        logger.info(f"模型已从{path}加载，因子: {self.factor_names}")
