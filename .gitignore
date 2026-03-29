@@ -40,3 +40,4 @@ logs/
 
 # 归档（若不想提交归档目录可取消注释）
 # archive/
+.worktrees/
