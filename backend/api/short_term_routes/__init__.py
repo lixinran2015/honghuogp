@@ -164,6 +164,22 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load lstm_mab router: {e}")
 
+    # 模块管理
+    try:
+        from backend.api.modules import router as modules_router
+        routers.append(modules_router)
+        logger.info("Loaded short_term route: modules")
+    except ImportError as e:
+        logger.warning(f"Failed to load modules router: {e}")
+
+    # 定时任务
+    try:
+        from backend.api.scheduled_task import router as scheduled_task_router
+        routers.append(scheduled_task_router)
+        logger.info("Loaded short_term route: scheduled_task")
+    except ImportError as e:
+        logger.warning(f"Failed to load scheduled_task router: {e}")
+
     # 六周期情绪模型（Phase 3）
     try:
         from backend.api.emotion_cycle_v2 import router as emotion_cycle_v2_router
