@@ -71,6 +71,41 @@ def _get_model() -> LSTMMABModel:
                 _model_instance.load(model_path)
                 _model_status['is_trained'] = True
                 logger.info(f"✅ 已加载保存的模型: {model_path}")
+
+                # 从数据库获取训练信息
+                try:
+                    evo_service = get_evolution_service()
+                    session = evo_service.ws.get_session()
+                    from sqlalchemy import text
+
+                    result = session.execute(text("""
+                        SELECT trained_date, train_r2, val_r2, n_samples, performance_summary
+                        FROM lstm_mab_model_versions
+                        WHERE is_active = TRUE
+                        ORDER BY trained_date DESC
+                        LIMIT 1
+                    """)).fetchone()
+
+                    if result:
+                        _model_status['training_date'] = result[0].isoformat() if result[0] else None
+                        _model_status['performance'] = {
+                            'train_r2': result[1],
+                            'val_r2': result[2],
+                            'n_samples': result[3],
+                        }
+                        if result[4]:
+                            import json
+                            try:
+                                perf_summary = json.loads(result[4])
+                                _model_status['performance'].update(perf_summary)
+                            except:
+                                pass
+                        logger.info(f"📊 已恢复训练信息: date={_model_status['training_date']}, val_r2={result[2]}")
+
+                    session.close()
+                except Exception as db_err:
+                    logger.warning(f"⚠️ 从数据库获取训练信息失败: {db_err}")
+
             except Exception as e:
                 logger.warning(f"⚠️ 加载模型失败，创建新实例: {e}")
                 _model_instance = LSTMMABModel()
