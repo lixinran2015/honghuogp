@@ -264,8 +264,11 @@
       >
         <ArrowPathIcon v-if="!isRunningFeedback" class="w-4 h-4" />
         <span v-else class="w-4 h-4 border-2 border-warmgray-400 border-t-transparent rounded-full animate-spin" />
-        {{ isRunningFeedback ? '执行中...' : '执行反馈循环' }}
+        {{ isRunningFeedback ? (feedbackStatus || '执行中...') : '执行反馈循环' }}
       </button>
+      <span v-if="feedbackStatus && !isRunningFeedback" class="text-xs text-warmgray-500">
+        上次: {{ feedbackStatus }}
+      </span>
     </div>
   </div>
 </template>
@@ -283,6 +286,7 @@ const isLoading = ref(false)
 const isSaving = ref(false)
 const isLoadingModel = ref(false)
 const isRunningFeedback = ref(false)
+const feedbackStatus = ref('') // 反馈任务状态显示
 
 const healthStatus = ref(null)
 const retrainStatus = ref(null)
@@ -404,16 +408,69 @@ async function loadModel() {
 // 执行反馈循环
 async function runFeedback() {
   isRunningFeedback.value = true
+  feedbackStatus.value = '启动中...'
+
+  // 保存当前预测数用于检测变化
+  const initialPredictions = healthStatus.value?.total_predictions || 0
+
   try {
     const response = await fetch(`${API_BASE}/run-daily-feedback`, {
       method: 'POST',
     })
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        const data = await response.json()
+        alert(data.detail || '调用过于频繁，请稍后再试')
+      } else {
+        alert('启动失败: ' + response.statusText)
+      }
+      return
+    }
+
     const data = await response.json()
     if (data.success) {
-      alert('每日反馈任务已启动，请在几秒后刷新查看结果')
-      // 延迟刷新，等待后台任务完成
-      setTimeout(() => {
-        refreshData()
+      feedbackStatus.value = '运行中...'
+
+      // 轮询检查状态（最多 12 次，每次 5 秒，总共 60 秒）
+      let attempts = 0
+      const maxAttempts = 12
+
+      const pollInterval = setInterval(async () => {
+        attempts++
+        feedbackStatus.value = `运行中...(${attempts}/${maxAttempts})`
+
+        try {
+          // 获取最新健康状态
+          const healthResponse = await fetch(`${API_BASE}/health`)
+          const healthData = await healthResponse.json()
+
+          if (healthData.success && healthData.health) {
+            const newPredictions = healthData.health.total_predictions || 0
+
+            // 如果预测数变化，说明反馈已处理完成
+            if (newPredictions !== initialPredictions && newPredictions > 0) {
+              clearInterval(pollInterval)
+              healthStatus.value = healthData.health
+              retrainStatus.value = {
+                should_retrain: healthData.should_retrain,
+                reason: healthData.retrain_reason,
+              }
+              feedbackStatus.value = '完成'
+              alert('每日反馈执行完成')
+              return
+            }
+          }
+
+          // 达到最大尝试次数
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval)
+            feedbackStatus.value = '超时，请手动刷新'
+            alert('反馈任务可能仍在运行，请稍后手动刷新查看结果')
+          }
+        } catch (e) {
+          console.error('轮询失败:', e)
+        }
       }, 5000)
     } else {
       alert(data.error || '启动失败')

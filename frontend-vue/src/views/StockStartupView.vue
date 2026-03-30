@@ -1694,8 +1694,8 @@ async function batchDiagnose() {
       // 刷新待监控列表（批量诊断会自动标记3/4条件的股票）
       await loadWatchList()
       
-      // 提示推荐数量
-      if (response.data.recommended_count > 0) {
+      // 提示推荐数量（后端已不再自动推荐，此字段可能不存在）
+      if (response.data.recommended_count && response.data.recommended_count > 0) {
         console.log(`💎 新增推荐: ${response.data.recommended_count} 只`)
       }
     }

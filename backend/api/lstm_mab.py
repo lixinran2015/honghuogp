@@ -677,16 +677,43 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
     """
     执行每日反馈循环
 
-    触发 daily_feedback.py 脚本，计算预测命中率、相关性等指标
-    这是一个后台任务，执行时间可能较长
+    触发 daily_feedback.py 脚本，计算预测命中率、相关性等指标。
+    这是一个后台任务，执行时间约 10-60 秒（取决于数据量）。
+
+    限制:
+        - 同一 IP/会话 5 分钟内只能调用一次
+        - 脚本执行超时: 5 分钟
 
     返回:
         - success: 是否成功启动任务
         - message: 状态消息
+        - started_at: 启动时间 ISO 格式
+        - estimated_duration: 预估执行时间（秒）
+
+    错误码:
+        - 429: 调用过于频繁
+        - 404: 反馈脚本不存在
+        - 500: 启动任务失败
     """
     import subprocess
     import sys
     from pathlib import Path
+    import time
+
+    # 简单的调用频率限制（内存中，重启后重置）
+    # 生产环境建议使用 Redis 或数据库实现分布式限制
+    global _last_feedback_run
+    current_time = time.time()
+    min_interval = 300  # 5 分钟
+
+    if '_last_feedback_run' in globals():
+        elapsed = current_time - _last_feedback_run
+        if elapsed < min_interval:
+            remaining = int(min_interval - elapsed)
+            raise HTTPException(
+                status_code=429,
+                detail=f"调用过于频繁，请 {remaining} 秒后再试"
+            )
 
     try:
         # 获取项目根目录
@@ -699,8 +726,13 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
                 detail=f"反馈脚本不存在: {script_path}"
             )
 
+        # 记录本次调用时间
+        global _last_feedback_run
+        _last_feedback_run = current_time
+
         # 在后台执行脚本
         def run_feedback_script():
+            start_time = time.time()
             try:
                 result = subprocess.run(
                     [sys.executable, str(script_path)],
@@ -709,10 +741,13 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
                     text=True,
                     timeout=300  # 5分钟超时
                 )
+                elapsed = time.time() - start_time
                 if result.returncode == 0:
-                    logger.info("✅ 每日反馈脚本执行成功")
+                    logger.info(f"✅ 每日反馈脚本执行成功，耗时 {elapsed:.1f} 秒")
                 else:
-                    logger.error(f"❌ 每日反馈脚本执行失败: {result.stderr}")
+                    logger.error(f"❌ 每日反馈脚本执行失败 (耗时 {elapsed:.1f} 秒): {result.stderr}")
+            except subprocess.TimeoutExpired:
+                logger.error("❌ 每日反馈脚本执行超时（超过 5 分钟）")
             except Exception as e:
                 logger.error(f"❌ 执行每日反馈脚本异常: {e}")
 
@@ -723,9 +758,10 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
 
         return {
             'success': True,
-            'message': '每日反馈任务已启动，正在后台执行',
+            'message': '每日反馈任务已启动，正在后台执行，预计 10-60 秒完成',
             'script_path': str(script_path),
             'started_at': datetime.now().isoformat(),
+            'estimated_duration': '10-60 秒',
         }
 
     except HTTPException:
