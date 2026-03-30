@@ -53,11 +53,11 @@ class BasicConditionChecker:
         if amount < self.amount_threshold:
             failed.append(f'成交额<{self.amount_threshold/1e8:.0f}亿')
         
-        # F3: 股价 ≥ 90日均线
+        # F3: 股价 ≥ 60日均线
         close = data.get('close', 0)
-        ma90 = data.get('ma90', 0)
-        if close < ma90:
-            failed.append('股价低于90日线')
+        ma60 = data.get('ma60', 0)
+        if close < ma60:
+            failed.append('股价低于60日线')
         
         # F4: 近60日交易活跃度 ≥ 50天
         trading_days_60d = data.get('trading_days_60d', 0)

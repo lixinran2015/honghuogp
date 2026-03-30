@@ -55,19 +55,19 @@ class CoreConditionChecker:
         ma20 = data.get('ma20', 0)
         ma60 = data.get('ma60', 0)
         
-        # 确认1：突破90日高点（必须）
-        # ✅ 收盘价必须大于前90个交易日的收盘价最高价（严格判断）
-        high_90d = data.get('high_90d', 0) or data.get('high_120d', 0)  # 前90日收盘价最高价，回退到120d
+        # 确认1：突破60日高点（必须）
+        # ✅ 收盘价必须大于前60个交易日的收盘价最高价（严格判断）
+        high_60d = data.get('high_60d', 0) or data.get('high_90d', 0)  # 前60日收盘价最高价，回退到90d
         close = data.get('close', 0)
-        
-        if high_90d > 0 and close > high_90d:
-            passed_signals.append('突破90日高点')
+
+        if high_60d > 0 and close > high_60d:
+            passed_signals.append('突破60日高点')
         else:
-            if high_90d > 0:
-                distance_pct = ((high_90d - close) / high_90d) * 100
-                failed.append(f'未突破90日高点(收盘价{close:.2f} ≤ 前90日收盘价最高价{high_90d:.2f}，差距{distance_pct:.2f}%)')
+            if high_60d > 0:
+                distance_pct = ((high_60d - close) / high_60d) * 100
+                failed.append(f'未突破60日高点(收盘价{close:.2f} ≤ 前60日收盘价最高价{high_60d:.2f}，差距{distance_pct:.2f}%)')
             else:
-                failed.append('未突破90日高点(数据不足)')
+                failed.append('未突破60日高点(数据不足)')
         
         # 确认2：量能放大（必须）
         # ✅ 特殊规则：如果当日涨停，量比条件可以放宽（涨停时量能放大条件自动满足）

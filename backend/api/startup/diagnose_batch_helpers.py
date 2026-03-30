@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # 核心条件中文名映射
 MISSING_CONDITIONS_CN = {
     'has_limit_up': '近6个交易日有涨停',
-    'breakthrough_90d': '突破90日高点',
+    'breakthrough_60d': '突破60日高点',
     'volume_amplified': '量能放大(量比≥1.5)',
     'bullish_alignment': '均线多头排列(5>10>20>60)'
 }
@@ -24,23 +24,23 @@ def compute_core_checks(stock_data: Dict) -> Dict[str, Any]:
         {
             'core_checks': dict,
             'passed_count': int,
-            'breakthrough_90d': bool,
-            'distance_from_90d_high': Optional[float],
+            'breakthrough_60d': bool,
+            'distance_from_60d_high': Optional[float],
             'distance_pct': float,
             'close': float,
-            'high_90d': float,
+            'high_60d': float,
             'avg_turnover_20d': float,
             'amount': float,
         }
     """
-    high_90d = stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)
+    high_60d = stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)
     close = stock_data.get('close', 0)
-    if high_90d > 0 and close > 0:
-        distance_pct = (high_90d - close) / high_90d * 100
-        breakthrough_90d = bool(close > high_90d)
+    if high_60d > 0 and close > 0:
+        distance_pct = (high_60d - close) / high_60d * 100
+        breakthrough_60d = bool(close > high_60d)
     else:
         distance_pct = 999
-        breakthrough_90d = False
+        breakthrough_60d = False
 
     avg_turnover_20d = stock_data.get('avg_turnover_20d', 0) or stock_data.get('avg_amount_20d', 0)
     amount = stock_data.get('amount', 0)
@@ -69,22 +69,22 @@ def compute_core_checks(stock_data: Dict) -> Dict[str, Any]:
     has_limit_up = bool(has_limit_up_6d == 1)
 
     core_checks = {
-        'breakthrough_90d': breakthrough_90d,
+        'breakthrough_60d': breakthrough_60d,
         'volume_amplified': volume_amplified,
         'bullish_alignment': bullish_alignment,
         'has_limit_up': has_limit_up,
     }
     passed_count = int(sum(core_checks.values()))
-    distance_from_90d_high = distance_pct if high_90d > 0 and close > 0 else None
+    distance_from_60d_high = distance_pct if high_60d > 0 and close > 0 else None
 
     return {
         'core_checks': core_checks,
         'passed_count': passed_count,
-        'breakthrough_90d': breakthrough_90d,
-        'distance_from_90d_high': distance_from_90d_high,
+        'breakthrough_60d': breakthrough_60d,
+        'distance_from_60d_high': distance_from_60d_high,
         'distance_pct': distance_pct,
         'close': close,
-        'high_90d': high_90d,
+        'high_60d': high_60d,
         'avg_turnover_20d': avg_turnover_20d,
         'amount': amount,
     }
@@ -96,22 +96,22 @@ def try_alternative_path(
     session,
     core_checks: Dict,
     passed_count: int,
-    breakthrough_90d: bool,
+    breakthrough_60d: bool,
 ) -> Tuple[Dict, int]:
     """
-    当仅差突破90日高点时尝试替代路径（净买入>8000万+绝对龙头）
+    当仅差突破60日高点时尝试替代路径（净买入>8000万+绝对龙头）
     Returns: (updated_core_checks, updated_passed_count)
     """
     from backend.services.stock.startup.conditions.alternative_core_path_checker import (
         check_alternative_core_path,
     )
-    if passed_count != 3 or breakthrough_90d or not session:
+    if passed_count != 3 or breakthrough_60d or not session:
         return core_checks, passed_count
     trade_date_str = latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date)[:10]
     alt_passed, _ = check_alternative_core_path(ts_code, trade_date_str, session)
     if alt_passed:
         logger.info(f"  💡 {ts_code} 替代路径通过 → 视为核心确认（4/4）")
-        return dict(core_checks, breakthrough_90d=True), 4
+        return dict(core_checks, breakthrough_60d=True), 4
     return core_checks, passed_count
 
 
@@ -119,7 +119,7 @@ def compute_advice(
     result: Dict,
     passed_count: int,
     core_checks: Dict,
-    distance_from_90d_high: Optional[float],
+    distance_from_60d_high: Optional[float],
     avg_turnover_20d: float,
     amount: float,
 ) -> str:
@@ -139,11 +139,11 @@ def compute_advice(
     if passed_count == 3:
         failed = [k for k, v in core_checks.items() if not v]
         failed_key = failed[0] if failed else None
-        d = distance_from_90d_high
+        d = distance_from_60d_high
         if failed_key == 'has_limit_up':
             return "⚠️ 只差1个条件：近6个交易日无涨停，可作为低吸观察点！"
-        if failed_key == 'breakthrough_90d':
-            return f"⚠️ 只差1个条件：距90日高点{d:.2f}%（需≤3%），可作为低吸观察点！" if d is not None else "⚠️ 只差1个条件：突破90日高点，可作为低吸观察点！"
+        if failed_key == 'breakthrough_60d':
+            return f"⚠️ 只差1个条件：距60日高点{d:.2f}%（需≤3%），可作为低吸观察点！" if d is not None else "⚠️ 只差1个条件：突破60日高点，可作为低吸观察点！"
         if failed_key == 'volume_amplified':
             vol_ratio = amount / avg_turnover_20d if avg_turnover_20d > 0 else 0
             return f"⚠️ 只差1个条件：量比{vol_ratio:.2f}x（需≥1.5），可作为低吸观察点！"
@@ -157,9 +157,9 @@ def compute_advice(
     if passed_count == 2:
         failed = [k for k, v in core_checks.items() if not v]
         failed_key = failed[0] if failed else None
-        d = distance_from_90d_high
-        if failed_key == 'breakthrough_90d':
-            return f"⚠️ 只差1个条件：距90日高点{d:.2f}%（需≤3%），可作为低吸观察点！" if d is not None else "⚠️ 只差1个条件，可作为低吸观察点！"
+        d = distance_from_60d_high
+        if failed_key == 'breakthrough_60d':
+            return f"⚠️ 只差1个条件：距60日高点{d:.2f}%（需≤3%），可作为低吸观察点！" if d is not None else "⚠️ 只差1个条件，可作为低吸观察点！"
         if failed_key == 'volume_amplified':
             vol_ratio = amount / avg_turnover_20d if avg_turnover_20d > 0 else 0
             return f"⚠️ 只差1个条件：量比{vol_ratio:.2f}x（需≥1.5），可作为低吸观察点！"
@@ -176,12 +176,12 @@ def build_diagnosis_data(
     passed_count: int,
     advice: str,
     close: float,
-    high_90d: float,
-    distance_from_90d_high: Optional[float],
-    breakthrough_90d: bool,
+    high_60d: float,
+    distance_from_60d_high: Optional[float],
+    breakthrough_60d: bool,
 ) -> Dict:
     """构建 diagnosis_result 字典"""
-    high_90d_f = float(high_90d or 0)
+    high_60d_f = float(high_60d or 0)
     close_f = float(close)
     from datetime import datetime
     return {
@@ -189,14 +189,14 @@ def build_diagnosis_data(
         'passed_count': passed_count,
         'advice': advice,
         'latest_price': close_f,
-        'distance_from_high': round(distance_from_90d_high, 2) if distance_from_90d_high is not None else None,
-        'high_90d': high_90d_f if high_90d_f > 0 else None,
+        'distance_from_high': round(distance_from_60d_high, 2) if distance_from_60d_high is not None else None,
+        'high_60d': high_60d_f if high_60d_f > 0 else None,
         'close': close_f,
-        'breakthrough_90d': breakthrough_90d,
-        'breakthrough_90d_detail': (
-            f"已突破{(close_f - high_90d_f) / high_90d_f * 100:.2f}%"
-            if high_90d_f > 0 and close_f > high_90d_f
-            else (f"距90日高点{distance_from_90d_high:.2f}%" if distance_from_90d_high is not None else "数据不足")
+        'breakthrough_60d': breakthrough_60d,
+        'breakthrough_60d_detail': (
+            f"已突破{(close_f - high_60d_f) / high_60d_f * 100:.2f}%"
+            if high_60d_f > 0 and close_f > high_60d_f
+            else (f"距60日高点{distance_from_60d_high:.2f}%" if distance_from_60d_high is not None else "数据不足")
         ),
         'diagnosed_at': datetime.now().isoformat(),
     }

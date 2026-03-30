@@ -282,8 +282,8 @@
               <div class="text-lg font-bold">{{ result.indicators.market_cap.circulation.toFixed(2) }}亿</div>
             </div>
             <div class="p-3 bg-green-50 rounded">
-              <div class="text-xs text-gray-600">前90日收盘价最高价</div>
-              <div class="text-lg font-bold">{{ (result.indicators.high?.high_90d ?? result.indicators.high?.high_120d)?.toFixed(2) || 'N/A' }}元</div>
+              <div class="text-xs text-gray-600">前60日收盘价最高价</div>
+              <div class="text-lg font-bold">{{ (result.indicators.high?.high_60d ?? result.indicators.high?.high_90d ?? result.indicators.high?.high_120d)?.toFixed(2) || 'N/A' }}元</div>
             </div>
             <div class="p-3 bg-green-50 rounded">
               <div class="text-xs text-gray-600">当前收盘价</div>
@@ -367,12 +367,12 @@
             </div>
           </div>
 
-          <div class="p-4 border rounded" :class="(result.checks.breakthrough_90d || result.checks.breakthrough_120d)?.passed ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'">
+          <div class="p-4 border rounded" :class="(result.checks.breakthrough_60d || result.checks.breakthrough_90d)?.passed ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'">
             <div class="flex items-center justify-between">
-              <div class="font-semibold">{{ (result.checks.breakthrough_90d || result.checks.breakthrough_120d)?.passed ? '✅' : '❌' }} 突破90日高点</div>
+              <div class="font-semibold">{{ (result.checks.breakthrough_60d || result.checks.breakthrough_90d)?.passed ? '✅' : '❌' }} 突破60日高点</div>
             </div>
             <div class="text-sm text-gray-600 mt-2">
-              {{ (result.checks.breakthrough_90d || result.checks.breakthrough_120d)?.description || '数据未加载' }}
+              {{ (result.checks.breakthrough_60d || result.checks.breakthrough_90d)?.description || '数据未加载' }}
             </div>
           </div>
         </div>

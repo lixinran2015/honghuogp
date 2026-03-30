@@ -1,6 +1,6 @@
 """
 替代路径检查器
-当核心确认仅差「突破90日高点」时，若同时满足 净买入>8000万+绝对龙头，视为核心通过
+当核心确认仅差「突破60日高点」时，若同时满足 净买入>8000万+绝对龙头，视为核心通过
 """
 import logging
 from typing import Optional, Tuple, List
@@ -19,7 +19,7 @@ def check_alternative_core_path(
 ) -> Tuple[bool, List[str]]:
     """
     检查是否满足替代路径（净买入+绝对龙头）
-    仅当核心确认只差 突破90日高点 时调用
+    仅当核心确认只差 突破60日高点 时调用
 
     Args:
         ts_code: 股票代码

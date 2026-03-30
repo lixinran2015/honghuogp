@@ -307,12 +307,12 @@ async def diagnose_stock(
             elif core_passed_count == 3:
                 # 找出缺少的条件
 
-                all_core_conditions = ['突破90日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
+                all_core_conditions = ['突破60日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
                 missing = [c for c in all_core_conditions if c not in core_passed_signals]
                 advice = f"⚠️ 只差1个条件：{missing[0] if missing else '未知'}，可作为低吸观察点！"
             elif core_passed_count == 2:
                 # 找出缺少的条件
-                all_core_conditions = ['突破90日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
+                all_core_conditions = ['突破60日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
                 missing = [c for c in all_core_conditions if c not in core_passed_signals]
                 advice = f"⚠️ 只差2个条件：{', '.join(missing[:2])}，可作为低吸观察点！"
             elif core_passed_count == 1:
@@ -364,6 +364,7 @@ async def diagnose_stock(
                     'ma10_prev': float(stock_data.get('ma10_prev', 0))
                 },
                 'high': {
+                    'high_60d': float(stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)),
                     'high_90d': float(stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0))
                 },
                 'technical': {
@@ -384,13 +385,17 @@ async def diagnose_stock(
                     'passed': bool(to_native(stock_data.get('ma5', 0) > stock_data.get('ma10', 0) > stock_data.get('ma20', 0) > stock_data.get('ma60', 0))),
                     'description': f"{float(stock_data.get('ma5', 0)):.2f} > {float(stock_data.get('ma10', 0)):.2f} > {float(stock_data.get('ma20', 0)):.2f} > {float(stock_data.get('ma60', 0)):.2f}"
                 },
+                'breakthrough_60d': {
+                    'passed': bool(to_native(stock_data.get('close', 0) > (stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) if (stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) > 0 else False)),
+                    'description': f"收盘价({float(stock_data.get('close', 0)):.2f}) {'>' if stock_data.get('close', 0) > (stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) else '≤'} 前60日收盘价最高价({float(stock_data.get('high_60d', 0) or stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)):.2f})"
+                },
                 'breakthrough_90d': {
                     'passed': bool(to_native(stock_data.get('close', 0) > (stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) if (stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) > 0 else False)),
                     'description': f"收盘价({float(stock_data.get('close', 0)):.2f}) {'>' if stock_data.get('close', 0) > (stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)) else '≤'} 前90日收盘价最高价({float(stock_data.get('high_90d', 0) or stock_data.get('high_120d', 0)):.2f})"
                 }
             }
         }
-        
+
         return diagnosis
         
     except Exception as e:
@@ -471,7 +476,7 @@ async def interpret_diagnosis(
             if core_passed_count == 4:
                 advice = "✅ 四大核心条件全部满足，等待辅助确认和风险排除"
             elif core_passed_count == 3:
-                all_core_conditions = ['突破90日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
+                all_core_conditions = ['突破60日高点', '量能放大(量比≥1.5)', '均线多头排列(5>10>20>60)', '近6个交易日有涨停']
                 missing = [c for c in all_core_conditions if c not in core_passed_signals]
                 advice = f"⚠️ 只差1个条件：{missing[0] if missing else '未知'}，可作为低吸观察点！"
             elif core_passed_count >= 1:

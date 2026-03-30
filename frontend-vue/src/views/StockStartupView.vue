@@ -49,7 +49,7 @@
             </div>
             <div class="flex items-start">
               <span class="text-blue-500 mr-2">✓</span>
-              <span><strong>股价</strong> ≥ 90日均线</span>
+              <span><strong>股价</strong> ≥ 60日均线</span>
             </div>
             <div class="flex items-start">
               <span class="text-blue-500 mr-2">✓</span>
@@ -74,7 +74,7 @@
           <div class="space-y-2 text-sm text-gray-700">
             <div class="flex items-start">
               <span class="text-green-500 mr-2">✓</span>
-              <span><strong>突破90日高点</strong>（收盘价 > 前90个交易日的收盘价最高价）<span class="text-green-600 ml-1">+10分</span></span>
+              <span><strong>突破60日高点</strong>（收盘价 > 前60个交易日的收盘价最高价）<span class="text-green-600 ml-1">+10分</span></span>
             </div>
             <div class="flex items-start">
               <span class="text-green-500 mr-2">✓</span>
@@ -92,7 +92,7 @@
           <div class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
             💡 <strong class="text-red-600">四者必须全部满足</strong> → 进入下一阶段<br/>
             💡 满足3/4条件 → 自动加入<strong class="text-purple-600">待监控池</strong>（低吸观察点）<br/>
-            💡 <strong class="text-blue-600">替代路径</strong>：仅不符合「突破90日高点」时，若满足<strong>净买入&gt;8000万</strong>+<strong>绝对龙头</strong> → 视为核心通过
+            💡 <strong class="text-blue-600">替代路径</strong>：仅不符合「突破60日高点」时，若满足<strong>净买入&gt;8000万</strong>+<strong>绝对龙头</strong> → 视为核心通过
           </div>
         </div>
 
