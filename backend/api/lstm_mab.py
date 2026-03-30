@@ -17,7 +17,7 @@ Phase 3: 模型自我进化系统
 from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Dict, List, Optional
-from datetime import date
+from datetime import date, datetime
 import logging
 import os
 
@@ -670,3 +670,69 @@ async def check_retrain_needed() -> Dict:
     except Exception as e:
         logger.error(f"检查重训练失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"检查失败: {str(e)}")
+
+
+@router.post("/run-daily-feedback")
+async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
+    """
+    执行每日反馈循环
+
+    触发 daily_feedback.py 脚本，计算预测命中率、相关性等指标
+    这是一个后台任务，执行时间可能较长
+
+    返回:
+        - success: 是否成功启动任务
+        - message: 状态消息
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    try:
+        # 获取项目根目录
+        project_root = Path(__file__).parent.parent.parent
+        script_path = project_root / "backend" / "scripts" / "lstm_mab" / "daily_feedback.py"
+
+        if not script_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"反馈脚本不存在: {script_path}"
+            )
+
+        # 在后台执行脚本
+        def run_feedback_script():
+            try:
+                result = subprocess.run(
+                    [sys.executable, str(script_path)],
+                    cwd=str(project_root),
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5分钟超时
+                )
+                if result.returncode == 0:
+                    logger.info("✅ 每日反馈脚本执行成功")
+                else:
+                    logger.error(f"❌ 每日反馈脚本执行失败: {result.stderr}")
+            except Exception as e:
+                logger.error(f"❌ 执行每日反馈脚本异常: {e}")
+
+        # 添加到后台任务
+        background_tasks.add_task(run_feedback_script)
+
+        logger.info("🚀 每日反馈任务已启动（后台执行）")
+
+        return {
+            'success': True,
+            'message': '每日反馈任务已启动，正在后台执行',
+            'script_path': str(script_path),
+            'started_at': datetime.now().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"启动每日反馈任务失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"启动每日反馈任务失败: {str(e)}"
+        )

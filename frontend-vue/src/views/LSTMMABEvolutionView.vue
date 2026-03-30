@@ -405,27 +405,22 @@ async function loadModel() {
 async function runFeedback() {
   isRunningFeedback.value = true
   try {
-    // 调用后端反馈脚本（通过API触发）
-    const response = await fetch(`${API_BASE}/feedback`, {
+    const response = await fetch(`${API_BASE}/run-daily-feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ts_code: 'TEST',
-        prediction_date: new Date().toISOString().split('T')[0],
-        actual_return: 0,
-        holding_days: 5,
-      }),
     })
     const data = await response.json()
     if (data.success) {
-      alert('反馈循环执行成功')
-      refreshData()
+      alert('每日反馈任务已启动，请在几秒后刷新查看结果')
+      // 延迟刷新，等待后台任务完成
+      setTimeout(() => {
+        refreshData()
+      }, 5000)
     } else {
-      alert(data.error || '执行失败')
+      alert(data.error || '启动失败')
     }
   } catch (error) {
-    console.error('执行反馈失败:', error)
-    alert('执行请求失败')
+    console.error('启动每日反馈失败:', error)
+    alert('启动请求失败')
   } finally {
     isRunningFeedback.value = false
   }
