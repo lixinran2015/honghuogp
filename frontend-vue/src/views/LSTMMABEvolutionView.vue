@@ -410,8 +410,8 @@ async function runFeedback() {
   isRunningFeedback.value = true
   feedbackStatus.value = '启动中...'
 
-  // 保存当前预测数用于检测变化
-  const initialPredictions = healthStatus.value?.total_predictions || 0
+  // 保存当前命中率用于检测变化（反馈任务会计算并更新命中率）
+  const initialHitRate = healthStatus.value?.recent_hit_rate
 
   try {
     const response = await fetch(`${API_BASE}/run-daily-feedback`, {
@@ -432,9 +432,9 @@ async function runFeedback() {
     if (data.success) {
       feedbackStatus.value = '运行中...'
 
-      // 轮询检查状态（最多 12 次，每次 5 秒，总共 60 秒）
+      // 轮询检查状态（最多 15 次，每次 2 秒，总共 30 秒）
       let attempts = 0
-      const maxAttempts = 12
+      const maxAttempts = 15
 
       const pollInterval = setInterval(async () => {
         attempts++
@@ -446,10 +446,10 @@ async function runFeedback() {
           const healthData = await healthResponse.json()
 
           if (healthData.success && healthData.health) {
-            const newPredictions = healthData.health.total_predictions || 0
+            const newHitRate = healthData.health.recent_hit_rate
 
-            // 如果预测数变化，说明反馈已处理完成
-            if (newPredictions !== initialPredictions && newPredictions > 0) {
+            // 如果命中率从 null/undefined 变成有值，说明反馈已处理完成
+            if ((!initialHitRate && newHitRate > 0) || newHitRate !== initialHitRate) {
               clearInterval(pollInterval)
               healthStatus.value = healthData.health
               retrainStatus.value = {
@@ -471,7 +471,7 @@ async function runFeedback() {
         } catch (e) {
           console.error('轮询失败:', e)
         }
-      }, 5000)
+      }, 2000)
     } else {
       alert(data.error || '启动失败')
     }
