@@ -489,24 +489,9 @@ async def scan_startup_stocks(
             'returned_count': len(startups),
             'scan_date': trade_date or datetime.now().strftime('%Y-%m-%d')
         }
-        
+
         logger.info(f"扫描完成: 保存{saved_count}只（金叉{golden_cross_count}，确认{confirmed_count}，完全启动{started_count}）/ 扫描{summary['total_scanned']}只")
-        
-        # 自动处理推荐：将启动确认/完全启动的股票加入推荐池
-        recommended_count = 0
-        try:
-            from backend.services.recommendation.stock_recommender import StockRecommendationService
-            recommender = StockRecommendationService(ws)
-            recommend_result = recommender.process_started_stocks(trade_date)
-            
-            if recommend_result['success']:
-                recommended_count = recommend_result['added_count']
-                logger.info(f"✅ 推荐处理完成: 新增{recommended_count}只到推荐池")
-        except Exception as e:
-            logger.warning(f"推荐处理失败: {e}")
-        
-        summary['recommended_count'] = recommended_count
-        
+
         return {
             'success': True,
             'data': startups,
@@ -1319,31 +1304,11 @@ async def diagnose_batch():
             session.commit()
             
             logger.info(f"批量诊断完成，共{len(results)}只股票，更新{updated_count}只到数据库，诊断结果已持久化")
-            
-            # 自动处理推荐：将启动确认/完全启动的股票加入推荐池
-            try:
-                from backend.services.recommendation.stock_recommender import StockRecommendationService
-                recommender = StockRecommendationService(ws)
-                recommend_result = recommender.process_started_stocks()
-                
-                if recommend_result['success']:
-                    logger.info(f"✅ 推荐处理完成: 新增{recommend_result['added_count']}只到推荐池")
-                    
-                    return {
-                        'success': True,
-                        'count': len(results),
-                        'updated_count': updated_count,
-                        'recommended_count': recommend_result['added_count'],
-                        'data': results
-                    }
-            except Exception as e:
-                logger.warning(f"推荐处理失败: {e}")
-            
+
             return {
                 'success': True,
                 'count': len(results),
                 'updated_count': updated_count,
-                'recommended_count': 0,
                 'data': results
             }
             

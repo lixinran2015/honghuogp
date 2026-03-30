@@ -1231,30 +1231,11 @@ async def diagnose_batch():
             session.commit()
             
             logger.info(f"批量诊断完成，共{len(results)}只股票，更新{updated_count}只到数据库，诊断结果已持久化")
-            
-            # 自动处理推荐：将完全启动的股票加入推荐池
-            try:
-                recommender = StockRecommendationService(ws)
-                recommend_result = recommender.process_started_stocks()
-                
-                if recommend_result['success']:
-                    logger.info(f"✅ 推荐处理完成: 新增{recommend_result['added_count']}只到推荐池")
-                    
-                    return {
-                        'success': True,
-                        'count': len(results),
-                        'updated_count': updated_count,
-                        'recommended_count': recommend_result['added_count'],
-                        'data': results
-                    }
-            except Exception as e:
-                logger.warning(f"推荐处理失败: {e}")
-            
+
             return {
                 'success': True,
                 'count': len(results),
                 'updated_count': updated_count,
-                'recommended_count': 0,
                 'data': results
             }
             

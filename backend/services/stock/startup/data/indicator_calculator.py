@@ -35,6 +35,7 @@ class IndicatorCalculator:
     RSI_PERIOD = 14
     
     DAYS_FOR_90D_HIGH = 90
+    DAYS_FOR_60D_HIGH = 60
     DAYS_FOR_120D_HIGH = 120
     DAYS_FOR_5D_GAIN = 5
     DAYS_FOR_10D_GAIN = 10
@@ -93,6 +94,7 @@ class IndicatorCalculator:
             # 90日收盘价最高价（使用收盘价，不是最高价，用于突破90日高点判定）
             # 重要：如果最后一行是今天的数据，需要排除，只使用昨天及更早的90个交易日
             indicators['high_90d'] = self._calculate_high_nd(kline_df, is_last_row_today, self.DAYS_FOR_90D_HIGH)
+            indicators['high_60d'] = self._calculate_high_nd(kline_df, is_last_row_today, self.DAYS_FOR_60D_HIGH)  # 60日高点
             indicators['high_120d'] = self._calculate_high_nd(kline_df, is_last_row_today, self.DAYS_FOR_120D_HIGH)  # 保留供其他模块使用
             
             # 近20日平均成交额（兼容旧字段名）

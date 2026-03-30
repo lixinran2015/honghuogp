@@ -14,7 +14,6 @@ from backend.services.stock.stock_startup_filter import StockStartupFilter
 from data_warehouse.service.warehouse_service import WarehouseService
 from data_warehouse.models.startup_candidate import FactStockStartupCandidate
 from backend.utils.trade_date_utils import is_trade_date, get_trade_date_or_latest
-from backend.services.recommendation.stock_recommender import StockRecommendationService
 from .common import get_universe_stocks
 
 router = APIRouter()
@@ -139,23 +138,9 @@ async def scan_startup_stocks(
             'scan_date': trade_date or datetime.now().strftime('%Y-%m-%d'),
             'prefer_db_data': prefer_db_data  # 标记是否优先使用数据库数据
         }
-        
+
         logger.info(f"扫描完成: 保存{saved_count}只（金叉{golden_cross_count}，确认{confirmed_count}，完全启动{started_count}）/ 扫描{summary['total_scanned']}只")
-        
-        # 自动处理推荐：将完全启动的股票加入推荐池
-        recommended_count = 0
-        try:
-            recommender = StockRecommendationService(ws)
-            recommend_result = recommender.process_started_stocks(trade_date)
-            
-            if recommend_result['success']:
-                recommended_count = recommend_result['added_count']
-                logger.info(f"✅ 推荐处理完成: 新增{recommended_count}只到推荐池")
-        except Exception as e:
-            logger.warning(f"推荐处理失败: {e}")
-        
-        summary['recommended_count'] = recommended_count
-        
+
         return {
             'success': True,
             'data': startups,
