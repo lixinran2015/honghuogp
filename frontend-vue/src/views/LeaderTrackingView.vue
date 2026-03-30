@@ -158,7 +158,7 @@
           <div
             v-if="dailyTrueDragons.length"
             class="bg-primary-700/20 border border-primary-700/30 rounded-lg p-3 mb-3"
-            title="自动从当前龙头列表中选 Top3：连板高度/主线数/量能/末次信号，并受“仅展示趋势未断”过滤"
+            title="自动从当前龙头列表中选 Top3：连板高度/主线数/量能/末次信号，并受 仅展示趋势未断 过滤"
           >
             <div class="text-sm font-semibold text-primary-400">今日真龙头（3只）</div>
             <div class="text-2xs text-primary-400/80 mt-0.5">
@@ -194,6 +194,85 @@
                 <div class="text-2xs text-warmgray-500 mt-0.5">{{ d.reason }}</div>
               </div>
             </div>
+          </div>
+
+          <!-- LSTM-MAB 智能评分 Top10 -->
+          <div
+            v-if="topScoredStocks.length"
+            class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-purple-700">AI智能评分 Top10</div>
+                <div class="text-2xs text-purple-600/80 mt-0.5">
+                  基于LSTM-MAB模型对龙头地位和技术形态的综合评分
+                  <span v-if="currentEmotionCycle" class="ml-1">(当前情绪: {{ currentEmotionCycle }})</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="text-2xs text-purple-600 hover:text-purple-800 underline transition-colors"
+                @click="fetchTopScored"
+                :disabled="isScoring"
+              >
+                {{ isScoring ? '评分中...' : '刷新评分' }}
+              </button>
+            </div>
+            <div v-if="scoringError" class="text-2xs text-red-500 mt-2">{{ scoringError }}</div>
+            <div v-if="!modelAvailable && topScoredStocks.length" class="text-2xs text-amber-600 mt-2">
+              模型未训练，显示原始排序
+            </div>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <div
+                v-for="(stock, i) in topScoredStocks.slice(0, 10)"
+                :key="stock.ts_code"
+                class="bg-white border border-purple-200 rounded-lg px-2 py-1.5 min-w-[200px] cursor-pointer hover:shadow-sm transition-shadow"
+                @click="selectStock(stock.ts_code, stock.name)"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="text-2xs text-purple-600 font-mono">#{{ i + 1 }}</div>
+                  <div
+                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    :class="{
+                      'bg-purple-100 text-purple-700': stock.lstm_mab_score?.grade === 'S',
+                      'bg-green-100 text-green-700': stock.lstm_mab_score?.grade === 'A',
+                      'bg-blue-100 text-blue-700': stock.lstm_mab_score?.grade === 'B',
+                      'bg-gray-100 text-gray-700': !stock.lstm_mab_score?.grade || stock.lstm_mab_score?.grade === 'C'
+                    }"
+                  >
+                    {{ stock.lstm_mab_score?.grade || '-' }}级
+                  </div>
+                </div>
+                <div class="text-sm font-semibold text-warmgray-900 truncate mt-0.5">
+                  {{ stock.name || stock.ts_code }}
+                </div>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <div class="text-2xs text-purple-700 font-medium">
+                    评分: {{ stock.lstm_mab_score?.total_score?.toFixed(1) || '-' }}
+                  </div>
+                  <div class="text-2xs text-warmgray-500">
+                    预期: {{ stock.lstm_mab_score?.expected_return?.toFixed ? `${stock.lstm_mab_score.expected_return.toFixed(1)}%` : '-' }}
+                  </div>
+                </div>
+                <div class="text-2xs text-warmgray-400 mt-0.5">
+                  {{ stock.is_space && stock.is_new ? '空间+刚启动' : stock.is_space ? '空间龙头' : '刚启动' }}
+                  <span v-if="stock.continuous_limit">· 连板{{ stock.continuous_limit }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 评分按钮 -->
+          <div v-if="!topScoredStocks.length && !isScoring" class="flex justify-end mb-2">
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-md text-2xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
+              @click="fetchTopScored"
+              :disabled="isScoring"
+            >
+              <span>🤖</span>
+              <span>AI智能评分</span>
+            </button>
           </div>
           <div class="text-2xs text-warmgray-500 border-b border-warmgray-200 pb-1 mb-2 grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center">
             <div class="text-center">序号</div>
@@ -575,6 +654,13 @@ const rowKlinesPlain = computed(() => rowKlines.value || {})
 
 // 今日实时涨幅（新浪）
 const realtimeQuotesMap = ref({})
+
+// LSTM-MAB 智能评分
+const isScoring = ref(false)
+const topScoredStocks = ref([])
+const scoringError = ref(null)
+const modelAvailable = ref(false)
+const currentEmotionCycle = ref('')
 
 // 判断是否为 ST / *ST 股票（根据名称前缀）
 const isSTStockName = (name) => {
@@ -1501,6 +1587,40 @@ const fetchData = async () => {
     poolLeaders.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// 获取 LSTM-MAB 智能评分 Top10
+const fetchTopScored = async () => {
+  isScoring.value = true
+  scoringError.value = null
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/top-scored`, {
+      params: {
+        top_n: 10,
+        min_score: 60,
+        stage: 'confirmed',
+      },
+    })
+    const data = res.data || {}
+    if (data.success) {
+      topScoredStocks.value = data.top_stocks || []
+      modelAvailable.value = data.model_available || false
+      currentEmotionCycle.value = data.emotion_cycle || ''
+      if (data.warning) {
+        scoringError.value = data.warning
+      }
+    } else {
+      scoringError.value = data.error || '获取评分失败'
+      topScoredStocks.value = []
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('获取智能评分失败:', e)
+    scoringError.value = e?.response?.data?.detail || e?.message || '评分请求失败'
+    topScoredStocks.value = []
+  } finally {
+    isScoring.value = false
   }
 }
 

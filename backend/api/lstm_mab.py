@@ -1,12 +1,17 @@
 """
 LSTM-MAB 评分引擎 API
 Phase 2: 机器学习评分 + 样本外测试
+Phase 3: 模型自我进化系统
 
 提供以下端点：
 - POST /api/lstm-mab/train - 训练模型
 - POST /api/lstm-mab/predict - 预测评分
 - POST /api/lstm-mab/test - 样本外测试
 - GET /api/lstm-mab/status - 获取模型状态
+- POST /api/lstm-mab/feedback - 接收交易反馈
+- GET /api/lstm-mab/evolution-report - 进化报告
+- POST /api/lstm-mab/save - 保存模型
+- GET /api/lstm-mab/performance - 性能监控
 """
 
 from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
@@ -14,6 +19,7 @@ from pydantic import BaseModel
 from typing import Dict, List, Optional
 from datetime import date
 import logging
+import os
 
 
 class PredictRequest(BaseModel):
@@ -21,11 +27,20 @@ class PredictRequest(BaseModel):
     factor_values: Dict[str, float]
 
 
+class FeedbackRequest(BaseModel):
+    prediction_id: Optional[int] = None
+    ts_code: str
+    prediction_date: date
+    actual_return: float
+    holding_days: int = 5
+
+
 from backend.services.lstm_mab import (
     LSTMMABModel,
     OutOfSampleTester,
     ThompsonSampling,
     UCB,
+    get_evolution_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,12 +54,28 @@ _model_status = {
     'performance': {},
 }
 
+# 模型文件路径
+MODEL_DIR = os.environ.get('LSTM_MAB_MODEL_DIR', 'backend/models/lstm_mab')
+MODEL_FILENAME = 'lstm_mab_latest.pkl'
+
 
 def _get_model() -> LSTMMABModel:
     """获取或创建模型实例"""
     global _model_instance
     if _model_instance is None:
-        _model_instance = LSTMMABModel()
+        # 尝试加载已有模型
+        model_path = os.path.join(MODEL_DIR, MODEL_FILENAME)
+        if os.path.exists(model_path):
+            try:
+                _model_instance = LSTMMABModel()
+                _model_instance.load(model_path)
+                _model_status['is_trained'] = True
+                logger.info(f"✅ 已加载保存的模型: {model_path}")
+            except Exception as e:
+                logger.warning(f"⚠️ 加载模型失败，创建新实例: {e}")
+                _model_instance = LSTMMABModel()
+        else:
+            _model_instance = LSTMMABModel()
     return _model_instance
 
 
@@ -71,6 +102,7 @@ async def train_model(
     """
     try:
         model = _get_model()
+        logger.info(f"开始训练模型: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
 
         # 获取训练数据
         from data_warehouse.service.warehouse_service import WarehouseService
@@ -90,6 +122,7 @@ async def train_model(
             import pandas as pd
             import numpy as np
 
+            logger.info("正在查询数据库...")
             price_data = pd.read_sql(
                 query,
                 session.bind,
@@ -98,6 +131,7 @@ async def train_model(
                     'end_date': end_date or date.today().isoformat(),
                 }
             )
+            logger.info(f"查询完成，获取 {len(price_data)} 条数据，涉及 {price_data['ts_code'].nunique() if len(price_data) > 0 else 0} 只股票")
 
             if len(price_data) < 100:
                 return {
@@ -109,6 +143,7 @@ async def train_model(
             session.close()
 
         # 按股票分别生成序列，合并训练
+        logger.info("开始生成训练序列...")
         X_all, y_all = [], []
         valid_stocks = 0
         for ts_code, group in price_data.groupby('ts_code'):
@@ -122,6 +157,8 @@ async def train_model(
             except Exception as e:
                 logger.warning(f"生成 {ts_code} 序列失败: {e}")
 
+        logger.info(f"序列生成完成: {valid_stocks} 只有效股票")
+
         if not X_all:
             return {
                 'success': False,
@@ -130,14 +167,24 @@ async def train_model(
 
         X_all = np.vstack(X_all)
         y_all = np.concatenate(y_all)
+        logger.info(f"合并数据: X shape={X_all.shape}, y shape={y_all.shape}")
 
         # 训练模型
+        logger.info("开始训练 LSTM 模型...")
         metrics = model.lstm.train_from_arrays(X_all, y_all)
+        logger.info(f"训练完成: {metrics}")
 
         # 更新状态
         _model_status['is_trained'] = True
         _model_status['training_date'] = date.today().isoformat()
         _model_status['performance'] = metrics
+
+        # 自动保存模型
+        try:
+            evo_service = get_evolution_service()
+            evo_service.save_model(model, metrics)
+        except Exception as save_err:
+            logger.warning(f"模型自动保存失败: {save_err}")
 
         return {
             'success': True,
@@ -166,6 +213,7 @@ async def predict_score(request: PredictRequest) -> Dict:
     """
     try:
         model = _get_model()
+        evo_service = get_evolution_service()
 
         if not _model_status['is_trained']:
             return {
@@ -179,6 +227,15 @@ async def predict_score(request: PredictRequest) -> Dict:
             factor_values=request.factor_values,
         )
 
+        # 记录预测到数据库
+        emotion_cycle = model.mab.current_emotion
+        prediction_id = evo_service.record_prediction(
+            ts_code=request.ts_code,
+            result=result,
+            factor_values=request.factor_values,
+            emotion_cycle=emotion_cycle
+        )
+
         return {
             'success': True,
             'data': {
@@ -190,6 +247,8 @@ async def predict_score(request: PredictRequest) -> Dict:
                 'expected_return': result.expected_return,
                 'confidence': result.confidence,
             },
+            'prediction_id': prediction_id,
+            'emotion_cycle': emotion_cycle,
         }
 
     except Exception as e:
@@ -372,3 +431,207 @@ async def update_emotion_cycle(
     except Exception as e:
         logger.error(f"更新情绪周期失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+
+
+# ============== Phase 3: 模型自我进化系统 ==============
+
+@router.post("/feedback")
+async def receive_feedback(request: FeedbackRequest) -> Dict:
+    """
+    接收交易反馈，更新MAB权重
+
+    示例:
+    ```
+    POST /api/lstm-mab/feedback
+    {
+        "ts_code": "000001.SZ",
+        "prediction_date": "2025-03-20",
+        "actual_return": 0.05,
+        "holding_days": 5
+    }
+    ```
+    """
+    try:
+        model = _get_model()
+
+        if not _model_status['is_trained']:
+            return {
+                'success': False,
+                'error': '模型未训练',
+            }
+
+        # 更新每个因子的性能
+        for factor_name in model.factor_names:
+            model.update_factor_performance(factor_name, request.actual_return)
+
+        # 自动保存更新后的模型
+        try:
+            evo_service = get_evolution_service()
+            evo_service.save_model(model)
+        except Exception as save_err:
+            logger.warning(f"反馈后自动保存失败: {save_err}")
+
+        return {
+            'success': True,
+            'message': '反馈已接收，模型已更新',
+            'updated_factors': model.factor_names,
+            'actual_return': request.actual_return,
+        }
+
+    except Exception as e:
+        logger.error(f"接收反馈失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"反馈处理失败: {str(e)}")
+
+
+@router.post("/save")
+async def save_model() -> Dict:
+    """
+    手动保存当前模型状态
+
+    保存路径: backend/models/lstm_mab/lstm_mab_latest.pkl
+    """
+    try:
+        model = _get_model()
+        evo_service = get_evolution_service()
+
+        path = evo_service.save_model(model, _model_status.get('performance'))
+
+        return {
+            'success': True,
+            'message': '模型已保存',
+            'path': path,
+        }
+
+    except Exception as e:
+        logger.error(f"保存模型失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+
+@router.post("/load")
+async def load_model() -> Dict:
+    """
+    加载保存的模型
+    """
+    try:
+        global _model_instance, _model_status
+
+        evo_service = get_evolution_service()
+        loaded_model = evo_service.load_model()
+
+        if loaded_model is None:
+            return {
+                'success': False,
+                'error': '没有找到保存的模型文件',
+            }
+
+        _model_instance = loaded_model
+        _model_status['is_trained'] = True
+
+        # 获取模型统计信息
+        stats = loaded_model.get_model_stats()
+
+        return {
+            'success': True,
+            'message': '模型已加载',
+            'model_stats': stats,
+        }
+
+    except Exception as e:
+        logger.error(f"加载模型失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"加载失败: {str(e)}")
+
+
+@router.get("/evolution-report")
+async def get_evolution_report() -> Dict:
+    """
+    获取模型进化报告
+
+    包含：
+    - 模型健康状态
+    - 性能汇总
+    - 重训练建议
+    - 版本历史
+    """
+    try:
+        evo_service = get_evolution_service()
+        report = evo_service.get_evolution_report()
+
+        return {
+            'success': True,
+            'report': report,
+        }
+
+    except Exception as e:
+        logger.error(f"获取进化报告失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取报告失败: {str(e)}")
+
+
+@router.get("/performance")
+async def get_performance(
+    days: int = Query(30, description="统计天数", ge=7, le=365),
+) -> Dict:
+    """
+    获取模型性能监控数据
+    """
+    try:
+        evo_service = get_evolution_service()
+        summary = evo_service.get_performance_summary(days=days)
+
+        return {
+            'success': True,
+            'summary': summary,
+        }
+
+    except Exception as e:
+        logger.error(f"获取性能数据失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取性能数据失败: {str(e)}")
+
+
+@router.get("/health")
+async def get_model_health() -> Dict:
+    """
+    获取模型健康状态
+    """
+    try:
+        evo_service = get_evolution_service()
+        health = evo_service.get_model_health()
+        should_retrain, reason = evo_service.should_retrain()
+
+        return {
+            'success': True,
+            'health': {
+                'is_healthy': health.is_healthy,
+                'total_predictions': health.total_predictions,
+                'recent_hit_rate': health.recent_hit_rate,
+                'recent_correlation': health.recent_correlation,
+                'last_training_date': health.last_training_date.isoformat() if health.last_training_date else None,
+                'recommendations': health.recommendations,
+            },
+            'should_retrain': should_retrain,
+            'retrain_reason': reason,
+        }
+
+    except Exception as e:
+        logger.error(f"获取健康状态失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取健康状态失败: {str(e)}")
+
+
+@router.post("/retrain-check")
+async def check_retrain_needed() -> Dict:
+    """
+    检查是否需要重训练，并返回建议
+    """
+    try:
+        evo_service = get_evolution_service()
+        should_retrain, reason = evo_service.should_retrain()
+
+        return {
+            'success': True,
+            'should_retrain': should_retrain,
+            'reason': reason,
+            'current_date': date.today().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"检查重训练失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"检查失败: {str(e)}")

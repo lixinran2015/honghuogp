@@ -179,6 +179,7 @@ const allMenuGroups = [
       { path: '/leader-buy-backtest', label: '龙头买点回测', icon: 'ChartBarIcon' },
       { path: '/leader-optimization', label: '龙头优化系统', icon: 'StarIcon' },
       { path: '/lstm-mab', label: 'LSTM-MAB 模型', icon: 'CpuChipIcon' },
+      { path: '/lstm-mab-evolution', label: '模型进化监控', icon: 'ArrowPathIcon' },
       { path: '/leader-strategy-intro', label: '策略说明', icon: 'BookOpenIcon' },
       { path: '/diagnose', label: '单票诊断', icon: 'MagnifyingGlassIcon' },
       { path: '/limit-up-2days', label: '2连板', icon: 'ArrowTrendingUpIcon' },
@@ -303,6 +304,7 @@ const iconMap = {
   ArrowPathIcon,
   ClipboardDocumentListIcon,
   SwatchIcon,
+  CpuChipIcon,
 }
 
 const getIconComponent = (iconName) => {

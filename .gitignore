@@ -38,6 +38,10 @@ frontend-vue/node_modules/
 logs/
 *.log
 
+# 模型文件（大文件，不提交到git）
+backend/models/lstm_mab/*.pkl
+backend/models/**/*.pkl
+
 # 归档（若不想提交归档目录可取消注释）
 # archive/
 .worktrees/

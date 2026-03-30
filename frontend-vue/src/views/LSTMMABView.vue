@@ -325,6 +325,10 @@ async function trainModel() {
       method: 'POST',
     })
     const data = await response.json()
+    if (!response.ok) {
+      alert(data.detail || '训练失败')
+      return
+    }
     if (data.success) {
       trainResult.value = data
       await fetchModelStatus()

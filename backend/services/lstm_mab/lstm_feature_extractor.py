@@ -100,7 +100,7 @@ class LSTMFeatureExtractor:
         df = price_data.copy()
 
         # 基础价格特征
-        df['returns'] = df['close'].pct_change()
+        df['returns'] = df['close'].pct_change(fill_method=None)
         df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
 
         # 波动率特征

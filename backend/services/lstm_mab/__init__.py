@@ -12,6 +12,7 @@ from .lstm_feature_extractor import LSTMFeatureExtractor
 from .mab_weight_allocator import MABWeightAllocator, ThompsonSampling, UCB
 from .lstm_mab_model import LSTMMABModel
 from .out_of_sample_tester import OutOfSampleTester
+from .evolution_service import ModelEvolutionService, get_evolution_service
 
 __all__ = [
     "LSTMFeatureExtractor",
@@ -20,4 +21,6 @@ __all__ = [
     "UCB",
     "LSTMMABModel",
     "OutOfSampleTester",
+    "ModelEvolutionService",
+    "get_evolution_service",
 ]

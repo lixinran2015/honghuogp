@@ -103,6 +103,13 @@ class LayeredBacktest:
         # 获取收益率数据
         df = self._get_returns_data(factor_data, holding_period)
 
+        # 统一未来收益率列名（IC分析器返回的是 forward_return_Nd）
+        forward_cols = [c for c in df.columns if c.startswith('forward_return_')]
+        if forward_cols:
+            df['forward_return'] = df[forward_cols[0]]
+        elif 'forward_return' not in df.columns:
+            raise ValueError("因子数据中未找到未来收益率列（forward_return）")
+
         # 按调仓频率分组
         df = self._add_rebalance_groups(df, rebalance_freq)
 
@@ -114,13 +121,16 @@ class LayeredBacktest:
         for rebalance_date, group in df.groupby('rebalance_date'):
             # 按因子值分层
             group = group.dropna(subset=['factor_value'])
-            if len(group) < num_layers * 5:  # 每层至少5只股票
+            if len(group) < num_layers * 3:  # 每层至少3只股票
                 continue
 
-            group['layer'] = pd.qcut(
-                group['factor_value'],
-                q=num_layers,
-                labels=range(1, num_layers + 1)
+            # 使用rank进行分层，避免重复值问题
+            group['rank'] = group['factor_value'].rank(method='first')
+            group['layer'] = pd.cut(
+                group['rank'],
+                bins=num_layers,
+                labels=range(1, num_layers + 1),
+                include_lowest=True
             )
 
             # 计算各层收益
@@ -129,8 +139,11 @@ class LayeredBacktest:
                 if len(layer_stocks) == 0:
                     continue
 
-                # 计算等权收益
-                layer_return = group[group['layer'] == layer_id]['forward_return'].mean()
+                # 计算等权收益（排除缺失值）
+                layer_data = group[group['layer'] == layer_id]['forward_return'].dropna()
+                if len(layer_data) == 0:
+                    continue
+                layer_return = layer_data.mean()
                 layer_returns[layer_id].append(layer_return)
 
                 # 计算换手率
@@ -146,7 +159,7 @@ class LayeredBacktest:
         for layer_id, returns in layer_returns.items():
             if len(returns) > 0:
                 # 年化收益（假设252个交易日）
-                mean_return = np.mean(returns)
+                mean_return = np.nanmean(returns)
                 annual_return = (1 + mean_return) ** (252 / holding_period) - 1
                 layer_annual_returns[layer_id] = annual_return
             else:
@@ -162,7 +175,7 @@ class LayeredBacktest:
                 r[num_layers - 1] - r[0] if len(r) >= num_layers else 0
                 for r in zip(*[layer_returns[i] for i in range(1, num_layers + 1)])
             ]
-            ls_std = np.std(ls_returns) * np.sqrt(252 / holding_period) if len(ls_returns) > 0 else 0
+            ls_std = np.nanstd(ls_returns) * np.sqrt(252 / holding_period) if len(ls_returns) > 0 else 0
             long_short_sharpe = long_short_return / ls_std if ls_std > 0 else 0
         else:
             long_short_return = 0
