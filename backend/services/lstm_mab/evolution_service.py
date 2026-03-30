@@ -10,6 +10,7 @@ LSTM-MAB 模型进化服务
 
 import os
 import json
+import re
 import logging
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -59,6 +60,11 @@ class ModelEvolutionService:
     def _ensure_model_dir(self):
         """确保模型目录存在"""
         os.makedirs(MODEL_DIR, exist_ok=True)
+
+    def _validate_version(self, version: str) -> None:
+        """验证版本号格式，防止注入攻击"""
+        if not re.match(r'^v_\d{4}-\d{2}-\d{2}_\d{6}$', version):
+            raise ValueError(f"Invalid version format: {version}")
 
     def get_model_path(self) -> str:
         """获取模型文件路径"""
@@ -112,6 +118,9 @@ class ModelEvolutionService:
 
     def _record_version(self, version: str, path: str, metrics: Optional[Dict] = None):
         """记录模型版本到数据库"""
+        # 验证版本号格式
+        self._validate_version(version)
+
         session = self.ws.get_session()
         try:
             query = text("""

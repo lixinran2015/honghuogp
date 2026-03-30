@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Optional, List, Dict, Any
 
@@ -14,6 +15,7 @@ from backend.services.leader_tracking.leader_recent_days_service import LeaderRe
 from backend.services.lstm_mab import LSTMMABModel
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
+logger = logging.getLogger(__name__)
 
 # 模型缓存
 _model_instance: Optional[LSTMMABModel] = None
@@ -446,7 +448,8 @@ async def get_top_scored_leaders(
       }
       scored_stocks.append(scored_stock)
     except Exception as e:
-      # 评分失败，使用默认低分
+      # 评分失败，记录详细错误日志并使用默认低分
+      logger.error(f"评分失败 {stock.get('ts_code', 'unknown')}: {e}", exc_info=True)
       scored_stocks.append({
         **stock,
         'lstm_mab_score': {

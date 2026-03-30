@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 import logging
 import argparse
+import json
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
 import pandas as pd
@@ -148,7 +149,7 @@ class DailyFeedbackLoop:
 
     def calculate_actual_returns(self, predictions_df: pd.DataFrame, holding_days: int = 5) -> pd.DataFrame:
         """
-        计算实际收益
+        计算实际收益（使用批量查询优化性能）
 
         对于 prediction_date 的预测，计算 holding_days 后的实际收益
         """
@@ -157,51 +158,69 @@ class DailyFeedbackLoop:
 
         session = self.ws.get_session()
         try:
+            # 收集所有需要查询的日期和股票代码
+            ts_codes = predictions_df['ts_code'].unique().tolist()
+            pred_dates = predictions_df['prediction_date'].unique().tolist()
+            max_target_date = max(pred_dates) + timedelta(days=holding_days + 5)  # 预留缓冲
+
+            # 批量获取所有相关价格数据
+            price_query = text("""
+                SELECT ts_code, trade_date, close
+                FROM fact_daily_price_qfq
+                WHERE ts_code = ANY(:ts_codes)
+                AND trade_date >= :min_date
+                AND trade_date <= :max_date
+            """)
+
+            price_df = pd.read_sql(
+                price_query,
+                session.bind,
+                params={
+                    'ts_codes': ts_codes,
+                    'min_date': min(pred_dates),
+                    'max_date': max_target_date
+                }
+            )
+
+            if price_df.empty:
+                logger.warning("⚠️ 未找到任何价格数据")
+                return pd.DataFrame()
+
+            # 将价格数据转为字典格式便于查找
+            price_dict = {}
+            for _, row in price_df.iterrows():
+                key = (row['ts_code'], row['trade_date'])
+                price_dict[key] = row['close']
+
             results = []
+            missing_count = 0
 
             for _, row in predictions_df.iterrows():
                 ts_code = row['ts_code']
                 pred_date = row['prediction_date']
-
-                # 计算目标日期（prediction_date + holding_days）
                 target_date = pred_date + timedelta(days=holding_days)
 
-                # 查询买入价（prediction_date的收盘价）
-                buy_query = text("""
-                    SELECT close FROM fact_daily_price_qfq
-                    WHERE ts_code = :ts_code AND trade_date = :date
-                    LIMIT 1
-                """)
-
-                buy_result = session.execute(buy_query, {
-                    'ts_code': ts_code,
-                    'date': pred_date
-                }).fetchone()
-
-                if not buy_result:
-                    logger.warning(f"⚠️ 未找到 {ts_code} 在 {pred_date} 的价格数据")
+                # 查找买入价
+                buy_price = price_dict.get((ts_code, pred_date))
+                if buy_price is None:
+                    missing_count += 1
+                    if missing_count <= 5:  # 只记录前5个警告
+                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {pred_date} 的价格数据")
                     continue
 
-                buy_price = buy_result[0]
+                # 查找卖出价（找到目标日期或之前最近的交易日）
+                sell_price = None
+                for offset in range(5):  # 向后查找最多5天
+                    check_date = target_date - timedelta(days=offset)
+                    sell_price = price_dict.get((ts_code, check_date))
+                    if sell_price is not None:
+                        break
 
-                # 查询卖出价（target_date的收盘价）
-                sell_query = text("""
-                    SELECT close FROM fact_daily_price_qfq
-                    WHERE ts_code = :ts_code AND trade_date <= :date
-                    ORDER BY trade_date DESC
-                    LIMIT 1
-                """)
-
-                sell_result = session.execute(sell_query, {
-                    'ts_code': ts_code,
-                    'date': target_date
-                }).fetchone()
-
-                if not sell_result:
-                    logger.warning(f"⚠️ 未找到 {ts_code} 在 {target_date} 附近的价格数据")
+                if sell_price is None:
+                    missing_count += 1
+                    if missing_count <= 5:
+                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {target_date} 附近的价格数据")
                     continue
-
-                sell_price = sell_result[0]
 
                 # 计算收益率
                 actual_return = (sell_price - buy_price) / buy_price
@@ -217,6 +236,9 @@ class DailyFeedbackLoop:
                     'factor_weights': row['factor_weights'],
                     'emotion_cycle': row['emotion_cycle']
                 })
+
+            if missing_count > 5:
+                logger.warning(f"⚠️ 共有 {missing_count} 条记录缺少价格数据（仅显示前5条）")
 
             return pd.DataFrame(results)
 
@@ -422,5 +444,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import json  # 用于记录模型版本
     main()

@@ -107,40 +107,37 @@ async def train_model(
         # 获取训练数据
         from data_warehouse.service.warehouse_service import WarehouseService
         ws = WarehouseService()
-        session = ws.get_session()
 
         try:
-            from sqlalchemy import text
+            with ws.get_session() as session:
+                from sqlalchemy import text
 
-            query = text("""
-                SELECT ts_code, trade_date, open, high, low, close, vol as volume
-                FROM fact_daily_price_qfq
-                WHERE trade_date BETWEEN :start_date AND :end_date
-                ORDER BY ts_code, trade_date
-            """)
+                query = text("""
+                    SELECT ts_code, trade_date, open, high, low, close, vol as volume
+                    FROM fact_daily_price_qfq
+                    WHERE trade_date BETWEEN :start_date AND :end_date
+                    ORDER BY ts_code, trade_date
+                """)
 
-            import pandas as pd
-            import numpy as np
+                import pandas as pd
+                import numpy as np
 
-            logger.info("正在查询数据库...")
-            price_data = pd.read_sql(
-                query,
-                session.bind,
-                params={
-                    'start_date': start_date or '2023-01-01',
-                    'end_date': end_date or date.today().isoformat(),
-                }
-            )
-            logger.info(f"查询完成，获取 {len(price_data)} 条数据，涉及 {price_data['ts_code'].nunique() if len(price_data) > 0 else 0} 只股票")
+                logger.info("正在查询数据库...")
+                price_data = pd.read_sql(
+                    query,
+                    session.bind,
+                    params={
+                        'start_date': start_date or '2023-01-01',
+                        'end_date': end_date or date.today().isoformat(),
+                    }
+                )
+                logger.info(f"查询完成，获取 {len(price_data)} 条数据，涉及 {price_data['ts_code'].nunique() if len(price_data) > 0 else 0} 只股票")
 
-            if len(price_data) < 100:
-                return {
-                    'success': False,
-                    'error': f'训练数据不足: {len(price_data)} < 100条',
-                }
-
-        finally:
-            session.close()
+                if len(price_data) < 100:
+                    return {
+                        'success': False,
+                        'error': f'训练数据不足: {len(price_data)} < 100条',
+                    }
 
         # 按股票分别生成序列，合并训练
         logger.info("开始生成训练序列...")
@@ -289,30 +286,27 @@ async def out_of_sample_test(
         # 获取数据
         from data_warehouse.service.warehouse_service import WarehouseService
         ws = WarehouseService()
-        session = ws.get_session()
 
         try:
-            from sqlalchemy import text
+            with ws.get_session() as session:
+                from sqlalchemy import text
 
-            query = text("""
-                SELECT trade_date, open, high, low, close, vol as volume
-                FROM fact_daily_price_qfq
-                WHERE trade_date BETWEEN :start_date AND :end_date
-                ORDER BY trade_date
-            """)
+                query = text("""
+                    SELECT trade_date, open, high, low, close, vol as volume
+                    FROM fact_daily_price_qfq
+                    WHERE trade_date BETWEEN :start_date AND :end_date
+                    ORDER BY trade_date
+                """)
 
-            import pandas as pd
-            price_data = pd.read_sql(
-                query,
-                session.bind,
-                params={
-                    'start_date': start_date or '2023-01-01',
-                    'end_date': end_date or date.today().isoformat(),
-                }
-            )
-
-        finally:
-            session.close()
+                import pandas as pd
+                price_data = pd.read_sql(
+                    query,
+                    session.bind,
+                    params={
+                        'start_date': start_date or '2023-01-01',
+                        'end_date': end_date or date.today().isoformat(),
+                    }
+                )
 
         # 执行样本外测试
         tester = OutOfSampleTester(
@@ -354,23 +348,20 @@ async def rolling_window_test(
         # 获取数据
         from data_warehouse.service.warehouse_service import WarehouseService
         ws = WarehouseService()
-        session = ws.get_session()
 
         try:
-            from sqlalchemy import text
-            import pandas as pd
+            with ws.get_session() as session:
+                from sqlalchemy import text
+                import pandas as pd
 
-            query = text("""
-                SELECT trade_date, open, high, low, close, vol as volume
-                FROM fact_daily_price_qfq
-                WHERE trade_date >= '2022-01-01'
-                ORDER BY trade_date
-            """)
+                query = text("""
+                    SELECT trade_date, open, high, low, close, vol as volume
+                    FROM fact_daily_price_qfq
+                    WHERE trade_date >= '2022-01-01'
+                    ORDER BY trade_date
+                """)
 
-            price_data = pd.read_sql(query, session.bind)
-
-        finally:
-            session.close()
+                price_data = pd.read_sql(query, session.bind)
 
         # 执行滚动测试
         tester = OutOfSampleTester()
