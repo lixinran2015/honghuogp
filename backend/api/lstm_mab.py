@@ -700,9 +700,10 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
     from pathlib import Path
     import time
 
+    global _last_feedback_run
+
     # 简单的调用频率限制（内存中，重启后重置）
     # 生产环境建议使用 Redis 或数据库实现分布式限制
-    global _last_feedback_run
     current_time = time.time()
     min_interval = 300  # 5 分钟
 
@@ -727,7 +728,6 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
             )
 
         # 记录本次调用时间
-        global _last_feedback_run
         _last_feedback_run = current_time
 
         # 在后台执行脚本
