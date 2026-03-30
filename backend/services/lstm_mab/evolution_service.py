@@ -220,23 +220,33 @@ class ModelEvolutionService:
         """检查模型健康状态"""
         session = self.ws.get_session()
         try:
-            # 获取最近7天的性能数据
-            query = text("""
+            # 获取最近7天的预测数量（直接从预测表统计）
+            pred_query = text("""
+                SELECT COUNT(*) as total
+                FROM lstm_mab_predictions
+                WHERE prediction_date >= :start_date
+            """)
+
+            pred_result = session.execute(pred_query, {
+                'start_date': date.today() - timedelta(days=7)
+            }).fetchone()
+            total_predictions = pred_result[0] or 0
+
+            # 获取最近7天的性能数据（从汇总表）
+            perf_query = text("""
                 SELECT
-                    COALESCE(SUM(total_predictions), 0) as total,
                     AVG(hit_rate) as avg_hit_rate,
                     AVG(prediction_correlation) as avg_corr
                 FROM lstm_mab_performance
                 WHERE date >= :start_date
             """)
 
-            result = session.execute(query, {
+            perf_result = session.execute(perf_query, {
                 'start_date': date.today() - timedelta(days=7)
             }).fetchone()
 
-            total_predictions = result[0] or 0
-            recent_hit_rate = result[1] or 0
-            recent_correlation = result[2] or 0
+            recent_hit_rate = perf_result[0] or 0
+            recent_correlation = perf_result[1] or 0
 
             # 获取最后训练日期
             version_query = text("""
