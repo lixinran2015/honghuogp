@@ -194,10 +194,10 @@ class ModelEvolutionService:
             result_db = session.execute(query, {
                 'pred_date': date.today(),
                 'ts_code': ts_code,
-                'score': result.total_score,
+                'score': float(result.total_score),
                 'grade': result.grade,
-                'expected_return': result.expected_return,
-                'confidence': result.confidence,
+                'expected_return': float(result.expected_return) if result.expected_return else 0.0,
+                'confidence': float(result.confidence),
                 'factor_scores': json.dumps(factor_values),
                 'factor_weights': json.dumps(result.factor_weights),
                 'emotion_cycle': emotion_cycle,
