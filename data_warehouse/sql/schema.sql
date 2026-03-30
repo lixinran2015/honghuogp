@@ -65,14 +65,14 @@ CREATE TABLE IF NOT EXISTS raw_fundamental (
     ts_code       VARCHAR(20) NOT NULL,
     end_date      DATE NOT NULL,           -- 报告期
     report_type   VARCHAR(20) NOT NULL,    -- 'annual','q1','q2','q3'
-    roe           NUMERIC(8,4),            -- ROE（%）
-    net_margin    NUMERIC(8,4),            -- 净利率（%）
-    gross_margin  NUMERIC(8,4),            -- 毛利率（%）
+    roe           NUMERIC(12,4),            -- ROE（%）
+    net_margin    NUMERIC(12,4),            -- 净利率（%）
+    gross_margin  NUMERIC(12,4),            -- 毛利率（%）
     op_cf         NUMERIC(20,4),            -- 经营现金流（元）
     total_debt    NUMERIC(20,4),            -- 总负债（元）
     total_asset   NUMERIC(20,4),            -- 总资产（元）
     debt_ratio    NUMERIC(8,4),            -- 负债率（%）
-    profit_volatility NUMERIC(8,4),       -- 盈利波动率
+    profit_volatility NUMERIC(12,4),       -- 盈利波动率
     source        VARCHAR(20) NOT NULL,    -- 'tushare','akshare',etc.
     raw_payload   JSONB,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -113,14 +113,14 @@ CREATE TABLE IF NOT EXISTS fact_fundamental (
     ts_code       VARCHAR(20) NOT NULL,
     end_date      DATE NOT NULL,
     report_type   VARCHAR(20) NOT NULL,
-    roe           NUMERIC(8,4),
-    net_margin    NUMERIC(8,4),
-    gross_margin  NUMERIC(8,4),
+    roe           NUMERIC(12,4),
+    net_margin    NUMERIC(12,4),
+    gross_margin  NUMERIC(12,4),
     op_cf         NUMERIC(20,4),
     total_debt    NUMERIC(20,4),
     total_asset   NUMERIC(20,4),
     debt_ratio    NUMERIC(8,4),
-    profit_volatility NUMERIC(8,4),
+    profit_volatility NUMERIC(12,4),
     data_quality  VARCHAR(10) NOT NULL DEFAULT 'B',
     sources_used  VARCHAR(50)[],
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -149,18 +149,18 @@ CREATE TABLE IF NOT EXISTS fact_daily_fundamental (
     pb_mrq           NUMERIC(20,4),      -- 市净率(最新报告MRQ)
     pb_lyr_excl      NUMERIC(20,4),      -- 市净率(年报LYR) 扣除其他权益工具
     pb_mrq_excl      NUMERIC(20,4),      -- 市净率(最新报告MRQ) 扣除其他权益工具
-    roe_ttm          NUMERIC(8,4),      -- ROE(TTM)
-    roe_lyr          NUMERIC(8,4),      -- ROE(年报LYR)
-    roe_mrq          NUMERIC(8,4),      -- ROE(最新报告MRQ)
-    roe_q4           NUMERIC(8,4),      -- ROE(最近一季度*4)
-    roe_q2           NUMERIC(8,4),      -- ROE(最近半年*2)
-    roe_q4_3         NUMERIC(8,4),      -- ROE(最近3季度*4/3)
-    net_margin_ttm   NUMERIC(8,4),      -- 净利率(TTM)
-    net_margin_lyr   NUMERIC(8,4),      -- 净利率(年报LYR)
-    net_margin_mrq   NUMERIC(8,4),      -- 净利率(最新报告MRQ)
-    net_margin_q4    NUMERIC(8,4),      -- 净利率(最近一季度*4)
-    net_margin_q2    NUMERIC(8,4),      -- 净利率(最近半年*2)
-    net_margin_q4_3  NUMERIC(8,4),      -- 净利率(最近3季度*4/3)
+    roe_ttm          NUMERIC(12,4),      -- ROE(TTM)
+    roe_lyr          NUMERIC(12,4),      -- ROE(年报LYR)
+    roe_mrq          NUMERIC(12,4),      -- ROE(最新报告MRQ)
+    roe_q4           NUMERIC(12,4),      -- ROE(最近一季度*4)
+    roe_q2           NUMERIC(12,4),      -- ROE(最近半年*2)
+    roe_q4_3         NUMERIC(12,4),      -- ROE(最近3季度*4/3)
+    net_margin_ttm   NUMERIC(12,4),      -- 净利率(TTM)
+    net_margin_lyr   NUMERIC(12,4),      -- 净利率(年报LYR)
+    net_margin_mrq   NUMERIC(12,4),      -- 净利率(最新报告MRQ)
+    net_margin_q4    NUMERIC(12,4),      -- 净利率(最近一季度*4)
+    net_margin_q2    NUMERIC(12,4),      -- 净利率(最近半年*2)
+    net_margin_q4_3  NUMERIC(12,4),      -- 净利率(最近3季度*4/3)
     gross_margin_ttm NUMERIC(8,4),      -- 毛利率(TTM)
     op_cf_ttm        NUMERIC(20,4),      -- 经营现金流(TTM)
     op_cf_lyr        NUMERIC(20,4),      -- 经营现金流(年报LYR)
