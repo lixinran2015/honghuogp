@@ -138,6 +138,9 @@ async def train_model(
                         'success': False,
                         'error': f'训练数据不足: {len(price_data)} < 100条',
                     }
+        except Exception as e:
+            logger.error(f"数据库查询失败: {e}")
+            raise HTTPException(status_code=500, detail=f"数据查询失败: {str(e)}")
 
         # 按股票分别生成序列，合并训练
         logger.info("开始生成训练序列...")
@@ -307,6 +310,9 @@ async def out_of_sample_test(
                         'end_date': end_date or date.today().isoformat(),
                     }
                 )
+        except Exception as e:
+            logger.error(f"数据库查询失败: {e}")
+            raise HTTPException(status_code=500, detail=f"数据查询失败: {str(e)}")
 
         # 执行样本外测试
         tester = OutOfSampleTester(
@@ -362,6 +368,9 @@ async def rolling_window_test(
                 """)
 
                 price_data = pd.read_sql(query, session.bind)
+        except Exception as e:
+            logger.error(f"数据库查询失败: {e}")
+            raise HTTPException(status_code=500, detail=f"数据查询失败: {str(e)}")
 
         # 执行滚动测试
         tester = OutOfSampleTester()
