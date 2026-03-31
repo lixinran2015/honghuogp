@@ -56,11 +56,11 @@ class QueryCache:
                 if v['expires_at'] < now
             ]
             for k in expired_keys:
-                del self._cache[k]
+                self._cache.pop(k, None)  # 使用 pop 避免 KeyError
             # 如果仍然超过限制，删除最老的条目
             if len(self._cache) >= self._max_size:
                 oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]['expires_at'])
-                del self._cache[oldest_key]
+                self._cache.pop(oldest_key, None)  # 使用 pop 避免 KeyError
 
         self._cache[key] = {
             'value': value,
@@ -75,7 +75,7 @@ class QueryCache:
         """使指定前缀的缓存失效"""
         keys_to_delete = [k for k in self._cache.keys() if k.startswith(key_prefix)]
         for k in keys_to_delete:
-            del self._cache[k]
+            self._cache.pop(k, None)  # 使用 pop 避免 KeyError
         return len(keys_to_delete)
 
 

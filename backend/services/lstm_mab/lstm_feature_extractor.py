@@ -63,7 +63,18 @@ class LSTMFeatureExtractor:
         self.scaler = StandardScaler()
         self.is_trained = False
 
-    def _build_model(self) -> MLPRegressor:
+    @property
+    def is_trained(self) -> bool:
+        """动态检查模型是否已训练"""
+        # 向后兼容：处理旧模型保存的 is_trained 属性
+        if '_is_trained' not in self.__dict__ and 'is_trained' in self.__dict__:
+            old_value = self.__dict__.pop('is_trained')
+            self._is_trained = old_value
+        return getattr(self, '_is_trained', False) and self.model is not None
+
+    @is_trained.setter
+    def is_trained(self, value: bool):
+        self._is_trained = value
         """构建MLP模型（简化版LSTM）"""
         # 使用2层隐藏层模拟LSTM效果
         return MLPRegressor(
@@ -98,6 +109,17 @@ class LSTMFeatureExtractor:
         """
         # 计算技术指标作为特征
         df = price_data.copy()
+
+        # 确保数值列为 numpy float64 类型
+        numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+        for col in numeric_cols:
+            if col in df.columns:
+                original_dtype = df[col].dtype
+                df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float64)
+                # 检查数据丢失
+                if df[col].isna().any():
+                    na_count = df[col].isna().sum()
+                    logger.warning(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
 
         # 基础价格特征
         df['returns'] = df['close'].pct_change(fill_method=None)
@@ -344,8 +366,9 @@ class LSTMFeatureExtractor:
         Returns:
             LSTMPrediction: 包含预期收益和不确定性
         """
-        if not self.is_trained:
-            logger.warning("LSTM模型未训练，返回默认预测值")
+        # 优先检查模型是否存在（更可靠的状态判断）
+        if self.model is None:
+            logger.warning(f"LSTM模型未训练(model=None)，返回默认预测值. is_trained={self.is_trained}")
             return LSTMPrediction(
                 expected_return=0.0,
                 uncertainty=0.05,
@@ -353,14 +376,28 @@ class LSTMFeatureExtractor:
             )
 
         if len(price_history) < self.sequence_length:
+            logger.warning(f"历史数据不足: {len(price_history)} < {self.sequence_length}")
             raise ValueError(f"历史数据不足: {len(price_history)} < {self.sequence_length}")
 
         try:
             # 准备特征序列（使用最近 sequence_length 天数据）
             df = price_history.tail(self.sequence_length + 20).copy()  # 多取一些用于计算指标
 
+            # 确保数值列为 numpy float64 类型（避免 Python float 导致 ufunc 错误）
+            numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+            for col in numeric_cols:
+                if col in df.columns:
+                    original_dtype = df[col].dtype
+                    df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float64)
+                    # 检查数据丢失
+                    if df[col].isna().any():
+                        na_count = df[col].isna().sum()
+                        logger.warning(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
+
             # 计算技术指标（与 prepare_sequences 保持一致）
+            close = df['close'].values
             df['returns'] = df['close'].pct_change(fill_method=None)
+            # 使用 pandas 操作保持索引对齐，避免 numpy 数组长度不匹配
             df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
             df['volatility'] = df['returns'].rolling(window=20).std()
             df['ma5'] = df['close'].rolling(window=5).mean()
@@ -387,9 +424,17 @@ class LSTMFeatureExtractor:
             # 使用 predict 方法进行预测
             return self.predict(seq)
 
+        except ValueError as e:
+            # 数据相关错误，记录警告并返回默认值
+            logger.warning(f"LSTM预测数据不足或无效: {e}")
+            return LSTMPrediction(
+                expected_return=0.0,
+                uncertainty=0.05,
+                hidden_state=np.zeros(self.hidden_units // 2),
+            )
         except Exception as e:
-            logger.error(f"预测失败: {e}")
-            # 返回默认预测值
+            # 程序错误，记录详细错误日志
+            logger.error(f"LSTM预测失败: {e}", exc_info=True)
             return LSTMPrediction(
                 expected_return=0.0,
                 uncertainty=0.05,
