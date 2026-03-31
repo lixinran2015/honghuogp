@@ -73,7 +73,8 @@
           <input
             v-model="trainParams.start_date"
             type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20"
+            :disabled="isTraining"
+            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20 disabled:opacity-50"
           />
         </div>
         <div>
@@ -81,7 +82,8 @@
           <input
             v-model="trainParams.end_date"
             type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20"
+            :disabled="isTraining"
+            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20 disabled:opacity-50"
           />
         </div>
         <div>
@@ -91,23 +93,53 @@
             type="number"
             min="1"
             max="20"
-            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20"
+            :disabled="isTraining"
+            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20 disabled:opacity-50"
           />
         </div>
       </div>
-      <button
-        @click="trainModel"
-        :disabled="isTraining"
-        class="px-4 py-2 bg-cta text-white rounded-lg text-sm font-medium hover:bg-cta/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-      >
-        <ArrowPathIcon v-if="isTraining" class="w-4 h-4 animate-spin" />
-        <PlayIcon v-else class="w-4 h-4" />
-        {{ isTraining ? '训练中...' : '开始训练' }}
-      </button>
+
+      <!-- 进度条 -->
+      <div v-if="isTraining" class="mb-4">
+        <div class="flex items-center justify-between text-sm text-warmgray-600 mb-2">
+          <span>{{ trainingMessage }}</span>
+          <span>{{ trainingProgress }}%</span>
+        </div>
+        <div class="w-full bg-warmgray-100 rounded-full h-2">
+          <div
+            class="bg-cta h-2 rounded-full transition-all duration-300"
+            :style="{ width: trainingProgress + '%' }"
+          ></div>
+        </div>
+        <div class="mt-2 text-xs text-warmgray-500">
+          训练在后台执行，您可以离开此页面或进行其他操作
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex gap-3">
+        <button
+          v-if="!isTraining"
+          @click="trainModel"
+          class="px-4 py-2 bg-cta text-white rounded-lg text-sm font-medium hover:bg-cta/90 flex items-center gap-2"
+        >
+          <PlayIcon class="w-4 h-4" />
+          开始训练
+        </button>
+        <button
+          v-else
+          @click="refreshTrainingStatus"
+          :disabled="isRefreshing"
+          class="px-4 py-2 bg-warmgray-100 text-warmgray-700 rounded-lg text-sm font-medium hover:bg-warmgray-200 disabled:opacity-50 flex items-center gap-2"
+        >
+          <ArrowPathIcon class="w-4 h-4" :class="{ 'animate-spin': isRefreshing }" />
+          {{ isRefreshing ? '刷新中...' : '刷新状态' }}
+        </button>
+      </div>
 
       <!-- 训练结果 -->
-      <div v-if="trainResult" class="mt-4 p-4 bg-warmgray-50 rounded-lg">
-        <div class="text-sm font-medium text-warmgray-900 mb-2">训练结果</div>
+      <div v-if="trainResult && !isTraining" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div class="text-sm font-medium text-green-800 mb-2">✅ 训练完成</div>
         <div class="grid grid-cols-3 gap-4 text-sm">
           <div>
             <span class="text-warmgray-500">训练集 R²:</span>
@@ -122,6 +154,12 @@
             <span class="ml-2 font-medium">{{ trainResult.metrics.n_samples.toLocaleString() }}</span>
           </div>
         </div>
+      </div>
+
+      <!-- 训练错误 -->
+      <div v-if="trainingError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div class="text-sm font-medium text-red-800">❌ 训练失败</div>
+        <div class="text-sm text-red-600 mt-1">{{ trainingError }}</div>
       </div>
     </div>
 
@@ -241,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { PlayIcon, ArrowPathIcon, SparklesIcon } from '@heroicons/vue/24/outline'
 
 // 当前使用的因子（Phase 1 验证通过）
@@ -289,8 +327,15 @@ const predictParams = ref({
 // 状态
 const isTraining = ref(false)
 const isPredicting = ref(false)
+const isRefreshing = ref(false)
 const trainResult = ref(null)
 const predictResult = ref(null)
+const trainingProgress = ref(0)
+const trainingMessage = ref('')
+const trainingError = ref(null)
+
+// 轮询定时器
+let trainingPollInterval = null
 
 // API 基础 URL
 const API_BASE = '/api/lstm-mab'
@@ -311,10 +356,60 @@ async function fetchModelStatus() {
   }
 }
 
+// 查询训练状态
+async function checkTrainingStatus() {
+  try {
+    const response = await fetch(`${API_BASE}/train-status`)
+    const data = await response.json()
+    if (!data.success) return
+
+    const status = data.training_status
+    trainingProgress.value = status.progress || 0
+    trainingMessage.value = status.message || '正在训练...'
+
+    if (status.error) {
+      trainingError.value = status.error
+      isTraining.value = false
+      stopPolling()
+      return
+    }
+
+    if (!status.is_running && status.result) {
+      // 训练完成
+      isTraining.value = false
+      trainResult.value = {
+        metrics: status.result.metrics
+      }
+      stopPolling()
+      await fetchModelStatus()
+    }
+  } catch (error) {
+    console.error('查询训练状态失败:', error)
+  }
+}
+
+// 开始轮询训练状态
+function startPolling() {
+  stopPolling() // 先停止之前的轮询
+  trainingPollInterval = setInterval(checkTrainingStatus, 2000) // 每2秒查询一次
+}
+
+// 停止轮询
+function stopPolling() {
+  if (trainingPollInterval) {
+    clearInterval(trainingPollInterval)
+    trainingPollInterval = null
+  }
+}
+
 // 训练模型
 async function trainModel() {
   isTraining.value = true
   trainResult.value = null
+  trainingError.value = null
+  trainingProgress.value = 0
+  trainingMessage.value = '正在启动训练任务...'
+
   try {
     const params = new URLSearchParams({
       start_date: trainParams.value.start_date,
@@ -325,22 +420,35 @@ async function trainModel() {
       method: 'POST',
     })
     const data = await response.json()
+
     if (!response.ok) {
-      alert(data.detail || '训练失败')
+      alert(data.detail || '启动训练失败')
+      isTraining.value = false
       return
     }
+
     if (data.success) {
-      trainResult.value = data
-      await fetchModelStatus()
+      // 训练任务已启动，开始轮询状态
+      trainingMessage.value = '训练任务已启动，正在准备数据...'
+      startPolling()
     } else {
-      alert(data.error || '训练失败')
+      alert(data.error || '启动训练失败')
+      isTraining.value = false
     }
   } catch (error) {
-    console.error('训练失败:', error)
-    alert('训练请求失败')
-  } finally {
+    console.error('启动训练失败:', error)
+    alert('启动训练请求失败')
     isTraining.value = false
   }
+}
+
+// 手动刷新训练状态
+async function refreshTrainingStatus() {
+  isRefreshing.value = true
+  await checkTrainingStatus()
+  setTimeout(() => {
+    isRefreshing.value = false
+  }, 500)
 }
 
 // 预测评分
@@ -385,5 +493,12 @@ async function updateEmotionCycle(cycle) {
 
 onMounted(() => {
   fetchModelStatus()
+  // 页面加载时也检查一次训练状态（防止刷新页面时训练正在进行）
+  checkTrainingStatus()
+})
+
+// 组件卸载时清理轮询
+onUnmounted(() => {
+  stopPolling()
 })
 </script>

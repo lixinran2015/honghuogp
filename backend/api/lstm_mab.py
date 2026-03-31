@@ -20,6 +20,11 @@ from typing import Dict, List, Optional
 from datetime import date, datetime
 import logging
 import os
+import threading
+import traceback
+
+import numpy as np
+import pandas as pd
 
 
 class PredictRequest(BaseModel):
@@ -53,6 +58,23 @@ _model_status = {
     'training_date': None,
     'performance': {},
 }
+
+# 训练任务状态（用于异步训练）
+_training_task = {
+    'is_running': False,
+    'started_at': None,
+    'progress': 0,  # 0-100
+    'message': '',
+    'result': None,
+    'error': None,
+    'error_traceback': None,
+}
+
+# 训练任务锁（保护 _training_task 的并发访问）
+_training_lock = threading.Lock()
+
+# 反馈任务上次运行时间（用于频率限制）
+_last_feedback_run = None
 
 # 模型文件路径
 MODEL_DIR = os.environ.get('LSTM_MAB_MODEL_DIR', 'backend/models/lstm_mab')
@@ -114,74 +136,71 @@ def _get_model() -> LSTMMABModel:
     return _model_instance
 
 
-@router.post("/train")
-async def train_model(
-    background_tasks: BackgroundTasks,
-    ts_code: Optional[str] = Query(None, description="训练用的股票代码，默认使用所有股票"),
-    start_date: Optional[date] = Query(None, description="开始日期"),
-    end_date: Optional[date] = Query(None, description="结束日期"),
-    target_horizon: int = Query(5, description="预测未来N日收益", ge=1, le=20),
-) -> Dict:
+def _run_training_task(
+    start_date: Optional[date],
+    end_date: Optional[date],
+    target_horizon: int
+):
     """
-    训练LSTM-MAB模型
-
-    该接口会：
-    1. 获取历史价格数据
-    2. 训练LSTM特征提取器
-    3. 初始化MAB权重分配器
-
-    示例:
-    ```
-    POST /api/lstm-mab/train?start_date=2023-01-01&end_date=2025-12-31
-    ```
+    在后台执行模型训练任务
     """
+    global _model_instance, _model_status, _training_task
+
+    with _training_lock:
+        _training_task['is_running'] = True
+        _training_task['started_at'] = datetime.now().isoformat()
+        _training_task['progress'] = 0
+        _training_task['message'] = '正在准备数据...'
+        _training_task['result'] = None
+        _training_task['error'] = None
+        _training_task['error_traceback'] = None
+
     try:
         model = _get_model()
-        logger.info(f"开始训练模型: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
+        logger.info(f"[后台训练] 开始训练模型: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
 
         # 获取训练数据
         from data_warehouse.service.warehouse_service import WarehouseService
         ws = WarehouseService()
 
-        try:
-            with ws.get_session() as session:
-                from sqlalchemy import text
+        with ws.get_session() as session:
+            from sqlalchemy import text
 
-                query = text("""
-                    SELECT ts_code, trade_date, open, high, low, close, vol as volume
-                    FROM fact_daily_price_qfq
-                    WHERE trade_date BETWEEN :start_date AND :end_date
-                    ORDER BY ts_code, trade_date
-                """)
+            query = text("""
+                SELECT ts_code, trade_date, open, high, low, close, vol as volume
+                FROM fact_daily_price_qfq
+                WHERE trade_date BETWEEN :start_date AND :end_date
+                ORDER BY ts_code, trade_date
+            """)
 
-                import pandas as pd
-                import numpy as np
+            logger.info("[后台训练] 正在查询数据库...")
+            price_data = pd.read_sql(
+                query,
+                session.bind,
+                params={
+                    'start_date': start_date or '2023-01-01',
+                    'end_date': end_date or date.today().isoformat(),
+                }
+            )
+            logger.info(f"[后台训练] 查询完成，获取 {len(price_data)} 条数据，涉及 {price_data['ts_code'].nunique() if len(price_data) > 0 else 0} 只股票")
 
-                logger.info("正在查询数据库...")
-                price_data = pd.read_sql(
-                    query,
-                    session.bind,
-                    params={
-                        'start_date': start_date or '2023-01-01',
-                        'end_date': end_date or date.today().isoformat(),
-                    }
-                )
-                logger.info(f"查询完成，获取 {len(price_data)} 条数据，涉及 {price_data['ts_code'].nunique() if len(price_data) > 0 else 0} 只股票")
-
-                if len(price_data) < 100:
-                    return {
-                        'success': False,
-                        'error': f'训练数据不足: {len(price_data)} < 100条',
-                    }
-        except Exception as e:
-            logger.error(f"数据库查询失败: {e}")
-            raise HTTPException(status_code=500, detail=f"数据查询失败: {str(e)}")
+            if len(price_data) < 100:
+                with _training_lock:
+                    _training_task['error'] = f'训练数据不足: {len(price_data)} < 100条'
+                    _training_task['is_running'] = False
+                return
 
         # 按股票分别生成序列，合并训练
-        logger.info("开始生成训练序列...")
+        logger.info("[后台训练] 开始生成训练序列...")
+        with _training_lock:
+            _training_task['progress'] = 10
+            _training_task['message'] = '正在生成训练序列...'
+
         X_all, y_all = [], []
         valid_stocks = 0
-        for ts_code, group in price_data.groupby('ts_code'):
+        total_stocks = price_data['ts_code'].nunique()
+
+        for idx, (ts_code, group) in enumerate(price_data.groupby('ts_code')):
             group = group.sort_values('trade_date')
             try:
                 X, y = model.lstm.prepare_sequences(group, target_horizon)
@@ -190,24 +209,35 @@ async def train_model(
                     y_all.append(y)
                     valid_stocks += 1
             except Exception as e:
-                logger.warning(f"生成 {ts_code} 序列失败: {e}")
+                logger.warning(f"[后台训练] 生成 {ts_code} 序列失败: {e}")
 
-        logger.info(f"序列生成完成: {valid_stocks} 只有效股票")
+            # 更新进度（10% -> 30%）
+            if idx % 100 == 0:
+                progress = 10 + int((idx / total_stocks) * 20)
+                with _training_lock:
+                    _training_task['progress'] = progress
+                    _training_task['message'] = f'正在处理第 {idx}/{total_stocks} 只股票...'
+
+        logger.info(f"[后台训练] 序列生成完成: {valid_stocks} 只有效股票")
 
         if not X_all:
-            return {
-                'success': False,
-                'error': '没有足够的有效训练样本',
-            }
+            with _training_lock:
+                _training_task['error'] = '没有足够的有效训练样本'
+                _training_task['is_running'] = False
+            return
 
         X_all = np.vstack(X_all)
         y_all = np.concatenate(y_all)
-        logger.info(f"合并数据: X shape={X_all.shape}, y shape={y_all.shape}")
+        logger.info(f"[后台训练] 合并数据: X shape={X_all.shape}, y shape={y_all.shape}")
 
         # 训练模型
-        logger.info("开始训练 LSTM 模型...")
+        logger.info("[后台训练] 开始训练 LSTM 模型...")
+        with _training_lock:
+            _training_task['progress'] = 30
+            _training_task['message'] = '正在训练模型（这可能需要几分钟）...'
+
         metrics = model.lstm.train_from_arrays(X_all, y_all)
-        logger.info(f"训练完成: {metrics}")
+        logger.info(f"[后台训练] 训练完成: {metrics}")
 
         # 更新状态
         _model_status['is_trained'] = True
@@ -218,18 +248,115 @@ async def train_model(
         try:
             evo_service = get_evolution_service()
             evo_service.save_model(model, metrics)
+            logger.info("[后台训练] 模型已自动保存")
         except Exception as save_err:
-            logger.warning(f"模型自动保存失败: {save_err}")
+            logger.warning(f"[后台训练] 模型自动保存失败: {save_err}")
 
-        return {
-            'success': True,
-            'message': '模型训练完成',
-            'metrics': metrics,
-        }
+        # 训练完成
+        with _training_lock:
+            _training_task['progress'] = 100
+            _training_task['message'] = '训练完成'
+            _training_task['result'] = {
+                'metrics': metrics,
+                'n_samples': len(price_data),
+                'valid_stocks': valid_stocks,
+            }
+            _training_task['is_running'] = False
+
+        logger.info("[后台训练] ✅ 训练任务完成")
 
     except Exception as e:
-        logger.error(f"模型训练失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"训练失败: {str(e)}")
+        logger.error(f"[后台训练] ❌ 训练失败: {e}", exc_info=True)
+        with _training_lock:
+            _training_task['error'] = str(e)
+            _training_task['error_traceback'] = traceback.format_exc()
+            _training_task['is_running'] = False
+
+
+@router.post("/train")
+async def train_model(
+    background_tasks: BackgroundTasks,
+    ts_code: Optional[str] = Query(None, description="训练用的股票代码，默认使用所有股票"),
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    target_horizon: int = Query(5, description="预测未来N日收益", ge=1, le=20),
+) -> Dict:
+    """
+    训练LSTM-MAB模型（后台异步执行）
+
+    该接口会立即返回，训练任务在后台执行，不影响其他页面操作。
+    使用 /train-status 接口查询训练进度。
+
+    示例:
+    ```
+    POST /api/lstm-mab/train?start_date=2023-01-01&end_date=2025-12-31
+    ```
+    """
+    # 使用锁检查并防止并发启动训练
+    with _training_lock:
+        if _training_task['is_running']:
+            return {
+                'success': False,
+                'error': '已有训练任务正在运行，请等待完成或查询状态',
+                'training_status': {
+                    'is_running': _training_task['is_running'],
+                    'progress': _training_task['progress'],
+                    'message': _training_task['message'],
+                },
+            }
+        # 预占训练状态，防止其他请求同时启动
+        _training_task['is_running'] = True
+        _training_task['started_at'] = datetime.now().isoformat()
+        _training_task['progress'] = 0
+        _training_task['message'] = '正在启动训练任务...'
+        _training_task['error'] = None
+        _training_task['error_traceback'] = None
+
+    # 启动后台训练任务
+    background_tasks.add_task(
+        _run_training_task,
+        start_date=start_date,
+        end_date=end_date,
+        target_horizon=target_horizon
+    )
+
+    logger.info(f"🚀 训练任务已启动（后台执行）: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
+
+    return {
+        'success': True,
+        'message': '训练任务已启动，正在后台执行',
+        'estimated_duration': '5-10 分钟（取决于数据量）',
+        'query_status_at': '/api/lstm-mab/train-status',
+    }
+
+
+@router.get("/train-status")
+async def get_train_status() -> Dict:
+    """
+    获取训练任务状态
+
+    返回:
+        - is_running: 是否正在运行
+        - progress: 进度百分比 (0-100)
+        - message: 当前状态描述
+        - result: 训练结果（完成后）
+        - error: 错误信息（如果失败）
+        - error_traceback: 错误堆栈（调试用）
+    """
+    with _training_lock:
+        return {
+            'success': True,
+            'training_status': {
+                'is_running': _training_task['is_running'],
+                'started_at': _training_task['started_at'],
+                'progress': _training_task['progress'],
+                'message': _training_task['message'],
+                'result': _training_task['result'],
+                'error': _training_task['error'],
+                'error_traceback': _training_task['error_traceback'],
+            },
+            'current_model_status': _model_status,
+        }
 
 
 @router.post("/predict")
@@ -707,7 +834,7 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
     current_time = time.time()
     min_interval = 300  # 5 分钟
 
-    if '_last_feedback_run' in globals():
+    if _last_feedback_run is not None:
         elapsed = current_time - _last_feedback_run
         if elapsed < min_interval:
             remaining = int(min_interval - elapsed)
