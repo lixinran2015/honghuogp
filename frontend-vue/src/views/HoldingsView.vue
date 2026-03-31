@@ -123,7 +123,22 @@
     <div v-if="activeTab === 'current' && aiBatchSuggestions?.suggestions?.length" class="border border-slate-200 rounded overflow-hidden">
       <button @click="showAiSuggestions = !showAiSuggestions" class="w-full px-2 py-1.5 text-left text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 flex items-center justify-between">
         <span>🤖 AI建议 {{ aiBatchSuggestions.suggestions.length }}条</span>
-        <span>{{ showAiSuggestions ? '▼' : '▶' }}</span>
+        <div class="flex items-center gap-2">
+          <button
+            v-if="showAiSuggestions"
+            @click.stop="refreshAiSuggestions"
+            :disabled="aiRefreshCooldown > 0 || aiRefreshLoading"
+            :class="[
+              'px-2 py-0.5 text-xs rounded transition-colors',
+              aiRefreshCooldown > 0 || aiRefreshLoading
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+            ]"
+          >
+            {{ aiRefreshLoading ? '刷新中...' : (aiRefreshCooldown > 0 ? `${aiRefreshCooldown}s` : '刷新') }}
+          </button>
+          <span>{{ showAiSuggestions ? '▼' : '▶' }}</span>
+        </div>
       </button>
       <div v-show="showAiSuggestions" class="p-2 overflow-x-auto max-h-32 overflow-y-auto">
         <div v-for="s in aiBatchSuggestions.suggestions" :key="s.symbol" class="flex items-center gap-2 py-0.5 text-xs">
@@ -757,7 +772,10 @@ const leaderMaxSize = ref(10)
 const leaderCount = ref(0)
 const poolFullSuggestion = ref(null)
 const todayRealizedFromClosed = ref(0)  // 操作池已满时建议清仓的一只 { holding_id, symbol, name, reason }
-const aiBatchSuggestions = ref(null)  // AI 综合建议 { suggestions: [{ symbol, action, reason }], updated_at }
+const aiBatchSuggestions = ref(null)  // AI 综合建议
+const aiRefreshCooldown = ref(0)  // AI 刷新冷却倒计时（秒）
+const aiRefreshLoading = ref(false)  // AI 刷新加载状态
+let aiRefreshTimer = null  // AI 刷新冷却计时器 { suggestions: [{ symbol, action, reason }], updated_at }
 
 // 空间龙头/刚启动标签（由 sector-strength 接口填充）
 const leaderTypeBySymbol = ref({})  // { "000001.SZ": "空间龙头" | "刚启动" | "空间+刚启动" }
@@ -1246,6 +1264,41 @@ const aiActionClass = (action) => {
   return map[action] || 'bg-gray-100 text-gray-600'
 }
 
+// 手动刷新 AI 建议（带 10 秒冷却）
+const refreshAiSuggestions = async () => {
+  if (aiRefreshCooldown.value > 0 || aiRefreshLoading.value) return
+
+  aiRefreshLoading.value = true
+  try {
+    const result = await stockApi.refreshAiSuggestions()
+    if (result.success) {
+      // 重新加载持仓以获取最新 AI 建议
+      await fetchHoldings(true)
+      // 开始 10 秒冷却
+      aiRefreshCooldown.value = 10
+      startAiRefreshCooldown()
+    }
+  } catch (e) {
+    console.error('刷新 AI 建议失败:', e)
+    alert(e.message || '刷新 AI 建议失败，请稍后重试')
+  } finally {
+    aiRefreshLoading.value = false
+  }
+}
+
+// 启动 AI 刷新冷却计时器
+let aiRefreshTimer = null
+const startAiRefreshCooldown = () => {
+  if (aiRefreshTimer) clearInterval(aiRefreshTimer)
+  aiRefreshTimer = setInterval(() => {
+    aiRefreshCooldown.value--
+    if (aiRefreshCooldown.value <= 0) {
+      clearInterval(aiRefreshTimer)
+      aiRefreshTimer = null
+    }
+  }, 1000)
+}
+
 // 编辑对话框
 const showEditDialog = ref(false)
 const editingHolding = ref(null)
@@ -1660,6 +1713,10 @@ onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
     refreshTimer = null
+  }
+  if (aiRefreshTimer) {
+    clearInterval(aiRefreshTimer)
+    aiRefreshTimer = null
   }
 })
 </script>

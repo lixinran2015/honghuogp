@@ -156,6 +156,18 @@ export const stockApi = {
     const result = await response.json()
     return result
   },
+
+  // 手动刷新 AI 建议（10秒冷却）
+  async refreshAiSuggestions(userId = 1) {
+    const response = await fetch(`${API_BASE_URL}/api/holdings/ai-suggestions/refresh?user_id=${userId}`, {
+      method: 'POST'
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || `HTTP error! status: ${response.status}`)
+    }
+    return await response.json()
+  },
 }
 
 // 格式化股票数据

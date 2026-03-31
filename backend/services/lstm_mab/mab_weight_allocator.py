@@ -133,8 +133,9 @@ class ThompsonSampling(MABWeightAllocator):
         # 基于context中的交易日创建局部随机状态，确保同一天内结果稳定
         # 且不污染全局随机状态
         if context and 'trade_date' in context:
-            # 使用交易日字符串的hash作为种子
-            seed = hash(context['trade_date']) % (2**32)
+            # 使用确定性哈希（跨进程/重启一致）
+            import hashlib
+            seed = int(hashlib.md5(str(context['trade_date']).encode()).hexdigest(), 16) % (2**32)
             rng = np.random.RandomState(seed)
         else:
             rng = np.random

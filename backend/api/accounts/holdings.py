@@ -4,6 +4,9 @@
 """
 
 import logging
+import threading
+import time
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, Body, UploadFile, File
 from typing import Dict, Optional
 from pydantic import BaseModel
@@ -15,12 +18,20 @@ from backend.services.accounts.holdings_service import (
     HoldingsError,
     POOL_MAX_SIZE,
     refresh_ai_batch_suggestions as svc_refresh_ai_batch_suggestions,
+    get_ai_batch_cache,
+    AI_BATCH_SUGGESTIONS_MAX_AGE,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/holdings", tags=["holdings"])
 warehouse = PostgresWarehouse()
+
+# 手动刷新 AI 建议的冷却时间（10秒）
+_AI_REFRESH_COOLDOWN = 10
+# 记录每个用户的最后刷新时间（线程安全）
+_ai_refresh_timestamps: Dict[int, float] = {}
+_ai_refresh_lock = threading.Lock()
 
 
 def _ensure_warehouse():
@@ -202,3 +213,52 @@ async def update_close_info(holding_id: int, data: Dict = Body(...)) -> Dict:
     except Exception as e:
         logger.error("更新清仓信息失败: %s", e, exc_info=True)
         _handle_service_error(e, "更新清仓信息失败")
+
+
+@router.post("/ai-suggestions/refresh")
+async def refresh_ai_suggestions(user_id: int = Query(1, description="用户ID")) -> Dict:
+    """
+    手动刷新 AI 综合操作建议
+
+    限制：每 10 秒只能调用一次（冷却时间）
+    """
+    _ensure_warehouse()
+
+    # 检查冷却时间（线程安全）
+    with _ai_refresh_lock:
+        now = time.time()
+        last_refresh = _ai_refresh_timestamps.get(user_id, 0)
+        time_since_last = now - last_refresh
+
+        if time_since_last < _AI_REFRESH_COOLDOWN:
+            remaining = round(_AI_REFRESH_COOLDOWN - time_since_last, 1)
+            raise HTTPException(
+                status_code=429,
+                detail=f"AI 建议刷新过于频繁，请 {remaining} 秒后再试",
+                headers={"Retry-After": str(int(remaining) + 1)}
+            )
+
+        # 更新最后刷新时间（在锁内完成，确保原子性）
+        _ai_refresh_timestamps[user_id] = now
+
+    try:
+        # 执行刷新（在锁外执行，避免阻塞其他请求）
+        svc_refresh_ai_batch_suggestions(warehouse, user_id)
+
+        # 获取刷新后的缓存数据
+        cached = get_ai_batch_cache().get(user_id, {})
+        suggestions = cached.get("suggestions", [])
+        updated_at = cached.get("updated_at")
+
+        return {
+            "success": True,
+            "message": f"AI 建议已刷新，共 {len(suggestions)} 条",
+            "suggestions_count": len(suggestions),
+            "updated_at": datetime.fromtimestamp(updated_at).isoformat() if updated_at else None,
+            "next_refresh_in": _AI_REFRESH_COOLDOWN,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("刷新 AI 建议失败: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"刷新 AI 建议失败: {str(e)}")
