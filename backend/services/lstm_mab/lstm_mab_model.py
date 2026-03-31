@@ -116,6 +116,7 @@ class LSTMMABModel:
         ts_code: str,
         factor_values: Dict[str, float],
         price_history: Optional[pd.DataFrame] = None,
+        trade_date: Optional[str] = None,
     ) -> ScoreResult:
         """
         预测股票评分
@@ -124,6 +125,7 @@ class LSTMMABModel:
             ts_code: 股票代码
             factor_values: 各因子原始值
             price_history: 历史价格数据（用于LSTM特征提取）
+            trade_date: 交易日期（用于MAB权重随机种子，确保同一天内结果稳定）
 
         Returns:
             ScoreResult
@@ -141,8 +143,8 @@ class LSTMMABModel:
             expected_return = 0.0
             uncertainty = 0.05
 
-        # 2. 使用MAB分配动态权重
-        allocation = self.mab.allocate(context={'ts_code': ts_code})
+        # 2. 使用MAB分配动态权重（传递交易日确保同一天内结果稳定）
+        allocation = self.mab.allocate(context={'ts_code': ts_code, 'trade_date': trade_date})
         weights = allocation.weights
 
         # 3. 计算加权总分

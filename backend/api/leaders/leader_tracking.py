@@ -338,7 +338,8 @@ async def get_leader_tracking_pool(
                     prediction = model.predict(
                         ts_code=stock['ts_code'],
                         factor_values=factor_values,
-                        price_history=price_history
+                        price_history=price_history,
+                        trade_date=result.get('trade_date')
                     )
 
                     # 记录预测到数据库（用于模型进化）
@@ -497,7 +498,8 @@ async def get_top_scored_leaders(
             prediction = model.predict(
                 ts_code=stock['ts_code'],
                 factor_values=factor_values,
-                price_history=price_history
+                price_history=price_history,
+                trade_date=result.get('trade_date')
             )
 
             # 记录预测到数据库（用于模型进化）

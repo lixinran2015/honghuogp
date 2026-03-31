@@ -6,6 +6,7 @@
 
 import functools
 import logging
+import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
@@ -18,7 +19,7 @@ T = TypeVar('T')
 
 class QueryCache:
     """
-    简单查询缓存（内存级别）
+    简单查询缓存（内存级别，线程安全）
 
     适用于：
     - 配置数据
@@ -32,51 +33,56 @@ class QueryCache:
         self._cache: Dict[str, Dict] = {}
         self._default_ttl = default_ttl
         self._max_size = max_size
+        self._lock = threading.Lock()
 
     def get(self, key: str) -> Optional[Any]:
         """获取缓存值"""
-        entry = self._cache.get(key)
-        if entry is None:
-            return None
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None:
+                return None
 
-        if time.time() > entry['expires_at']:
-            del self._cache[key]
-            return None
+            if time.time() > entry['expires_at']:
+                self._cache.pop(key, None)
+                return None
 
-        return entry['value']
+            return entry['value']
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """设置缓存值"""
-        # 限制缓存大小，防止内存泄漏
-        if len(self._cache) >= self._max_size and key not in self._cache:
-            # 删除最早过期的条目
-            now = time.time()
-            expired_keys = [
-                k for k, v in self._cache.items()
-                if v['expires_at'] < now
-            ]
-            for k in expired_keys:
-                self._cache.pop(k, None)  # 使用 pop 避免 KeyError
-            # 如果仍然超过限制，删除最老的条目
-            if len(self._cache) >= self._max_size:
-                oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]['expires_at'])
-                self._cache.pop(oldest_key, None)  # 使用 pop 避免 KeyError
+        with self._lock:
+            # 限制缓存大小，防止内存泄漏
+            if len(self._cache) >= self._max_size and key not in self._cache:
+                # 删除最早过期的条目
+                now = time.time()
+                expired_keys = [
+                    k for k, v in self._cache.items()
+                    if v['expires_at'] < now
+                ]
+                for k in expired_keys:
+                    self._cache.pop(k, None)
+                # 如果仍然超过限制，删除最老的条目
+                if len(self._cache) >= self._max_size:
+                    oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]['expires_at'])
+                    self._cache.pop(oldest_key, None)
 
-        self._cache[key] = {
-            'value': value,
-            'expires_at': time.time() + (ttl or self._default_ttl),
-        }
+            self._cache[key] = {
+                'value': value,
+                'expires_at': time.time() + (ttl or self._default_ttl),
+            }
 
     def clear(self) -> None:
         """清空缓存"""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
     def invalidate(self, key_prefix: str) -> int:
         """使指定前缀的缓存失效"""
-        keys_to_delete = [k for k in self._cache.keys() if k.startswith(key_prefix)]
-        for k in keys_to_delete:
-            self._cache.pop(k, None)  # 使用 pop 避免 KeyError
-        return len(keys_to_delete)
+        with self._lock:
+            keys_to_delete = [k for k in self._cache.keys() if k.startswith(key_prefix)]
+            for k in keys_to_delete:
+                self._cache.pop(k, None)
+            return len(keys_to_delete)
 
 
 # 全局缓存实例

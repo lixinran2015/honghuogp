@@ -75,6 +75,8 @@ class LSTMFeatureExtractor:
     @is_trained.setter
     def is_trained(self, value: bool):
         self._is_trained = value
+
+    def _build_model(self) -> MLPRegressor:
         """构建MLP模型（简化版LSTM）"""
         # 使用2层隐藏层模拟LSTM效果
         return MLPRegressor(

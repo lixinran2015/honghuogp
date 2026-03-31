@@ -130,11 +130,20 @@ class ThompsonSampling(MABWeightAllocator):
 
         从每个因子的Beta分布中采样，根据采样值分配权重
         """
+        # 基于context中的交易日创建局部随机状态，确保同一天内结果稳定
+        # 且不污染全局随机状态
+        if context and 'trade_date' in context:
+            # 使用交易日字符串的hash作为种子
+            seed = hash(context['trade_date']) % (2**32)
+            rng = np.random.RandomState(seed)
+        else:
+            rng = np.random
+
         # 从Beta分布采样
         samples = {}
         for name in self.factor_names:
             # Beta(成功数, 失败数)
-            sample = beta.rvs(self.successes[name], self.failures[name])
+            sample = beta.rvs(self.successes[name], self.failures[name], random_state=rng)
             samples[name] = sample
 
         # 转换为权重
