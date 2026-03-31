@@ -8,6 +8,14 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 import pandas as pd
 
+from backend.services.data.query_optimizations import (
+    QueryProfiler,
+    cached_query,
+    log_slow_queries,
+    with_retry,
+)
+from data_warehouse.db import SessionContext, get_pool_status
+
 logger = logging.getLogger(__name__)
 
 # 延迟导入，避免启动时数据库连接问题
@@ -72,29 +80,31 @@ class PostgresWarehouse:
             logger.error(f"❌ PostgresWarehouse初始化异常: {e}", exc_info=True)
             self._initialized = False
     
+    def get_pool_status(self) -> dict:
+        """获取数据库连接池状态"""
+        return get_pool_status()
+
+    @cached_query(ttl=60)
     def get_latest_stocks_date(self) -> Optional[str]:
         """
-        获取最新股票数据日期
-        
+        获取最新股票数据日期（带缓存）
+
         Returns:
             str: 日期字符串（YYYY-MM-DD），如果没有数据返回None
         """
-        if not self._initialized or not self.warehouse_service:
+        if not self._initialized:
             return None
-        
+
         try:
-            # 从fact_daily_price_qfq获取最新日期
-            session = self.warehouse_service.get_session()
-            try:
-                from data_warehouse.models import FactDailyPriceQfq
-                from sqlalchemy import func
-                
+            from data_warehouse.models import FactDailyPriceQfq
+            from sqlalchemy import func
+
+            with SessionContext(autocommit=False) as session:
                 result = session.query(func.max(FactDailyPriceQfq.trade_date)).scalar()
                 if result:
                     return result.isoformat()
                 return None
-            finally:
-                session.close()
+
         except Exception as e:
             logger.error(f"获取最新股票数据日期失败: {e}", exc_info=True)
             return None
