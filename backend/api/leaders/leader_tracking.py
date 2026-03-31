@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Query, HTTPException
@@ -13,12 +13,16 @@ from fastapi import APIRouter, Query, HTTPException
 from backend.services.leader_tracking.leader_tracking_pool_service import LeaderTrackingPoolService
 from backend.services.leader_tracking.leader_recent_days_service import LeaderRecentDaysService
 from backend.services.lstm_mab import LSTMMABModel
+from backend.services.data.postgres_warehouse import PostgresWarehouse
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
 logger = logging.getLogger(__name__)
 
 # 模型缓存
 _model_instance: Optional[LSTMMABModel] = None
+
+# 数据仓库实例
+_warehouse_instance: Optional[PostgresWarehouse] = None
 
 
 def _get_model() -> Optional[LSTMMABModel]:
@@ -37,6 +41,67 @@ def _get_model() -> Optional[LSTMMABModel]:
             except Exception:
                 _model_instance = None
     return _model_instance
+
+
+def _get_warehouse() -> Optional[PostgresWarehouse]:
+    """获取或创建数据仓库实例"""
+    global _warehouse_instance
+    if _warehouse_instance is None:
+        try:
+            _warehouse_instance = PostgresWarehouse()
+        except Exception as e:
+            logger.warning(f"初始化数据仓库失败: {e}")
+            _warehouse_instance = None
+    return _warehouse_instance
+
+
+def _get_price_history(ts_code: str, limit: int = 40) -> Optional[Any]:
+    """
+    从本地数据仓库获取股票历史价格数据
+
+    Args:
+        ts_code: 股票代码 (如 '000001.SZ')
+        limit: 获取数据天数
+
+    Returns:
+        DataFrame with columns [open, high, low, close, volume] or None
+    """
+    try:
+        warehouse = _get_warehouse()
+        if warehouse is None:
+            logger.warning("数据仓库未初始化")
+            return None
+
+        # 计算日期范围
+        end_date = datetime.now()
+        # 多取一些天数，确保有足够数据计算指标
+        start_date = end_date - timedelta(days=limit * 2)
+
+        # 使用批量查询方法（传入单只股票）
+        df = warehouse.load_history_kline_batch(
+            codes=[ts_code],
+            start_date=start_date.strftime('%Y-%m-%d'),
+            end_date=end_date.strftime('%Y-%m-%d')
+        )
+
+        if df is None or df.empty:
+            logger.debug(f"未找到 {ts_code} 的历史K线数据")
+            return None
+
+        # 确保必要的列存在
+        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        for col in required_cols:
+            if col not in df.columns:
+                logger.warning(f"K线数据缺少必要列: {col}")
+                return None
+
+        # 按日期排序，取最近 limit 天
+        df = df.sort_values('trade_date').tail(limit).reset_index(drop=True)
+
+        return df[required_cols]
+    except Exception as e:
+        logger.warning(f"获取 {ts_code} 历史价格失败: {e}")
+        return None
 
 
 def _calculate_factor_values(stock_data: Dict[str, Any]) -> Dict[str, float]:
@@ -146,10 +211,14 @@ def _score_stocks(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             # 计算因子值
             factor_values = _calculate_factor_values(stock)
 
+            # 获取历史价格数据用于 LSTM 预测
+            price_history = _get_price_history(stock['ts_code'], limit=40)
+
             # 调用模型预测
             result = model.predict(
                 ts_code=stock['ts_code'],
-                factor_values=factor_values
+                factor_values=factor_values,
+                price_history=price_history
             )
 
             # 合并评分结果到股票数据
@@ -160,8 +229,8 @@ def _score_stocks(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     'grade': result.grade,
                     'factor_scores': result.factor_scores,
                     'factor_weights': result.factor_weights,
-                    'expected_return': result.expected_return,
-                    'confidence': result.confidence,
+                    'expected_return': round(result.expected_return * 100, 2),  # 转为百分比
+                    'confidence': round(result.confidence * 100, 1),  # 转为百分比
                     'factor_values': factor_values,
                 }
             }
@@ -260,9 +329,13 @@ async def get_leader_tracking_pool(
         try:
           factor_values = _calculate_factor_values(stock)
 
+          # 获取历史价格数据用于 LSTM 预测
+          price_history = _get_price_history(stock['ts_code'], limit=40)
+
           prediction = model.predict(
             ts_code=stock['ts_code'],
-            factor_values=factor_values
+            factor_values=factor_values,
+            price_history=price_history
           )
 
           # 记录预测到数据库（用于模型进化）
@@ -415,9 +488,13 @@ async def get_top_scored_leaders(
     try:
       factor_values = _calculate_factor_values(stock)
 
+      # 获取历史价格数据用于 LSTM 预测
+      price_history = _get_price_history(stock['ts_code'], limit=40)
+
       prediction = model.predict(
         ts_code=stock['ts_code'],
-        factor_values=factor_values
+        factor_values=factor_values,
+        price_history=price_history
       )
 
       # 记录预测到数据库（用于模型进化）

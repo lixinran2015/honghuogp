@@ -332,3 +332,66 @@ class LSTMFeatureExtractor:
         self.is_trained = True
 
         logger.info(f"模型已从{path}加载")
+
+    def predict_from_history(self, price_history: pd.DataFrame) -> LSTMPrediction:
+        """
+        从历史价格数据预测未来收益
+
+        Args:
+            price_history: DataFrame with columns [open, high, low, close, volume]
+                          至少包含 sequence_length + 1 行数据
+
+        Returns:
+            LSTMPrediction: 包含预期收益和不确定性
+        """
+        if not self.is_trained:
+            logger.warning("LSTM模型未训练，返回默认预测值")
+            return LSTMPrediction(
+                expected_return=0.0,
+                uncertainty=0.05,
+                hidden_state=np.zeros(self.hidden_units // 2),
+            )
+
+        if len(price_history) < self.sequence_length:
+            raise ValueError(f"历史数据不足: {len(price_history)} < {self.sequence_length}")
+
+        try:
+            # 准备特征序列（使用最近 sequence_length 天数据）
+            df = price_history.tail(self.sequence_length + 20).copy()  # 多取一些用于计算指标
+
+            # 计算技术指标（与 prepare_sequences 保持一致）
+            df['returns'] = df['close'].pct_change(fill_method=None)
+            df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
+            df['volatility'] = df['returns'].rolling(window=20).std()
+            df['ma5'] = df['close'].rolling(window=5).mean()
+            df['ma20'] = df['close'].rolling(window=20).mean()
+            df['ma_ratio'] = df['ma5'] / df['ma20']
+            df['volume_ma'] = df['volume'].rolling(window=20).mean()
+            df['volume_ratio'] = df['volume'] / df['volume_ma']
+            df['price_position'] = (df['close'] - df['low'].rolling(20).min()) / \
+                                   (df['high'].rolling(20).max() - df['low'].rolling(20).min())
+
+            # 选择特征列
+            feature_cols = [
+                'returns', 'log_returns', 'volatility',
+                'ma_ratio', 'volume_ratio', 'price_position'
+            ]
+
+            # 取最后 sequence_length 行
+            df = df.dropna()
+            if len(df) < self.sequence_length:
+                raise ValueError(f"特征计算后数据不足: {len(df)} < {self.sequence_length}")
+
+            seq = df[feature_cols].tail(self.sequence_length).values
+
+            # 使用 predict 方法进行预测
+            return self.predict(seq)
+
+        except Exception as e:
+            logger.error(f"预测失败: {e}")
+            # 返回默认预测值
+            return LSTMPrediction(
+                expected_return=0.0,
+                uncertainty=0.05,
+                hidden_state=np.zeros(self.hidden_units // 2),
+            )
