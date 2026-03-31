@@ -31,7 +31,7 @@ def get_routers() -> List[APIRouter]:
 
     # K线数据
     try:
-        from backend.api.stock_kline import router as kline_router
+        from backend.api.stocks.stock_kline import router as kline_router
         routers.append(kline_router)
         logger.info("Loaded common route: stock_kline")
     except ImportError as e:
@@ -55,7 +55,7 @@ def get_routers() -> List[APIRouter]:
 
     # 每日复盘
     try:
-        from backend.api.daily_review import router as review_router
+        from backend.api.review.daily_review import router as review_router
         routers.append(review_router)
         logger.info("Loaded common route: daily_review")
     except ImportError as e:
@@ -63,7 +63,7 @@ def get_routers() -> List[APIRouter]:
 
     # AI聊天
     try:
-        from backend.api.ai_chat import router as chat_router
+        from backend.api.ai.ai_chat import router as chat_router
         routers.append(chat_router)
         logger.info("Loaded common route: ai_chat")
     except ImportError as e:
@@ -71,7 +71,7 @@ def get_routers() -> List[APIRouter]:
 
     # 数据管理
     try:
-        from backend.api.data_management import router as data_router
+        from backend.api.data.data_management import router as data_router
         routers.append(data_router)
         logger.info("Loaded common route: data_management")
     except ImportError as e:

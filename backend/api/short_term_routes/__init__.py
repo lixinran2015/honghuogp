@@ -14,15 +14,15 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头跟踪
     try:
-        from backend.api.leader_tracking import router as leader_router
+        from backend.api.leaders.leader_tracking import router as leader_router
         routers.append(leader_router)
         logger.info("Loaded short_term route: leader_tracking")
     except ImportError as e:
         logger.warning(f"Failed to load leader_tracking router: {e}")
 
-    # 启动股（旧版单个文件）
+    # 启动股（旧版单个文件，已移动到 stocks 目录）
     try:
-        from backend.api.stock_startup import router as startup_router
+        from backend.api.stocks.stock_startup import router as startup_router
         routers.append(startup_router)
         logger.info("Loaded short_term route: stock_startup")
     except ImportError as e:
@@ -38,7 +38,7 @@ def get_routers() -> List[APIRouter]:
 
     # 断板监控
     try:
-        from backend.api.break_board import router as break_board_router
+        from backend.api.limitup.break_board import router as break_board_router
         routers.append(break_board_router)
         logger.info("Loaded short_term route: break_board")
     except ImportError as e:
@@ -46,7 +46,7 @@ def get_routers() -> List[APIRouter]:
 
     # 涨停缩量
     try:
-        from backend.api.limit_up_volume_shrink import router as limitup_router
+        from backend.api.limitup.limit_up_volume_shrink import router as limitup_router
         routers.append(limitup_router)
         logger.info("Loaded short_term route: limit_up_volume_shrink")
     except ImportError as e:
@@ -54,7 +54,7 @@ def get_routers() -> List[APIRouter]:
 
     # 情绪分析
     try:
-        from backend.api.sentiment import router as sentiment_router
+        from backend.api.market.sentiment import router as sentiment_router
         routers.append(sentiment_router)
         logger.info("Loaded short_term route: sentiment")
     except ImportError as e:
@@ -62,7 +62,7 @@ def get_routers() -> List[APIRouter]:
 
     # 异常分析
     try:
-        from backend.api.abnormal_analysis import router as abnormal_router
+        from backend.api.limitup.abnormal_analysis import router as abnormal_router
         routers.append(abnormal_router)
         logger.info("Loaded short_term route: abnormal_analysis")
     except ImportError as e:
@@ -94,7 +94,7 @@ def get_routers() -> List[APIRouter]:
 
     # 情绪周期
     try:
-        from backend.api.emotion_cycle import router as emotion_cycle_router
+        from backend.api.market.emotion_cycle import router as emotion_cycle_router
         routers.append(emotion_cycle_router)
         logger.info("Loaded short_term route: emotion_cycle")
     except ImportError as e:
@@ -102,7 +102,7 @@ def get_routers() -> List[APIRouter]:
 
     # 模型监控
     try:
-        from backend.api.model_monitor import router as model_monitor_router
+        from backend.api.monitor.model_monitor import router as model_monitor_router
         routers.append(model_monitor_router)
         logger.info("Loaded short_term route: model_monitor")
     except ImportError as e:
@@ -110,7 +110,7 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头推荐
     try:
-        from backend.api.leader_recommendation import router as leader_recommendation_router
+        from backend.api.leaders.leader_recommendation import router as leader_recommendation_router
         routers.append(leader_recommendation_router)
         logger.info("Loaded short_term route: leader_recommendation")
     except ImportError as e:
@@ -118,7 +118,7 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头评分
     try:
-        from backend.api.leader_score import router as leader_score_router
+        from backend.api.leaders.leader_score import router as leader_score_router
         routers.append(leader_score_router)
         logger.info("Loaded short_term route: leader_score")
     except ImportError as e:
@@ -126,7 +126,7 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头信号
     try:
-        from backend.api.leader_signals import router as leader_signals_router
+        from backend.api.leaders.leader_signals import router as leader_signals_router
         routers.append(leader_signals_router)
         logger.info("Loaded short_term route: leader_signals")
     except ImportError as e:
@@ -134,7 +134,7 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头优化诊断
     try:
-        from backend.api.leader_optimization_diag import router as leader_optimization_diag_router
+        from backend.api.leaders.leader_optimization_diag import router as leader_optimization_diag_router
         routers.append(leader_optimization_diag_router)
         logger.info("Loaded short_term route: leader_optimization_diag")
     except ImportError as e:
@@ -142,7 +142,7 @@ def get_routers() -> List[APIRouter]:
 
     # 龙头优化快捷操作
     try:
-        from backend.api.leader_optimization_quick import router as leader_optimization_quick_router
+        from backend.api.leaders.leader_optimization_quick import router as leader_optimization_quick_router
         routers.append(leader_optimization_quick_router)
         logger.info("Loaded short_term route: leader_optimization_quick")
     except ImportError as e:
@@ -150,7 +150,7 @@ def get_routers() -> List[APIRouter]:
 
     # 因子验证系统（Phase 1）
     try:
-        from backend.api.factor_validation import router as factor_validation_router
+        from backend.api.factors.factor_validation import router as factor_validation_router
         routers.append(factor_validation_router)
         logger.info("Loaded short_term route: factor_validation")
     except ImportError as e:
@@ -158,7 +158,7 @@ def get_routers() -> List[APIRouter]:
 
     # LSTM-MAB评分引擎（Phase 2）
     try:
-        from backend.api.lstm_mab import router as lstm_mab_router
+        from backend.api.ai.lstm_mab import router as lstm_mab_router
         routers.append(lstm_mab_router)
         logger.info("Loaded short_term route: lstm_mab")
     except ImportError as e:
@@ -174,7 +174,7 @@ def get_routers() -> List[APIRouter]:
 
     # 定时任务
     try:
-        from backend.api.scheduled_task import router as scheduled_task_router
+        from backend.api.tasks.scheduled_task import router as scheduled_task_router
         routers.append(scheduled_task_router)
         logger.info("Loaded short_term route: scheduled_task")
     except ImportError as e:
@@ -182,7 +182,7 @@ def get_routers() -> List[APIRouter]:
 
     # 六周期情绪模型（Phase 3）
     try:
-        from backend.api.emotion_cycle_v2 import router as emotion_cycle_v2_router
+        from backend.api.market.emotion_cycle_v2 import router as emotion_cycle_v2_router
         routers.append(emotion_cycle_v2_router)
         logger.info("Loaded short_term route: emotion_cycle_v2")
     except ImportError as e:
