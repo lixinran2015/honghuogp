@@ -1287,7 +1287,6 @@ const refreshAiSuggestions = async () => {
 }
 
 // 启动 AI 刷新冷却计时器
-let aiRefreshTimer = null
 const startAiRefreshCooldown = () => {
   if (aiRefreshTimer) clearInterval(aiRefreshTimer)
   aiRefreshTimer = setInterval(() => {
