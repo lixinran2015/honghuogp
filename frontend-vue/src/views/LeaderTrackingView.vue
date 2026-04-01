@@ -1874,20 +1874,50 @@ const renderChart = () => {
 const loadAllRowKlines = async () => {
   const rows = leaderRows.value || []
   const codes = Array.from(new Set(rows.map((r) => r.ts_code).filter(Boolean)))
+  // eslint-disable-next-line no-console
+  console.log('[loadAllRowKlines] 开始加载，股票数量:', codes.length, '当前rowStats key数量:', Object.keys(rowStats.value || {}).length)
   if (!codes.length) return
   const newRowKlines = { ...rowKlines.value }
   const newRowStats = { ...rowStats.value }
+  let loadedCount = 0
+  let skippedCount = 0
   for (const code of codes) {
-    if (newRowKlines[code] && newRowKlines[code].length) continue
+    let points = null
+    let fromCache = false
+    if (newRowKlines[code] && newRowKlines[code].length) {
+      if (newRowStats[code] && Object.keys(newRowStats[code]).length > 0) {
+        // eslint-disable-next-line no-console
+        console.log('[loadAllRowKlines] 跳过缓存股票:', code, '已有K线数据:', newRowKlines[code].length, '条')
+        skippedCount++
+        continue
+      }
+      points = newRowKlines[code]
+      fromCache = true
+      // eslint-disable-next-line no-console
+      console.log('[loadAllRowKlines] 缓存K线存在但rowStats缺失，复用计算:', code, points.length, '条')
+    }
+    let data = {}
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/stock/kline-20`, {
-        params: { ts_code: code },
-      })
-      const data = res.data || {}
-      if (!data.success) continue
-      const points = data.kline || []
-      if (!points.length) continue
-      newRowKlines[code] = points
+      if (!points) {
+        const res = await axios.get(`${API_BASE_URL}/api/stock/kline-20`, {
+          params: { ts_code: code },
+        })
+        data = res.data || {}
+        if (!data.success) {
+          // eslint-disable-next-line no-console
+          console.log('[loadAllRowKlines] API返回失败:', code, data.message)
+          continue
+        }
+        points = data.kline || []
+        if (!points.length) {
+          // eslint-disable-next-line no-console
+          console.log('[loadAllRowKlines] K线数据为空:', code)
+          continue
+        }
+        newRowKlines[code] = points
+      }
+      // eslint-disable-next-line no-console
+      console.log('[loadAllRowKlines] K线数据:', code, 'points数量:', points.length, '第一条amount:', points[0]?.amount, '最后一条amount:', points[points.length-1]?.amount, fromCache ? '(缓存)' : '(API)')
       const first = points[0]
       const last = points[points.length - 1]
       const close = last.close
@@ -1954,7 +1984,7 @@ const loadAllRowKlines = async () => {
       if (amounts.length) {
         const lastAmt = points[points.length - 1].amount
         if (lastAmt != null) {
-          lastAmountE = Number(lastAmt) / 1e8
+          lastAmountE = Number(lastAmt) / 1e5
           lastAmountEText = `${lastAmountE.toFixed(1)}亿`
         }
         const last5 = amounts.slice(-5)
@@ -2051,6 +2081,9 @@ const loadAllRowKlines = async () => {
         retreat_score: N_retreat,
         retreat_reasons: retreatReasons,
       }
+      loadedCount++
+      // eslint-disable-next-line no-console
+      console.log('[loadAllRowKlines] 已加载股票:', code, 'lastAmountE:', lastAmountE, 'lastAmountEText:', lastAmountEText, 'points数量:', points.length)
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('loadAllRowKlines error', code, e)
@@ -2058,6 +2091,8 @@ const loadAllRowKlines = async () => {
   }
   rowKlines.value = newRowKlines
   rowStats.value = newRowStats
+  // eslint-disable-next-line no-console
+  console.log('[loadAllRowKlines] 完成，新加载:', loadedCount, '跳过:', skippedCount, '最终rowStats key数量:', Object.keys(newRowStats).length)
 }
 
 const loadRealtimeQuotes = async (tsCodes) => {

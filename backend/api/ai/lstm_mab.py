@@ -851,7 +851,7 @@ async def run_daily_feedback(background_tasks: BackgroundTasks) -> Dict:
 
     try:
         # 获取项目根目录
-        project_root = Path(__file__).parent.parent.parent
+        project_root = Path(__file__).parent.parent.parent.parent
         script_path = project_root / "backend" / "scripts" / "lstm_mab" / "daily_feedback.py"
 
         if not script_path.exists():
