@@ -23,7 +23,8 @@ async def batch_calculate_golden_cross(
     start_date: str = Query(..., description="开始日期，格式YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期，格式YYYY-MM-DD，默认今天"),
     universe: str = Query("mainboard", description="股票池类型：mainboard(主板)、base(基础池)、all(全市场)"),
-    batch_size: int = Query(20, description="每批处理的交易日数量，默认20")
+    batch_size: int = Query(20, description="每批处理的交易日数量，默认20"),
+    market_phase: Optional[str] = Query(None, description="市场周期：主升期/高潮期/分歧期/启动期/退潮期/冰点期，用于动态调整成交额阈值")
 ):
     """
     批量计算一段时间范围内的金叉并入库
@@ -65,15 +66,16 @@ async def batch_calculate_golden_cross(
         if days_diff > 365:
             raise HTTPException(status_code=400, detail="日期范围不能超过365天")
         
-        logger.info(f"批量计算金叉任务已启动：{start_date_obj} 至 {end_date_obj}, universe={universe}")
-        
+        logger.info(f"批量计算金叉任务已启动：{start_date_obj} 至 {end_date_obj}, universe={universe}, market_phase={market_phase}")
+
         # 在后台执行批量计算任务
         background_tasks.add_task(
             _execute_batch_golden_cross,
             start_date_obj,
             end_date_obj,
             universe,
-            batch_size
+            batch_size,
+            market_phase
         )
         
         return {
@@ -84,7 +86,8 @@ async def batch_calculate_golden_cross(
                 'end_date': end_date_obj.isoformat()
             },
             'universe': universe,
-            'batch_size': batch_size
+            'batch_size': batch_size,
+            'market_phase': market_phase
         }
         
     except ValueError as e:
@@ -99,14 +102,15 @@ async def _execute_batch_golden_cross(
     start_date: date,
     end_date: date,
     universe: str,
-    batch_size: int
+    batch_size: int,
+    market_phase: Optional[str] = None
 ):
     """
     执行批量计算金叉任务（后台任务）
     """
     try:
         ws = WarehouseService()
-        startup_filter = StockStartupFilter(warehouse_service=ws)
+        startup_filter = StockStartupFilter(warehouse_service=ws, market_phase=market_phase)
         
         # 获取股票池列表
         stock_codes = await get_universe_stocks(universe)

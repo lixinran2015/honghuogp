@@ -145,6 +145,7 @@ class IndicatorCalculator:
             indicators['amount'] = self._safe_float(today_data.amount)
             indicators['change_pct'] = self._safe_float(today_data.change_pct)
             indicators['turnover_rate'] = self._safe_float(today_data.turnover_rate)
+            indicators['float_share'] = self._safe_float(getattr(today_data, 'float_share', None))
             
             # ✅ 如果 change_pct 为 0 或 None，尝试从前一日收盘价计算涨幅（用于涨停判断）
             if (indicators.get('change_pct') is None or indicators.get('change_pct') == 0) and len(kline_df) >= 2:
@@ -155,8 +156,9 @@ class IndicatorCalculator:
                     indicators['change_pct'] = calculated_change_pct
                     logger.debug(f"{today_data.ts_code if hasattr(today_data, 'ts_code') else 'unknown'}: change_pct 缺失，从前一日收盘价计算: {calculated_change_pct:.2f}%")
             
-            # 计算流通市值（估算：流通股数 = 成交量 / 换手率）
+            # 计算流通市值（优先使用 float_share 字段，更精确）
             indicators['circulation_market_cap'] = self._calculate_circulation_market_cap(
+                indicators.get('float_share'),
                 indicators['turnover_rate'],
                 indicators['amount'],
                 indicators['close']
@@ -480,27 +482,39 @@ class IndicatorCalculator:
     
     def _calculate_circulation_market_cap(
         self,
+        float_share: Optional[float],
         turnover_rate: float,
         amount: float,
         close: float
     ) -> float:
         """计算流通市值
-        
+
         Args:
+            float_share: 流通股数（万股），优先使用
             turnover_rate: 换手率（百分比）
-            amount: 成交额
-            close: 收盘价
-        
+            amount: 成交额（千元，Tushare单位）
+            close: 收盘价（元）
+
         Returns:
-            流通市值
+            流通市值（元）
         """
-        if turnover_rate <= 0 or close <= 0:
+        # 优先使用 float_share 字段（更精确）
+        # float_share 单位是万股，需要乘以 10000 转换为股
+        if float_share is not None and float_share > 0 and close > 0:
+            return float_share * 10000 * close
+
+        # 降级：使用成交额和换手率估算
+        # 注意：amount 是千元单位，需要乘以 1000 转换为元
+        if turnover_rate <= 0 or close <= 0 or amount <= 0:
             return self.DEFAULT_ZERO
-        
+
         try:
-            # 流通股数 = 成交额 / 收盘价 / (换手率 / 100)
-            circulation_shares = amount / close / (turnover_rate / 100)
-            return circulation_shares * close
+            # amount（千元）转换为元：amount * 1000
+            # turnover_rate 是百分比，如 1.5 表示 1.5%
+            # 流通市值 = 成交额（元）/ (换手率 / 100)
+            amount_in_yuan = amount * 1000
+            circulation_market_cap = amount_in_yuan / (turnover_rate / 100)
+            return circulation_market_cap
         except Exception:
             return self.DEFAULT_ZERO
     

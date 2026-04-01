@@ -43,26 +43,29 @@ logger = logging.getLogger(__name__)
 
 class StockStartupFilter:
     """股票启动筛选器（包装类，提供简化接口）"""
-    
-    def __init__(self, warehouse_service):
+
+    def __init__(self, warehouse_service, market_phase: str = None):
         """
         初始化筛选器
-        
+
         Args:
             warehouse_service: 数据仓库服务实例
+            market_phase: 市场周期（主升期/高潮期/分歧期/启动期/退潮期/冰点期），
+                         用于动态调整成交额阈值
         """
         self.warehouse = warehouse_service
-        
+        self.market_phase = market_phase
+
         # 初始化所有组件
         self.data_loader = StockDataLoader(warehouse_service)
         self.indicator_calculator = IndicatorCalculator()
-        self.basic_checker = BasicConditionChecker()
+        self.basic_checker = BasicConditionChecker(market_phase=market_phase)
         self.core_checker = CoreConditionChecker()
         self.assist_checker = AssistConditionChecker()
         self.risk_checker = RiskConditionChecker()
         self.state_manager = StartupStateManager()
         self.repository = CandidateRepository(warehouse_service)
-        
+
         # 创建核心筛选器实例
         self.filter = StartupFilter(
             data_loader=self.data_loader,
@@ -145,9 +148,17 @@ class StockStartupFilter:
         if not trade_date:
             from datetime import date
             trade_date = date.today().strftime('%Y-%m-%d')
-        
+
         logger.info(f"开始批量筛选启动股票: {len(stock_codes)} 只股票, 日期: {trade_date}")
-        
+
+        # 输出当前市场状态和阈值配置
+        if self.market_phase:
+            from backend.services.stock.startup.conditions.basic_condition_checker import BasicConditionChecker
+            threshold = BasicConditionChecker.AMOUNT_THRESHOLDS.get(self.market_phase, 10e8)
+            logger.info(f"[市场状态] 当前周期: {self.market_phase}, 成交额阈值: {threshold/1e8:.0f}亿")
+        else:
+            logger.info(f"[市场状态] 未指定周期，使用默认成交额阈值: 10亿")
+
         # 预过滤：批量检查哪些股票有价格数据
         if enable_prefilter:
             filtered_codes = self._batch_check_price_data_exists(stock_codes, trade_date)
@@ -187,7 +198,7 @@ class StockStartupFilter:
                 stock_data = self._get_stock_indicators(ts_code, trade_date)
                 if not stock_data:
                     return None
-                
+
                 result = self.filter.check_golden_cross_only(stock_data, trade_date)
                 if result.get('passed'):
                     return {
@@ -195,10 +206,17 @@ class StockStartupFilter:
                         'stock_data': stock_data,
                         'golden_cross_date': result.get('golden_cross_date')
                     }
+                # ✅ 调试：记录前10个失败的金叉股票
+                if len(failed_reasons_log) < 10:
+                    failed_reasons = result.get('failed_reasons', [])
+                    failed_reasons_log.append(f"{ts_code}: {failed_reasons}")
                 return None
             except Exception as e:
                 logger.error(f"检查金叉失败 {ts_code}: {e}", exc_info=True)
                 return None
+
+        # 调试：记录失败原因
+        failed_reasons_log = []
         
         # 并行执行阶段1
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -219,11 +237,23 @@ class StockStartupFilter:
         
         logger.info(f"阶段1完成：发现 {len(golden_cross_stocks)} 只股票有金叉")
 
+        # 输出失败原因调试信息
+        if failed_reasons_log:
+            logger.info(f"[调试] 部分有金叉但未通过基础条件的股票及原因:")
+            for log in failed_reasons_log:
+                logger.info(f"  {log}")
+
         # 输出金叉/多头排列统计
         stats = BasicConditionChecker._stats
         logger.info(f"[金叉统计总结] 总计检查:{stats['total_checked']} "
                    f"严格金叉:{stats['strict_golden_cross_count']} "
                    f"多头排列:{stats['bullish_arrangement_count']}")
+
+        # 如果有金叉但未通过基础条件的股票较多，输出提示
+        total_with_golden_cross = stats['strict_golden_cross_count'] + stats['bullish_arrangement_count']
+        if total_with_golden_cross > 0 and len(golden_cross_stocks) == 0:
+            logger.warning(f"[警告] 发现 {total_with_golden_cross} 只股票有金叉/多头排列，但均因其他基础条件未通过而被过滤")
+            logger.warning(f"[提示] 建议检查：流通市值≥40亿、成交额≥{self.basic_checker.amount_threshold/1e8:.0f}亿、股价≥60日线、近60日交易天数≥50天")
 
         if not golden_cross_stocks:
             return pd.DataFrame()

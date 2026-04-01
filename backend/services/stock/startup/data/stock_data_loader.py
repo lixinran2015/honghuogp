@@ -183,7 +183,8 @@ class StockDataLoader:
                     'close': float(k.close) if k.close else 0,
                     'volume': float(k.vol) if k.vol else 0,
                     'amount': float(k.amount) if k.amount else 0,
-                    'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0
+                    'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0,
+                    'float_share': float(k.float_share) if k.float_share else 0
                 } for k in kline])
                 
                 kline_df = kline_df.sort_values('trade_date').reset_index(drop=True)
@@ -275,6 +276,8 @@ class StockDataLoader:
                                             logger.debug(f"{ts_code}: 已更新实时价格 {realtime_price:.2f} (涨跌幅: {realtime_pct_chg:.2f}%)")
                                         elif force_realtime and prev_data:
                                             # ✅ 如果强制实时数据且 kline_df 中没有今天的数据，添加一行
+                                            # 使用 prev_data 的 float_share（流通股数不会频繁变化）
+                                            prev_float_share = float(prev_data.float_share) if prev_data.float_share else 0
                                             new_row = pd.DataFrame([{
                                                 'trade_date': today,
                                                 'open': realtime_price,
@@ -283,7 +286,8 @@ class StockDataLoader:
                                                 'close': realtime_price,
                                                 'volume': realtime_volume * 100 if realtime_volume > 0 else 0,
                                                 'amount': realtime_amount if realtime_amount > 0 else 0,
-                                                'turnover_rate': realtime_turnover_rate if realtime_turnover_rate > 0 else 0
+                                                'turnover_rate': realtime_turnover_rate if realtime_turnover_rate > 0 else 0,
+                                                'float_share': prev_float_share
                                             }])
                                             kline_df = pd.concat([kline_df, new_row], ignore_index=True)
                                             logger.debug(f"{ts_code}: 添加今日实时数据到K线（强制实时模式）")
@@ -381,7 +385,8 @@ class StockDataLoader:
                     'close': float(k.close) if k.close else 0,
                     'volume': float(k.vol) if k.vol else 0,
                     'amount': float(k.amount) if k.amount else 0,
-                    'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0
+                    'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0,
+                    'float_share': float(k.float_share) if k.float_share else 0
                 } for k in kline])
                 
                 kline_df = kline_df.sort_values('trade_date').reset_index(drop=True)
