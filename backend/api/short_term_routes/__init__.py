@@ -84,6 +84,14 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load watch/monitor_near5 router: {e}")
 
+    # 启动股监控
+    try:
+        from backend.api.watch.startup_watch import router as startup_watch_router
+        routers.append(startup_watch_router)
+        logger.info("Loaded short_term route: watch/startup_watch")
+    except ImportError as e:
+        logger.warning(f"Failed to load watch/startup_watch router: {e}")
+
     # 板块轮动
     try:
         from backend.api.sectors.sector_rotation import router as rotation_router

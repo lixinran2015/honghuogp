@@ -66,20 +66,32 @@ class BasicConditionChecker:
         
         # F5: 5日金叉10日（新增到基础条件）
         # 如果在金叉观察期内，跳过此检查
-        ma5 = data.get('ma5', 0)
-        ma10 = data.get('ma10', 0)
-        ma5_prev = data.get('ma5_prev', 0)
-        ma10_prev = data.get('ma10_prev', 0)
-        
-        has_golden_cross = ma5 > ma10 and ma5_prev <= ma10_prev
-        
+        # ✅ 改进：增加"均线多头排列"作为金叉的替代条件
+        # 在震荡期，均线可能早已多头排列但未形成严格交叉
+        ma5 = data.get('ma5') or 0
+        ma10 = data.get('ma10') or 0
+        ma20 = data.get('ma20') or 0  # 新增：20日均线（防御性处理None）
+        ma5_prev = data.get('ma5_prev') or 0
+        ma10_prev = data.get('ma10_prev') or 0
+
+        # 严格金叉：今天MA5>MA10且昨天MA5<=MA10
+        is_strict_golden_cross = ma5 > ma10 and ma5_prev <= ma10_prev
+
+        # 均线多头排列：MA5 > MA10 > MA20（作为金叉的替代条件）
+        # 这允许已经进入多头趋势但未严格交叉的股票进入候选池
+        is_bullish_arrangement = ma5 > ma10 > ma20 > 0
+
+        has_golden_cross = is_strict_golden_cross or is_bullish_arrangement
+
         if not skip_golden_cross and not has_golden_cross:
-            failed.append('未形成5日金叉10日')
+            failed.append('未形成金叉且非多头排列')
         
         return {
             'passed': len(failed) == 0,
             'failed_reasons': failed,
-            'has_golden_cross': has_golden_cross,  # 标记是否有金叉
-            'skipped_golden_cross': skip_golden_cross  # 标记是否跳过了金叉检查
+            'has_golden_cross': has_golden_cross,  # 标记是否有金叉/多头排列
+            'skipped_golden_cross': skip_golden_cross,  # 标记是否跳过了金叉检查
+            'is_strict_golden_cross': is_strict_golden_cross,  # 严格金叉
+            'is_bullish_arrangement': is_bullish_arrangement  # 均线多头排列
         }
 
