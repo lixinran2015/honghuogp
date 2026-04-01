@@ -424,10 +424,11 @@ async def get_leader_tracking_recent_days(
 
 @router.get("/top-scored")
 async def get_top_scored_leaders(
-    top_n: int = Query(10, ge=1, le=50, description="返回前N名"),
+    top_n: Optional[int] = Query(None, ge=1, description="返回前N名，不传则返回全部"),
     min_score: int = Query(60, description="启动得分阈值"),
     stage: str = Query("confirmed", description="阶段过滤：confirmed / started"),
     trade_date: Optional[str] = Query(None, description="交易日，YYYY-MM-DD；不传则取最新交易日"),
+    ts_codes: Optional[str] = Query(None, description="指定股票代码列表，逗号分隔，如'000001.SZ,000002.SZ'"),
 ) -> dict:
     """
     获取 LSTM-MAB 智能评分最高的龙头股票
@@ -473,6 +474,60 @@ async def get_top_scored_leaders(
         }
 
     pool = result['pool']
+
+    # 如果指定了ts_codes，从实时雷达获取这些股票的详细信息并合并到pool
+    if ts_codes:
+        from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
+        requested_codes = [c.strip() for c in ts_codes.split(',') if c.strip()]
+        pool_codes = {s.get('ts_code') for s in pool}
+        missing_codes = [c for c in requested_codes if c not in pool_codes]
+
+        if missing_codes:
+            # 获取实时雷达数据
+            analyzer = StartupSectorAnalyzer()
+            radar_result = analyzer.analyze(end_date=td)
+
+            # 从space_leaders_lead和sectors中提取缺失股票的信息
+            missing_stocks_map = {}
+            for item in radar_result.get("space_leaders_lead", []) or []:
+                sector_name = item.get("sector_name")
+                for stock in item.get("stocks", []) or []:
+                    tc = stock.get("ts_code")
+                    if tc in missing_codes and tc not in missing_stocks_map:
+                        missing_stocks_map[tc] = {
+                            "ts_code": tc,
+                            "name": stock.get("name") or tc,
+                            "sectors": [sector_name] if sector_name else [],
+                            "is_space": True,
+                            "is_new": False,
+                            "continuous_limit": stock.get("continuous_limit"),
+                        }
+
+            for sec in radar_result.get("sectors", []) or []:
+                sector_name = sec.get("sector_name")
+                chain = sec.get("chain", []) or []
+                for c in chain:
+                    tc = c.get("ts_code")
+                    if tc in missing_codes:
+                        if tc not in missing_stocks_map:
+                            missing_stocks_map[tc] = {
+                                "ts_code": tc,
+                                "name": c.get("name") or tc,
+                                "sectors": [sector_name] if sector_name else [],
+                                "is_space": False,
+                                "is_new": bool(c.get("is_new_leader")),
+                                "continuous_limit": c.get("continuous_limit"),
+                            }
+                        else:
+                            if sector_name and sector_name not in missing_stocks_map[tc]["sectors"]:
+                                missing_stocks_map[tc]["sectors"].append(sector_name)
+                            if c.get("is_new_leader"):
+                                missing_stocks_map[tc]["is_new"] = True
+
+            # 将缺失的股票添加到pool
+            for tc in missing_codes:
+                if tc in missing_stocks_map:
+                    pool.append(missing_stocks_map[tc])
     model = _get_model()
 
     if model is None:
@@ -481,7 +536,7 @@ async def get_top_scored_leaders(
             'warning': 'LSTM-MAB 模型未训练或加载失败，返回未排序数据',
             'model_available': False,
             'trade_date': result.get('trade_date'),
-            'top_stocks': pool[:top_n]
+            'top_stocks': pool[:top_n] if top_n else pool
         }
 
     # 对每只股票进行评分
@@ -489,6 +544,7 @@ async def get_top_scored_leaders(
 
     scored_stocks = []
     for stock in pool:
+        ts_code = stock.get('ts_code', '')
         try:
             factor_values = _calculate_factor_values(stock)
 
@@ -560,5 +616,5 @@ async def get_top_scored_leaders(
         'trade_date': result.get('trade_date'),
         'emotion_cycle': model.mab.current_emotion,
         'total_count': len(scored_stocks),
-        'top_stocks': scored_stocks[:top_n]
+        'top_stocks': scored_stocks[:top_n] if top_n else scored_stocks
     }

@@ -1684,11 +1684,14 @@ const fetchTopScored = async () => {
   isScoring.value = true
   scoringError.value = null
   try {
+    // 获取当前页面显示的所有股票代码
+    const codes = (leaderRowsBase.value || []).map(r => r.ts_code).filter(Boolean).join(',')
     const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/top-scored`, {
       params: {
-        top_n: 10,
-        min_score: 60,
+        // 不传 top_n，获取所有股票评分
+        min_score: 0,  // 不限制最低分，显示所有股票
         stage: 'confirmed',
+        ts_codes: codes || undefined,  // 传入所有股票代码
       },
     })
     const data = res.data || {}
@@ -1696,6 +1699,15 @@ const fetchTopScored = async () => {
       topScoredStocks.value = data.top_stocks || []
       modelAvailable.value = data.model_available || false
       currentEmotionCycle.value = data.emotion_cycle || ''
+      // 同时更新 stockScoreMap，使龙头跟踪列表中的AI评分也更新
+      const newScoreMap = { ...stockScoreMap.value }
+      for (const stock of data.top_stocks || []) {
+        if (stock.ts_code && stock.lstm_mab_score) {
+          newScoreMap[stock.ts_code] = stock.lstm_mab_score
+        }
+      }
+      stockScoreMap.value = newScoreMap
+      saveStockScores()
       if (data.warning) {
         scoringError.value = data.warning
       }
@@ -1716,11 +1728,14 @@ const fetchTopScored = async () => {
 // 获取所有股票的 AI 评分（用于主列表显示）
 const fetchAllStockScores = async () => {
   try {
+    // 获取当前页面显示的所有股票代码
+    const codes = (leaderRowsBase.value || []).map(r => r.ts_code).filter(Boolean).join(',')
     const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/top-scored`, {
       params: {
-        top_n: 200,  // 获取足够多的股票
-        min_score: 60,
+        // 不传 top_n，获取所有股票评分
+        min_score: 0,  // 获取所有评分，不限制最低分
         stage: 'confirmed',
+        ts_codes: codes || undefined,  // 传入所有股票代码
       },
     })
     const data = res.data || {}
@@ -1734,6 +1749,8 @@ const fetchAllStockScores = async () => {
       }
       stockScoreMap.value = scoreMap
       modelAvailable.value = data.model_available || false
+      // 保存到localStorage
+      saveStockScores()
     }
   } catch (e) {
     // 静默失败，不影响主列表显示
@@ -2182,6 +2199,29 @@ const saveTrackingPool = () => {
   }
 }
 
+const saveStockScores = () => {
+  try {
+    window.localStorage.setItem('leader-tracking-stock-scores', JSON.stringify(stockScoreMap.value || {}))
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('saveStockScores error', e)
+  }
+}
+
+const loadStockScores = () => {
+  try {
+    const raw = window.localStorage.getItem('leader-tracking-stock-scores')
+    if (!raw) return
+    const obj = JSON.parse(raw)
+    if (obj && typeof obj === 'object') {
+      stockScoreMap.value = obj
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('loadStockScores error', e)
+  }
+}
+
 const toggleTrack = (row) => {
   if (!row || !row.ts_code) return
   const code = row.ts_code
@@ -2340,6 +2380,7 @@ const clearCacheAndRefresh = () => {
 onMounted(() => {
   loadPinned()
   loadTrackingPool()
+  loadStockScores()
   fetchData()
   fetchSectorBacktestSummary()
   // 若通过 ?code= 进入，自动选中对应股票
