@@ -117,6 +117,14 @@ class StockDataLoader:
                         FactDailyPriceQfq.trade_date == target_date
                     )
                 ).first()
+
+                # ✅ 调试：记录从数据库查询到的原始数据
+                if today_data:
+                    logger.info(f"[DEBUG-LOADER] {ts_code} 数据库查询结果: amount={today_data.amount}, "
+                               f"close={today_data.close}, turnover_rate={today_data.turnover_rate}, "
+                               f"float_share={getattr(today_data, 'float_share', 'N/A')}")
+                else:
+                    logger.info(f"[DEBUG-LOADER] {ts_code} 数据库查询无数据，target_date={target_date}")
                 
                 # 如果目标日期没有数据：仅当 fallback_to_latest_if_no_data=True（龙头诊断）时用该股最新数据，否则返回 None
                 prev_data = None
