@@ -237,6 +237,7 @@ class StockDataLoader:
                                                 today_data.amount = realtime_amount if realtime_amount > 0 else prev_data.amount
                                                 today_data.vol = realtime_volume * 100 if realtime_volume > 0 else prev_data.vol
                                                 today_data.turnover_rate = realtime_turnover_rate if realtime_turnover_rate > 0 else prev_data.turnover_rate
+                                                today_data.float_share = prev_data.float_share  # 添加流通股数字段
                                                 today_data.open = realtime_price  # 临时使用实时价格作为开盘价
                                                 today_data.high = realtime_price
                                                 today_data.low = realtime_price

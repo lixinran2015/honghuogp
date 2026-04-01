@@ -109,6 +109,9 @@ class StockStartupFilter:
                 stock_info=stock_data.get('stock_info'),
                 today_data=stock_data.get('today_data')
             )
+
+            # 调试：检查计算后的指标
+            logger.info(f"[DEBUG] _get_stock_indicators {ts_code} - amount: {indicators.get('amount')}, circ_mv: {indicators.get('circulation_market_cap')}")
             
             # 合并数据（带上实际使用的交易日期，便于请求日无数据时使用最新数据后仍能正确展示）
             result = {
