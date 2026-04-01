@@ -15,11 +15,12 @@
 - 过渡期仓位平滑调整
 """
 
-from .emotion_cycle_enhanced import SixCycleModel, CycleConfidence
+from .emotion_cycle_enhanced import SixCycleModel, CycleConfidence, EmotionIndicators
 from .cycle_transitions import CycleTransitionManager
 
 __all__ = [
     "SixCycleModel",
     "CycleConfidence",
     "CycleTransitionManager",
+    "EmotionIndicators",
 ]

@@ -12,7 +12,7 @@ from .ic_analyzer import ICAnalyzer
 from .layered_backtest import LayeredBacktest
 from .vif_analyzer import VIFAnalyzer
 from .factor_validator import FactorValidator
-from .report_generator import FactorReportGenerator
+from .report_generator import FactorReportGenerator, run_factor_validation
 
 __all__ = [
     "ICAnalyzer",
@@ -20,4 +20,5 @@ __all__ = [
     "VIFAnalyzer",
     "FactorValidator",
     "FactorReportGenerator",
+    "run_factor_validation",
 ]
