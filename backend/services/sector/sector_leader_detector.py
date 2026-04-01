@@ -282,8 +282,8 @@ class SectorLeaderDetector:
         # 连板强度：根据涨停阈值近似（科创板/创业板20%，主板10%）
         continuous_limit = self._calc_continuous_limit(rows, ts_code)
 
-        # 日均成交额
-        amounts = [float(r[3]) for r in rows if r[3] is not None]
+        # 日均成交额（数据库单位：千元，转换为元）
+        amounts = [float(r[3]) * 1000 for r in rows if r[3] is not None]
         avg_amount = sum(amounts) / len(amounts) if amounts else 0.0
 
         # 近期状态（最近 5 日 vs 过去 20 日）
@@ -347,8 +347,9 @@ class SectorLeaderDetector:
         """计算最近 5 日涨幅与放量比（5 日均额 / 前 20 日均额）。"""
         if not rows:
             return 0.0, 1.0
+        # 最近 5 日涨幅与放量比（amount 数据库单位：千元，转换为元）
         closes = [float(r[1]) for r in rows if r[1] is not None]
-        amounts = [float(r[3]) for r in rows if r[3] is not None]
+        amounts = [float(r[3]) * 1000 for r in rows if r[3] is not None]
         if not closes:
             return 0.0, 1.0
 
@@ -358,12 +359,12 @@ class SectorLeaderDetector:
         p1 = float(last_5[-1][1]) if last_5[-1][1] is not None else closes[-1]
         recent_ret_5d = p1 / p0 - 1.0 if p0 > 0 else 0.0
 
-        # 放量比：最近 5 日 vs 此前最多 20 日
-        amt_last5 = [float(r[3]) for r in last_5 if r[3] is not None]
+        # 放量比：最近 5 日 vs 此前最多 20 日（数据库单位：千元，转换为元）
+        amt_last5 = [float(r[3]) * 1000 for r in last_5 if r[3] is not None]
         last5_avg = sum(amt_last5) / len(amt_last5) if amt_last5 else 0.0
         prev = rows[:-5]
         prev20 = prev[-20:] if len(prev) > 20 else prev
-        amt_prev = [float(r[3]) for r in prev20 if r[3] is not None]
+        amt_prev = [float(r[3]) * 1000 for r in prev20 if r[3] is not None]
         prev_avg = sum(amt_prev) / len(amt_prev) if amt_prev else last5_avg or 1.0
         ratio = last5_avg / prev_avg if prev_avg > 0 else 1.0
         return recent_ret_5d, ratio

@@ -10,7 +10,7 @@ import math
 from sqlalchemy import func, distinct, and_
 
 from data_warehouse.service.warehouse_service import WarehouseService
-from backend.services.monitor.startup_watch_service import get_watch_service, ADVANCED_STAGES, ADVANCED_STAGES
+from backend.services.monitor.startup_watch_service import get_watch_service, ADVANCED_STAGES
 
 router = APIRouter(prefix="/api/startup/watch", tags=["startup-watch"])
 logger = logging.getLogger(__name__)

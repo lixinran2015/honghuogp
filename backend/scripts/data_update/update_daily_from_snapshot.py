@@ -33,31 +33,34 @@ from backend.utils.stock_code_utils import convert_code_to_ts_code
 
 def find_latest_trade_date(market_service, max_days_back: int = 10) -> Optional[date]:
     """
-    查找最近的交易日
-    
+    数据获取场景：确定应该获取哪个交易日的数据
+
+    使用 get_target_date_for_fetch 确保收盘后能正确获取当天数据，
+    而不是总是获取数据库中最新有数据的日期。
+
     Args:
         market_service: MarketDataService 实例（保留参数以兼容旧代码）
         max_days_back: 最多往前查找多少天
-        
+
     Returns:
-        date: 最近的交易日，如果找不到返回None
+        date: 应该获取数据的交易日，如果找不到返回None
     """
     try:
-        # 使用统一的工具函数
-        from backend.utils.trade_date_utils import get_latest_trade_date
-        
+        # 使用专门的数据获取日期确定函数
+        from backend.utils.trade_date_utils import get_target_date_for_fetch
+
         ws = WarehouseService()
-        latest_trade_date = get_latest_trade_date(ws, max_days_back=max_days_back)
-        
-        if latest_trade_date:
-            logger.info(f"✅ 找到最近交易日: {latest_trade_date}")
-            return latest_trade_date
+        target_date = get_target_date_for_fetch(ws, max_days_back=max_days_back)
+
+        if target_date:
+            logger.info(f"✅ 确定数据获取目标日期: {target_date}")
+            return target_date
         else:
-            logger.warning("⚠️ 未找到最近交易日")
+            logger.warning("⚠️ 未找到目标交易日")
             return None
-            
+
     except Exception as e:
-        logger.error(f"查找最近交易日失败: {e}", exc_info=True)
+        logger.error(f"查找目标交易日失败: {e}", exc_info=True)
         # 降级：使用简单判断
         today = date.today()
         for i in range(max_days_back):
@@ -261,7 +264,13 @@ def update_daily_prices_from_snapshot(
         
         all_dfs = []
         data_source_used = None
-        
+
+        # 显示当前数据获取决策
+        if should_skip_fetch:
+            logger.info(f"📊 目标日期 {target_date} 数据已完整，将跳过获取")
+        else:
+            logger.info(f"📊 目标日期 {target_date} 数据不完整或不存在，将从数据源获取")
+
         # 如果数据完整，跳过获取
         if should_skip_fetch:
             logger.info(f"✅ 跳过数据获取，使用已有数据（完整性 >= {completeness_threshold:.0%}）")

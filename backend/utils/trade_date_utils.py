@@ -29,6 +29,84 @@ def is_trading_hours_cn() -> bool:
     return (am_start <= t <= am_end) or (pm_start <= t <= pm_end)
 
 
+def get_target_date_for_fetch(
+    warehouse_service,
+    max_days_back: int = 10
+) -> Optional[date]:
+    """
+    数据获取场景：确定应该获取哪个交易日的数据
+
+    与 get_latest_trade_date 不同，此函数优先返回"应该获取"的日期，
+    而不是"已经有数据"的日期。这确保新交易日收盘后能够正确获取当天数据。
+
+    逻辑：
+    1. 如果今天是交易日且已收盘（15:00之后），返回今天
+    2. 如果今天是交易日但未收盘，返回上一个交易日
+    3. 如果今天不是交易日，返回上一个交易日
+
+    Args:
+        warehouse_service: 数据仓库服务实例
+        max_days_back: 最多往前查找多少天（降级策略使用）
+
+    Returns:
+        date: 应该获取数据的交易日，如果找不到返回None
+    """
+    from zoneinfo import ZoneInfo
+
+    # 使用中国上海时区
+    try:
+        tz = ZoneInfo("Asia/Shanghai")
+        now = datetime.now(tz)
+    except Exception:
+        now = datetime.now()
+
+    today = now.date()
+    current_time = now.time()
+
+    logger.debug(f"🔍 get_target_date_for_fetch: today={today}, current_time={current_time}")
+
+    # 检查今天是否是交易日
+    try:
+        from data_warehouse.models.generated_models import DimTradeCalendar
+
+        session = warehouse_service.get_session()
+        try:
+            calendar = session.query(DimTradeCalendar).filter(
+                DimTradeCalendar.trade_date == today
+            ).first()
+
+            is_today_trade_date = calendar is not None and calendar.is_open
+            logger.debug(f"   今天是否为交易日: {is_today_trade_date}")
+
+            if is_today_trade_date:
+                # 检查是否已经收盘（15:00之后）
+                # 给15分钟缓冲时间，确保数据源已更新
+                market_close = dt_time(15, 15)
+                is_after_close = current_time >= market_close
+
+                logger.debug(f"   是否已收盘(>15:15): {is_after_close}")
+
+                if is_after_close:
+                    logger.info(f"✅ 今天({today})是交易日且已收盘，应该获取今天数据")
+                    return today
+                else:
+                    logger.info(f"ℹ️ 今天({today})是交易日但未收盘，获取上一交易日数据")
+            else:
+                logger.info(f"ℹ️ 今天({today})不是交易日，获取上一交易日数据")
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"⚠️ 查询交易日历失败: {e}，使用降级逻辑")
+        # 降级：简单判断（周一到周五）
+        if today.weekday() < 5:
+            market_close = dt_time(15, 15)
+            if current_time >= market_close:
+                return today
+
+    # 返回上一个交易日（使用已有数据的日期）
+    return get_latest_trade_date(warehouse_service, max_days_back=max_days_back, target_date=today)
+
+
 def get_latest_trade_date(
     warehouse_service,
     max_days_back: int = 10,
@@ -36,6 +114,8 @@ def get_latest_trade_date(
 ) -> Optional[date]:
     """
     查找最近的交易日（优先返回实际有价格数据的日期）
+
+    适用于查询场景：需要确保返回的日期数据库中有数据
 
     Args:
         warehouse_service: 数据仓库服务实例
