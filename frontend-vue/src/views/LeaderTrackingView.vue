@@ -126,6 +126,21 @@
           </label>
         </div>
 
+        <!-- 调试信息（临时） -->
+        <div v-if="!loading" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+          <div class="font-semibold mb-1 flex items-center justify-between">
+            <span>调试信息（列表已包含空间龙头+刚启动数据）：</span>
+            <button
+              type="button"
+              class="px-2 py-1 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700"
+              @click="clearCacheAndRefresh"
+            >
+              清除缓存并刷新
+            </button>
+          </div>
+          <div>列表总数: {{ leaderRowsBase.length }} (持久池: {{ poolLeaders.length }} + 空间龙头: {{ spaceLeadersByStock.length }} + 刚启动: {{ newLeadersByStock.length }})</div>
+        </div>
+
         <!-- 综合龙头列表：一行一个股票 -->
         <div class="bg-warmgray-100 rounded-lg border border-warmgray-200 overflow-hidden">
           <div class="flex items-center justify-between mb-3">
@@ -274,7 +289,7 @@
               <span>AI智能评分</span>
             </button>
           </div>
-          <div class="text-2xs text-warmgray-500 border-b border-warmgray-200 pb-1 mb-2 grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center">
+          <div class="text-2xs text-warmgray-500 border-b border-warmgray-200 pb-1 mb-2 grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_minmax(56px,0.45fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center">
             <div class="text-center">序号</div>
             <div class="text-center">自选</div>
             <div>名称 / 代码 / 类型</div>
@@ -285,6 +300,17 @@
             >
               入库时间
             </div>
+            <button
+              type="button"
+              class="text-center flex items-center justify-center gap-1"
+              @click="toggleSort('aiScore')"
+              title="LSTM-MAB AI智能评分"
+            >
+              <span>AI评分</span>
+              <span v-if="sortKey === 'aiScore'" class="text-[10px] text-warmgray-500">
+                {{ sortOrder === 'desc' ? '↓' : '↑' }}
+              </span>
+            </button>
             <button
               type="button"
               class="text-right flex items-center justify-end gap-1"
@@ -345,7 +371,7 @@
               v-for="(row, index) in leaderRowsPaged"
               :key="row.ts_code"
               type="button"
-              class="w-full text-left px-1 py-1.5 rounded-lg text-xs grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center"
+              class="w-full text-left px-1 py-1.5 rounded-lg text-xs grid grid-cols-[28px_36px_minmax(100px,1fr)_minmax(160px,1.35fr)_minmax(76px,0.55fr)_minmax(56px,0.45fr)_48px_52px_52px_52px_64px_72px_minmax(90px,0.9fr)_minmax(70px,0.75fr)_minmax(80px,0.7fr)_minmax(100px,1fr)_minmax(60px,0.6fr)] gap-x-0 gap-y-1 items-center"
               :class="selectedTsCode === row.ts_code
                 ? 'bg-indigo-50 border border-indigo-200'
                 : 'hover:bg-warmgray-50 border border-transparent'"
@@ -438,6 +464,29 @@
                 :title="poolInTimeTitle(row)"
               >
                 {{ formatPoolInTime(row) }}
+              </div>
+              <!-- AI评分 -->
+              <div class="text-center" title="LSTM-MAB AI智能评分">
+                <div
+                  v-if="row.lstm_mab_score"
+                  class="inline-flex flex-col items-center"
+                >
+                  <span
+                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    :class="{
+                      'bg-purple-100 text-purple-700': row.lstm_mab_score?.grade === 'S',
+                      'bg-green-100 text-green-700': row.lstm_mab_score?.grade === 'A',
+                      'bg-blue-100 text-blue-700': row.lstm_mab_score?.grade === 'B',
+                      'bg-gray-100 text-gray-700': !row.lstm_mab_score?.grade || row.lstm_mab_score?.grade === 'C'
+                    }"
+                  >
+                    {{ row.lstm_mab_score?.grade || '-' }}
+                  </span>
+                  <span class="text-[10px] text-purple-700 mt-0.5">
+                    {{ row.lstm_mab_score?.total_score?.toFixed ? row.lstm_mab_score.total_score.toFixed(0) : '-' }}
+                  </span>
+                </div>
+                <span v-else class="text-[10px] text-warmgray-400">-</span>
               </div>
               <div class="text-right" title="新浪实时">
                 <span
@@ -624,6 +673,7 @@ const loading = ref(false)
 const error = ref(null)
 const sectors = ref([])
 const spaceLeadersLead = ref([])
+const apiDebugInfo = ref({}) // API 调试信息
 // 永久入库后的龙头跟踪池成员（后端持久化）
 const poolLeaders = ref([])
 
@@ -749,6 +799,8 @@ const spaceLeadersByStock = computed(() => {
           name,
           sectors: [],
           continuous_limit: stock.continuous_limit ?? null,
+          first_seen_date: stock.first_seen_date || null,
+          last_seen_date: stock.last_seen_date || null,
         })
       }
       const info = byCode.get(tc)
@@ -762,6 +814,13 @@ const spaceLeadersByStock = computed(() => {
       const cl = stock.continuous_limit ?? null
       if (cl != null && (info.continuous_limit == null || cl > info.continuous_limit)) {
         info.continuous_limit = cl
+      }
+      // 取最早的 first_seen_date 和最新的 last_seen_date
+      if (stock.first_seen_date && (!info.first_seen_date || stock.first_seen_date < info.first_seen_date)) {
+        info.first_seen_date = stock.first_seen_date
+      }
+      if (stock.last_seen_date && (!info.last_seen_date || stock.last_seen_date > info.last_seen_date)) {
+        info.last_seen_date = stock.last_seen_date
       }
     }
   }
@@ -794,6 +853,8 @@ const newLeadersByStock = computed(() => {
           name,
           sectors: [],
           continuous_limit: c.continuous_limit ?? null,
+          first_seen_date: c.first_seen_date || null,
+          last_seen_date: c.last_seen_date || null,
         })
       }
       const info = byCode.get(tc)
@@ -807,6 +868,13 @@ const newLeadersByStock = computed(() => {
       const cl = c.continuous_limit ?? null
       if (cl != null && (info.continuous_limit == null || cl > info.continuous_limit)) {
         info.continuous_limit = cl
+      }
+      // 取最早的 first_seen_date 和最新的 last_seen_date
+      if (c.first_seen_date && (!info.first_seen_date || c.first_seen_date < info.first_seen_date)) {
+        info.first_seen_date = c.first_seen_date
+      }
+      if (c.last_seen_date && (!info.last_seen_date || c.last_seen_date > info.last_seen_date)) {
+        info.last_seen_date = c.last_seen_date
       }
     }
   }
@@ -824,6 +892,9 @@ const newLeadersByStock = computed(() => {
 
 // 主线维度的历史回测表现（按 sector_key 聚合）
 const sectorBacktestMap = ref({})
+
+// AI 评分数据（所有股票的评分映射）
+const stockScoreMap = ref({})
 
 // 汇总成单一列表：一行一只股票（基础顺序）
 // 合并持久池 + 当日雷达：避免池子尚未同步或库内记录少时，页面上只剩几条
@@ -883,6 +954,8 @@ const leaderRowsBase = computed(() => {
       is_space: true,
       is_new: false,
       continuous_limit: r.continuous_limit ?? null,
+      last_seen_date: r.last_seen_date || null,
+      first_space_date: r.first_seen_date || null,
     })
   }
   for (const r of newLeadersByStock.value || []) {
@@ -893,6 +966,8 @@ const leaderRowsBase = computed(() => {
       is_space: false,
       is_new: true,
       continuous_limit: r.continuous_limit ?? null,
+      last_seen_date: r.last_seen_date || null,
+      first_new_date: r.first_seen_date || null,
     })
   }
 
@@ -1088,7 +1163,7 @@ const dailyTrueDragons = computed(() => {
 })
 
 // 排序状态
-const sortKey = ref('default') // default | pct20d | pctToday | pct60d | dd20
+const sortKey = ref('default') // default | pct20d | pctToday | pct60d | dd20 | aiScore
 const sortOrder = ref('desc') // asc | desc
 
 // 买点「新鲜」判定：仅用库中最新日线；与 buyPointLockedByCode 合并后对外暴露
@@ -1275,8 +1350,13 @@ const toggleSort = (key) => {
 // 应用排序后的最终列表
 const leaderRows = computed(() => {
   const base = [...(leaderRowsBase.value || [])]
-  // 历史票持续展示：只排除 ST/ *ST，避免回调后“空间/刚启动”候选瞬间消失
-  let filtered = base.filter((r) => !isSTStockName(r.name || r.ts_code))
+  // 合并 AI 评分到每行数据
+  const withScores = base.map(row => ({
+    ...row,
+    lstm_mab_score: stockScoreMap.value[row.ts_code] || null
+  }))
+  // 历史票持续展示：只排除 ST/ *ST，避免回调后”空间/刚启动”候选瞬间消失
+  let filtered = withScores.filter((r) => !isSTStockName(r.name || r.ts_code))
   const kw = keyword.value.trim()
   if (kw) {
     const lower = kw.toLowerCase()
@@ -1391,6 +1471,9 @@ const leaderRows = computed(() => {
     } else if (key === 'dd20') {
       va = sa.maxDrawdown20 != null ? Math.abs(sa.maxDrawdown20) : null
       vb = sb.maxDrawdown20 != null ? Math.abs(sb.maxDrawdown20) : null
+    } else if (key === 'aiScore') {
+      va = a.lstm_mab_score?.total_score ?? null
+      vb = b.lstm_mab_score?.total_score ?? null
     }
     if (va == null && vb == null) {
       return baseCompare(a, b)
@@ -1520,13 +1603,16 @@ const fetchData = async () => {
       && cached.payload
 
     let data = {}
+    const apiParams = { start_date: startDate, min_score: 60, stage: 'confirmed', stable: true }
+    apiDebugInfo.value = { params: apiParams, cached: useCached, startDateUsed: startDate }
     if (useCached) {
       data = cached.payload || {}
     } else {
       const res = await axios.get(`${API_BASE_URL}/api/startup/sector-strength`, {
-        params: { start_date: startDate, min_score: 60, stage: 'confirmed', stable: true },
+        params: apiParams,
       })
       data = res.data || {}
+      apiDebugInfo.value.rawResponse = { success: data.success, sectorsCount: (data.sectors || []).length, spaceLeadersLeadCount: (data.space_leaders_lead || []).length }
       if (data && data.success !== false) {
         window.localStorage.setItem(
           cacheKey,
@@ -1578,6 +1664,9 @@ const fetchData = async () => {
     await loadAllRowKlines()
     const codes = (leaderRows.value || []).map((r) => r.ts_code).filter(Boolean)
     if (codes.length) await loadRealtimeQuotes(codes)
+
+    // 获取所有股票的 AI 评分（使用较大的 top_n 获取全部）
+    await fetchAllStockScores()
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e)
@@ -1621,6 +1710,34 @@ const fetchTopScored = async () => {
     topScoredStocks.value = []
   } finally {
     isScoring.value = false
+  }
+}
+
+// 获取所有股票的 AI 评分（用于主列表显示）
+const fetchAllStockScores = async () => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/top-scored`, {
+      params: {
+        top_n: 200,  // 获取足够多的股票
+        min_score: 60,
+        stage: 'confirmed',
+      },
+    })
+    const data = res.data || {}
+    if (data.success) {
+      // 构建股票代码到评分的映射
+      const scoreMap = {}
+      for (const stock of data.top_stocks || []) {
+        if (stock.ts_code && stock.lstm_mab_score) {
+          scoreMap[stock.ts_code] = stock.lstm_mab_score
+        }
+      }
+      stockScoreMap.value = scoreMap
+      modelAvailable.value = data.model_available || false
+    }
+  } catch (e) {
+    // 静默失败，不影响主列表显示
+    console.warn('获取全部评分失败:', e)
   }
 }
 
@@ -2205,6 +2322,19 @@ const getRowBacktest = (row) => {
     }
   }
   return null
+}
+
+// 清除缓存并刷新数据
+const clearCacheAndRefresh = () => {
+  try {
+    window.localStorage.removeItem('leader-tracking-sector-strength-cache-v2')
+    // eslint-disable-next-line no-alert
+    alert('缓存已清除，即将刷新数据')
+    fetchData()
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('清除缓存失败', e)
+  }
 }
 
 onMounted(() => {
