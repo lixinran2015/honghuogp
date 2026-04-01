@@ -11,7 +11,14 @@ logger = logging.getLogger(__name__)
 
 class BasicConditionChecker:
     """基础条件检查器"""
-    
+
+    # 类级别统计变量
+    _stats = {
+        'strict_golden_cross_count': 0,
+        'bullish_arrangement_count': 0,
+        'total_checked': 0
+    }
+
     def __init__(self, circulation_market_cap_threshold: float = 40e8, amount_threshold: float = 10e8):
         """
         初始化基础条件检查器
@@ -82,6 +89,19 @@ class BasicConditionChecker:
         is_bullish_arrangement = ma5 > ma10 > ma20 > 0
 
         has_golden_cross = is_strict_golden_cross or is_bullish_arrangement
+
+        # 统计各类型的数量
+        BasicConditionChecker._stats['total_checked'] += 1
+        if is_strict_golden_cross:
+            BasicConditionChecker._stats['strict_golden_cross_count'] += 1
+        if is_bullish_arrangement:
+            BasicConditionChecker._stats['bullish_arrangement_count'] += 1
+
+        # 每检查100只股票输出一次统计
+        if BasicConditionChecker._stats['total_checked'] % 100 == 0:
+            logger.info(f"[金叉统计] 总计:{BasicConditionChecker._stats['total_checked']} "
+                       f"严格金叉:{BasicConditionChecker._stats['strict_golden_cross_count']} "
+                       f"多头排列:{BasicConditionChecker._stats['bullish_arrangement_count']}")
 
         if not skip_golden_cross and not has_golden_cross:
             failed.append('未形成金叉且非多头排列')

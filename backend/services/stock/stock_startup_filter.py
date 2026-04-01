@@ -170,6 +170,14 @@ class StockStartupFilter:
         # ====================================
         # 阶段1：并行检查金叉（只计算，不保存数据库）
         # ====================================
+        # 重置统计计数器
+        from backend.services.stock.startup.conditions.basic_condition_checker import BasicConditionChecker
+        BasicConditionChecker._stats = {
+            'strict_golden_cross_count': 0,
+            'bullish_arrangement_count': 0,
+            'total_checked': 0
+        }
+
         logger.info(f"阶段1：并行检查金叉（{max_workers} 个线程）")
         golden_cross_stocks = []
         
@@ -210,7 +218,13 @@ class StockStartupFilter:
                     golden_cross_stocks.append(result)
         
         logger.info(f"阶段1完成：发现 {len(golden_cross_stocks)} 只股票有金叉")
-        
+
+        # 输出金叉/多头排列统计
+        stats = BasicConditionChecker._stats
+        logger.info(f"[金叉统计总结] 总计检查:{stats['total_checked']} "
+                   f"严格金叉:{stats['strict_golden_cross_count']} "
+                   f"多头排列:{stats['bullish_arrangement_count']}")
+
         if not golden_cross_stocks:
             return pd.DataFrame()
         
