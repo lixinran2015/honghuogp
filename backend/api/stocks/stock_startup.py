@@ -9,6 +9,7 @@ import logging
 
 from backend.services.stock.stock_startup_filter import StockStartupFilter
 from data_warehouse.service.warehouse_service import WarehouseService
+from backend.api.startup.candidates import _enrich_candidates_with_leader_info
 
 router = APIRouter(prefix="/api/startup", tags=["startup"])
 logger = logging.getLogger(__name__)
@@ -148,14 +149,18 @@ async def get_startup_candidates(
                 ts_code = candidate.ts_code
                 
                 # 获取入选日的收盘价
-                entry_price_query = session.query(FactDailyPriceQfq.close).filter(
+                entry_data_query = session.query(
+                    FactDailyPriceQfq.close,
+                    FactDailyPriceQfq.amount
+                ).filter(
                     and_(
                         FactDailyPriceQfq.ts_code == ts_code,
                         FactDailyPriceQfq.trade_date == entry_date
                     )
                 ).first()
                 
-                entry_price = float(entry_price_query[0]) if entry_price_query and entry_price_query[0] else 0
+                entry_price = float(entry_data_query[0]) if entry_data_query and entry_data_query[0] else 0
+                entry_amount = float(entry_data_query[1]) if entry_data_query and entry_data_query[1] else 0
                 
                 # 获取入选日之前的数据（计算前5日涨幅）
                 before_data = session.query(
@@ -189,11 +194,12 @@ async def get_startup_candidates(
                     )
                 ).order_by(
                     FactDailyPriceQfq.trade_date.asc()
-                ).limit(11).all()  # 增加limit以包含入选日
+                ).limit(31).all()  # 增加到31天以计算后30日涨幅
                 
                 # 计算后续涨幅
                 pct_5d = None
                 pct_10d = None
+                pct_30d = None
                 latest_price = entry_price
                 latest_change = 0
                 avg_amount_5d = 0
@@ -224,6 +230,11 @@ async def get_startup_candidates(
                     if len(future_data) >= 11:
                         price_10d = float(future_data[10][1]) if future_data[10][1] else entry_price
                         pct_10d = (price_10d - entry_price) / entry_price * 100
+
+                    # 30日涨幅（如果有足够数据）
+                    if len(future_data) >= 31:
+                        price_30d = float(future_data[30][1]) if future_data[30][1] else entry_price
+                        pct_30d = (price_30d - entry_price) / entry_price * 100
                     
                     # 前5日平均成交额（从入选日后第1天开始）
                     amounts = [float(row[2]) for row in future_data[1:6] if row[2]]
@@ -345,13 +356,17 @@ async def get_startup_candidates(
                     # 批量诊断结果（从数据库读取）
                     'diagnosis_result': candidate.diagnosis_result if candidate.diagnosis_result else None,
                     'last_diagnosis_date': candidate.last_diagnosis_date.isoformat() if candidate.last_diagnosis_date else None,
+                    # 操作建议（从诊断结果中提取）
+                    'operation_suggestion': candidate.diagnosis_result.get('recommendation', {}).get('action') if candidate.diagnosis_result and isinstance(candidate.diagnosis_result, dict) else None,
                     # 入选时数据
                     'entry_price': safe_float(entry_price),
+                    'entry_amount': safe_float(entry_amount),
                     # 入选前表现
                     'pct_before_5d': safe_float(pct_before_5d),  # 入选前5日涨幅
                     # 入选后表现
                     'pct_after_5d': safe_float(pct_5d),  # 入选后5日涨幅
                     'pct_after_10d': safe_float(pct_10d),  # 入选后10日涨幅
+                    'pct_after_30d': safe_float(pct_30d),  # 入选后30日涨幅
                     'latest_price': safe_float(latest_price),
                     'latest_change': safe_float(latest_change),
                     'avg_amount_5d': safe_float(avg_amount_5d),
@@ -366,6 +381,9 @@ async def get_startup_candidates(
                     'latest_entry_date': latest_entry_date.isoformat() if latest_entry_date else None,
                     'pct_after_5d_from_first': safe_float(pct_after_5d_from_first)  # 首次入选后5日收益
                 })
+            
+            # 补充龙头信息和板块角色
+            _enrich_candidates_with_leader_info(session, candidates)
             
             return {
                 'success': True,

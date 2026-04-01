@@ -515,6 +515,11 @@ async def get_top_scored_leaders(
             except Exception:
                 prediction_id = None
 
+            # 记录评分日志（调试用）
+            logger.info(f"📊 评分: {stock.get('ts_code')} {stock.get('name', '')} "
+                       f"总分={prediction.total_score:.2f}, 等级={prediction.grade}, "
+                       f"因子={factor_values}")
+
             scored_stock = {
                 **stock,
                 'lstm_mab_score': {

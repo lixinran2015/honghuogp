@@ -432,6 +432,34 @@ class StartupSectorAnalyzer:
       # 预建 (trade_date, ts_code) 集合，供 daily.distinct_stocks 快速查找（避免 O(n²)）
       signal_date_stock: set = {(r.trade_date, r.ts_code) for r in rows}
 
+      # 构建每只股票在该板块下的最早/最新信号日期映射：sector_key -> {ts_code: (first_date, last_date)}
+      stock_dates_by_sector: Dict[str, Dict[str, Tuple[date, date]]] = defaultdict(dict)
+      for r in rows:
+        tc = r.ts_code
+        trade_date = r.trade_date
+        industry_full = getattr(r, "industry_full", None)
+        # 行业
+        industry_name = (industry_full or "").strip()
+        if industry_name:
+          key = f"industry:{industry_name}"
+          if tc not in stock_dates_by_sector[key]:
+            stock_dates_by_sector[key][tc] = (trade_date, trade_date)
+          else:
+            fd, ld = stock_dates_by_sector[key][tc]
+            stock_dates_by_sector[key][tc] = (min(fd, trade_date), max(ld, trade_date))
+        # 概念
+        if tc in concept_map:
+          for concept_name in concept_map[tc]:
+            cname = concept_name.strip()
+            if not cname:
+              continue
+            key_c = f"concept:{cname}"
+            if tc not in stock_dates_by_sector[key_c]:
+              stock_dates_by_sector[key_c][tc] = (trade_date, trade_date)
+            else:
+              fd, ld = stock_dates_by_sector[key_c][tc]
+              stock_dates_by_sector[key_c][tc] = (min(fd, trade_date), max(ld, trade_date))
+
       sector_stats: List[SectorAggregateStat] = []
 
       for (sector_type, sector_name), day_map in daily_counts.items():
@@ -558,12 +586,16 @@ class StartupSectorAnalyzer:
       for (sector_type, sector_name), codes in distinct_stocks.items():
         sector_key = f"{sector_type}:{sector_name}"
         sector_meta = leader_meta_by_sector.get(sector_key, {})
+        # 获取该板块下各股票的日期信息
+        sector_dates = stock_dates_by_sector.get(sector_key, {})
         reps: List[Tuple[str, Dict]] = []
         for code in codes:
           code_str = str(code)
           meta = sector_meta.get(code_str, {})
           role_label, pri = _role_from_meta(meta)
           is_new_leader = _is_new_leader(meta)
+          # 获取该股票在该板块下的首次/最新信号日期
+          fd, ld = sector_dates.get(code_str, (None, None))
           reps.append(
             (
               code_str,
@@ -575,6 +607,8 @@ class StartupSectorAnalyzer:
                 "continuous_limit": meta.get("continuous_limit", 0),
                 "period_return_pct": meta.get("period_return_pct"),
                 "is_new_leader": is_new_leader,
+                "first_seen_date": fd.isoformat() if fd else None,
+                "last_seen_date": ld.isoformat() if ld else None,
               },
             )
           )
@@ -660,7 +694,7 @@ class StartupSectorAnalyzer:
       space_leaders_lead: List[Dict] = []
       for s in sector_stats:
         chain = sector_chains.get(s.sector_key, [])
-        leaders = [c for c in chain if c.get("role_label") and "空间龙头" in c["role_label"]]
+        leaders = [c for c in chain if c.get("role_label") and "空间龙头" in c.get("role_label")]
         if leaders:
           space_leaders_lead.append({
             "sector_key": s.sector_key,
@@ -672,6 +706,8 @@ class StartupSectorAnalyzer:
                 "name": c.get("name") or c["ts_code"],
                 "role_label": c.get("role_label") or "空间龙头",
                 "is_new_leader": bool(c.get("is_new_leader")),
+                "first_seen_date": c.get("first_seen_date"),
+                "last_seen_date": c.get("last_seen_date"),
               }
               for c in leaders
             ],

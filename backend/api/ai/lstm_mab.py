@@ -22,6 +22,8 @@ import logging
 import os
 import threading
 import traceback
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -72,6 +74,9 @@ _training_task = {
 
 # 训练任务锁（保护 _training_task 的并发访问）
 _training_lock = threading.Lock()
+
+# 线程池用于执行 CPU 密集型训练任务（避免阻塞 FastAPI 事件循环）
+_training_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="lstm_training")
 
 # 反馈任务上次运行时间（用于频率限制）
 _last_feedback_run = None
@@ -275,16 +280,15 @@ def _run_training_task(
 
 @router.post("/train")
 async def train_model(
-    background_tasks: BackgroundTasks,
     ts_code: Optional[str] = Query(None, description="训练用的股票代码，默认使用所有股票"),
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
     target_horizon: int = Query(5, description="预测未来N日收益", ge=1, le=20),
 ) -> Dict:
     """
-    训练LSTM-MAB模型（后台异步执行）
+    训练LSTM-MAB模型（在独立线程池中执行，不阻塞FastAPI事件循环）
 
-    该接口会立即返回，训练任务在后台执行，不影响其他页面操作。
+    该接口会立即返回，训练任务在后台线程池中执行，不影响其他API请求。
     使用 /train-status 接口查询训练进度。
 
     示例:
@@ -312,19 +316,21 @@ async def train_model(
         _training_task['error'] = None
         _training_task['error_traceback'] = None
 
-    # 启动后台训练任务
-    background_tasks.add_task(
+    # 在线程池中执行训练任务（避免阻塞FastAPI事件循环）
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(
+        _training_executor,
         _run_training_task,
-        start_date=start_date,
-        end_date=end_date,
-        target_horizon=target_horizon
+        start_date,
+        end_date,
+        target_horizon
     )
 
-    logger.info(f"🚀 训练任务已启动（后台执行）: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
+    logger.info(f"🚀 训练任务已启动（线程池执行）: start_date={start_date}, end_date={end_date}, horizon={target_horizon}")
 
     return {
         'success': True,
-        'message': '训练任务已启动，正在后台执行',
+        'message': '训练任务已启动，在独立线程中执行，不影响其他功能',
         'estimated_duration': '5-10 分钟（取决于数据量）',
         'query_status_at': '/api/lstm-mab/train-status',
     }

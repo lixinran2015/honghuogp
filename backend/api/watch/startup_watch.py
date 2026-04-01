@@ -11,6 +11,7 @@ from sqlalchemy import func, distinct, and_
 
 from data_warehouse.service.warehouse_service import WarehouseService
 from backend.services.monitor.startup_watch_service import get_watch_service, ADVANCED_STAGES
+from backend.api.startup.candidates import _enrich_candidates_with_leader_info
 
 router = APIRouter(prefix="/api/startup/watch", tags=["startup-watch"])
 logger = logging.getLogger(__name__)
@@ -253,7 +254,10 @@ async def get_watch_list():
                 })
             
             logger.info(f"查询到 {len(watch_list)} 只待监控股票（已统计5日内数据）")
-            
+
+            # 补充龙头信息和板块角色
+            _enrich_candidates_with_leader_info(session, watch_list)
+
             return {
                 'success': True,
                 'count': len(watch_list),

@@ -408,19 +408,25 @@
               @click="checkFinancial"
               :disabled="checkingFinancial || displayStocks.length === 0"
               class="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 text-sm"
-              title="对当前列表中未检测的股票进行财务检测（已检测的会自动跳过）"
+              :title="financialCheckMessage || '对当前列表中未检测的股票进行财务检测（已检测的会自动跳过）'"
             >
-              {{ checkingFinancial ? '检测中...' : '💰 财务检测' }}
+              <span v-if="checkingFinancial">
+                {{ financialCheckProgress > 0 ? `${financialCheckProgress}% ${financialCheckMessage}` : '启动中...' }}
+              </span>
+              <span v-else>💰 财务检测</span>
             </button>
-            
+
             <button
               v-if="activeTab === 'started'"
               @click="autoCheckAllFinancial"
               :disabled="checkingFinancial"
               class="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm"
-              title="自动检测所有已启动但未检测的股票"
+              :title="financialCheckMessage || '自动检测所有已启动但未检测的股票'"
             >
-              {{ checkingFinancial ? '检测中...' : '🚀 自动检测全部' }}
+              <span v-if="checkingFinancial">
+                {{ financialCheckProgress > 0 ? `${financialCheckProgress}% ${financialCheckMessage}` : '启动中...' }}
+              </span>
+              <span v-else>🚀 自动检测全部</span>
             </button>
             
             <button
@@ -1529,50 +1535,68 @@ async function reloadFinancialCheckResultsFromDb() {
   }
 }
 
-// 财务检测（仅检测当前列表中尚未有结果的股票）
+// 财务检测任务轮询
+const financialCheckTaskId = ref(null)
+const financialCheckProgress = ref(0)
+const financialCheckMessage = ref('')
+
+// 财务检测（仅检测当前列表中尚未有结果的股票）- 异步版本
 async function checkFinancial() {
   if (displayStocks.value.length === 0) {
     alert('当前没有可检测的股票')
     return
   }
-  
+
   // 只检测尚未有财务检测结果的股票
   const ts_codes = displayStocks.value
     .filter(s => !financialCheckResults.value[s.ts_code])
     .map(s => s.ts_code)
-  
+
   if (ts_codes.length === 0) {
     alert('当前列表中的股票均已检测过，无需重复检测')
     return
   }
-  
+
   checkingFinancial.value = true
-  
+  financialCheckProgress.value = 0
+  financialCheckMessage.value = '正在创建检测任务...'
+
   try {
-    
+    // 1. 创建异步任务
     const response = await axios.post(`${API_BASE_URL}/api/startup/financial-check`, {
       ts_codes: ts_codes
     })
-    
-    if (response.data.success) {
-      const results = response.data.results
-      const summary = response.data.summary
-      
-      // 将结果存储到financialCheckResults中（不清空已有结果，只更新当前检测的）
-      results.forEach(result => {
-        financialCheckResults.value[result.ts_code] = {
-          is_passed: result.is_passed,
-          failure_reasons: result.failure_reasons || [],
-          industry: result.industry || '未知',
-          sector: result.sector || '未知',
-          check_date: result.check_date || result.actual_data_date
+
+    if (!response.data.success) {
+      alert('创建检测任务失败: ' + (response.data.message || '未知错误'))
+      checkingFinancial.value = false
+      return
+    }
+
+    const taskId = response.data.task_id
+    financialCheckTaskId.value = taskId
+    financialCheckMessage.value = '检测任务已创建，正在执行...'
+
+    // 2. 轮询查询任务状态
+    const result = await pollFinancialCheckStatus(taskId)
+
+    if (result.success) {
+      // 将结果存储到financialCheckResults中
+      result.results.forEach(r => {
+        financialCheckResults.value[r.ts_code] = {
+          is_passed: r.is_passed,
+          failure_reasons: r.failure_reasons || [],
+          industry: r.industry || '未知',
+          sector: r.sector || '未知',
+          check_date: r.check_date || r.actual_data_date
         }
       })
-      
-      // 检测完成后，重新从数据库加载所有已启动股票的财务检测结果，确保数据完整
+
+      // 检测完成后，重新从数据库加载
       await reloadFinancialCheckResultsFromDb()
-      
+
       // 显示统计信息
+      const summary = result.summary
       alert(
         `✅ 财务检测完成\n\n` +
         `检测数量: ${summary.total} 只\n` +
@@ -1581,63 +1605,131 @@ async function checkFinancial() {
         `通过率: ${summary.pass_rate}%`
       )
     } else {
-      alert('财务检测失败: ' + (response.data.message || '未知错误'))
+      alert('财务检测失败: ' + (result.error || '未知错误'))
     }
   } catch (error) {
     console.error('财务检测失败:', error)
     alert('财务检测失败: ' + (error.response?.data?.detail || error.message))
   } finally {
     checkingFinancial.value = false
+    financialCheckTaskId.value = null
+    financialCheckProgress.value = 0
+    financialCheckMessage.value = ''
   }
 }
 
-// 自动检测所有未检测的股票
+// 轮询财务检测任务状态
+async function pollFinancialCheckStatus(taskId, maxRetries = 60) {
+  const pollInterval = 2000 // 2秒轮询一次
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/startup/financial-check/status/${taskId}`)
+      const data = response.data
+
+      if (!data.success) {
+        return { success: false, error: data.message || '查询状态失败' }
+      }
+
+      financialCheckProgress.value = data.progress || 0
+      financialCheckMessage.value = data.message || '检测中...'
+
+      if (data.status === 'completed') {
+        return {
+          success: true,
+          results: data.results || [],
+          summary: data.summary || {}
+        }
+      } else if (data.status === 'failed') {
+        return { success: false, error: data.error || '检测失败' }
+      }
+
+      // 继续轮询
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+    } catch (error) {
+      console.error('轮询任务状态失败:', error)
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+    }
+  }
+
+  return { success: false, error: '检测超时，请稍后刷新页面查看结果' }
+}
+
+// 自动检测所有未检测的股票 - 异步版本
 async function autoCheckAllFinancial() {
   if (!confirm('是否自动检测所有已启动但未检测的股票？\n\n这将检测最近30天内所有已启动但未进行财务检测的股票。')) {
     return
   }
-  
+
   checkingFinancial.value = true
-  
+  financialCheckProgress.value = 0
+  financialCheckMessage.value = '正在创建自动检测任务...'
+
   try {
+    // 1. 创建异步任务
     const response = await axios.post(`${API_BASE_URL}/api/startup/financial-check/auto?days=30`)
-    
-    if (response.data.success) {
-      const results = response.data.results || []
-      const summary = response.data.summary || {}
-      const checkedCount = response.data.checked_count || 0
-      
+
+    if (!response.data.success) {
+      // 如果没有需要检测的股票
+      if (response.data.message && response.data.message.includes('没有需要检测')) {
+        alert(response.data.message)
+      } else {
+        alert('创建检测任务失败: ' + (response.data.message || '未知错误'))
+      }
+      checkingFinancial.value = false
+      return
+    }
+
+    // 如果没有任务ID，说明没有需要检测的股票
+    if (!response.data.task_id) {
+      alert(response.data.message || '没有需要检测的股票')
+      checkingFinancial.value = false
+      return
+    }
+
+    const taskId = response.data.task_id
+    financialCheckTaskId.value = taskId
+    financialCheckMessage.value = '自动检测任务已创建，正在执行...'
+
+    // 2. 轮询查询任务状态
+    const result = await pollFinancialCheckStatus(taskId)
+
+    if (result.success) {
       // 将结果存储到financialCheckResults中
-      results.forEach(result => {
-        financialCheckResults.value[result.ts_code] = {
-          is_passed: result.is_passed,
-          failure_reasons: result.failure_reasons || [],
-          industry: result.industry || '未知',
-          sector: result.sector || '未知'
+      result.results.forEach(r => {
+        financialCheckResults.value[r.ts_code] = {
+          is_passed: r.is_passed,
+          failure_reasons: r.failure_reasons || [],
+          industry: r.industry || '未知',
+          sector: r.sector || '未知'
         }
       })
-      
+
       // 显示统计信息
+      const summary = result.summary
       alert(
         `✅ 自动检测完成\n\n` +
-        `检测数量: ${checkedCount} 只\n` +
-        `通过: ${summary.passed || 0} 只\n` +
-        `未通过: ${summary.failed || 0} 只\n` +
-        `通过率: ${summary.pass_rate || 0}%\n\n` +
+        `检测数量: ${summary.total} 只\n` +
+        `通过: ${summary.passed} 只\n` +
+        `未通过: ${summary.failed} 只\n` +
+        `通过率: ${summary.pass_rate}%\n\n` +
         `提示：请刷新页面查看最新结果`
       )
-      
-      // 自动刷新数据并重新加载财务检测结果
+
+      // 自动刷新数据
       await loadStocks()
       await reloadFinancialCheckResultsFromDb()
     } else {
-      alert('自动检测失败: ' + (response.data.message || '未知错误'))
+      alert('自动检测失败: ' + (result.error || '未知错误'))
     }
   } catch (error) {
     console.error('自动检测失败:', error)
     alert('自动检测失败: ' + (error.response?.data?.detail || error.message))
   } finally {
     checkingFinancial.value = false
+    financialCheckTaskId.value = null
+    financialCheckProgress.value = 0
+    financialCheckMessage.value = ''
   }
 }
 
