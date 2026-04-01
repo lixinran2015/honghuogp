@@ -12,13 +12,6 @@ logger = logging.getLogger(__name__)
 class BasicConditionChecker:
     """基础条件检查器"""
 
-    # 类级别统计变量
-    _stats = {
-        'strict_golden_cross_count': 0,
-        'bullish_arrangement_count': 0,
-        'total_checked': 0
-    }
-
     # 不同市场周期的成交额阈值配置（单位：亿）
     # 根据市场热度动态调整：高涨期提高门槛避免追高，震荡期降低门槛捕捉启动机会
     AMOUNT_THRESHOLDS = {
@@ -136,28 +129,15 @@ class BasicConditionChecker:
 
         has_golden_cross = is_strict_golden_cross or is_bullish_arrangement
 
-        # 统计各类型的数量
-        BasicConditionChecker._stats['total_checked'] += 1
-        if is_strict_golden_cross:
-            BasicConditionChecker._stats['strict_golden_cross_count'] += 1
-        if is_bullish_arrangement:
-            BasicConditionChecker._stats['bullish_arrangement_count'] += 1
-
-        # 每检查100只股票输出一次统计
-        if BasicConditionChecker._stats['total_checked'] % 100 == 0:
-            logger.info(f"[金叉统计] 总计:{BasicConditionChecker._stats['total_checked']} "
-                       f"严格金叉:{BasicConditionChecker._stats['strict_golden_cross_count']} "
-                       f"多头排列:{BasicConditionChecker._stats['bullish_arrangement_count']}")
-
         if not skip_golden_cross and not has_golden_cross:
             failed.append('未形成金叉且非多头排列')
-        
+
         return {
             'passed': len(failed) == 0,
             'failed_reasons': failed,
-            'has_golden_cross': has_golden_cross,  # 标记是否有金叉/多头排列
-            'skipped_golden_cross': skip_golden_cross,  # 标记是否跳过了金叉检查
-            'is_strict_golden_cross': is_strict_golden_cross,  # 严格金叉
-            'is_bullish_arrangement': is_bullish_arrangement  # 均线多头排列
+            'has_golden_cross': has_golden_cross,
+            'skipped_golden_cross': skip_golden_cross,
+            'is_strict_golden_cross': is_strict_golden_cross,
+            'is_bullish_arrangement': is_bullish_arrangement
         }
 

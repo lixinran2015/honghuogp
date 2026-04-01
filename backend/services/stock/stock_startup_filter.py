@@ -110,8 +110,6 @@ class StockStartupFilter:
                 today_data=stock_data.get('today_data')
             )
 
-            # 调试：检查计算后的指标
-            logger.info(f"[DEBUG] _get_stock_indicators {ts_code} - amount: {indicators.get('amount')}, circ_mv: {indicators.get('circulation_market_cap')}")
             
             # 合并数据（带上实际使用的交易日期，便于请求日无数据时使用最新数据后仍能正确展示）
             result = {
@@ -156,7 +154,6 @@ class StockStartupFilter:
 
         # 输出当前市场状态和阈值配置
         if self.market_phase:
-            from backend.services.stock.startup.conditions.basic_condition_checker import BasicConditionChecker
             threshold = BasicConditionChecker.AMOUNT_THRESHOLDS.get(self.market_phase, 10e8)
             logger.info(f"[市场状态] 当前周期: {self.market_phase}, 成交额阈值: {threshold/1e8:.0f}亿")
         else:
@@ -184,14 +181,6 @@ class StockStartupFilter:
         # ====================================
         # 阶段1：并行检查金叉（只计算，不保存数据库）
         # ====================================
-        # 重置统计计数器
-        from backend.services.stock.startup.conditions.basic_condition_checker import BasicConditionChecker
-        BasicConditionChecker._stats = {
-            'strict_golden_cross_count': 0,
-            'bullish_arrangement_count': 0,
-            'total_checked': 0
-        }
-
         logger.info(f"阶段1：并行检查金叉（{max_workers} 个线程）")
         golden_cross_stocks = []
         
@@ -209,18 +198,11 @@ class StockStartupFilter:
                         'stock_data': stock_data,
                         'golden_cross_date': result.get('golden_cross_date')
                     }
-                # ✅ 调试：记录前10个失败的金叉股票
-                if len(failed_reasons_log) < 10:
-                    failed_reasons = result.get('failed_reasons', [])
-                    failed_reasons_log.append(f"{ts_code}: {failed_reasons}")
                 return None
             except Exception as e:
                 logger.error(f"检查金叉失败 {ts_code}: {e}", exc_info=True)
                 return None
 
-        # 调试：记录失败原因
-        failed_reasons_log = []
-        
         # 并行执行阶段1
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_code = {
@@ -239,24 +221,6 @@ class StockStartupFilter:
                     golden_cross_stocks.append(result)
         
         logger.info(f"阶段1完成：发现 {len(golden_cross_stocks)} 只股票有金叉")
-
-        # 输出失败原因调试信息
-        if failed_reasons_log:
-            logger.info(f"[调试] 部分有金叉但未通过基础条件的股票及原因:")
-            for log in failed_reasons_log:
-                logger.info(f"  {log}")
-
-        # 输出金叉/多头排列统计
-        stats = BasicConditionChecker._stats
-        logger.info(f"[金叉统计总结] 总计检查:{stats['total_checked']} "
-                   f"严格金叉:{stats['strict_golden_cross_count']} "
-                   f"多头排列:{stats['bullish_arrangement_count']}")
-
-        # 如果有金叉但未通过基础条件的股票较多，输出提示
-        total_with_golden_cross = stats['strict_golden_cross_count'] + stats['bullish_arrangement_count']
-        if total_with_golden_cross > 0 and len(golden_cross_stocks) == 0:
-            logger.warning(f"[警告] 发现 {total_with_golden_cross} 只股票有金叉/多头排列，但均因其他基础条件未通过而被过滤")
-            logger.warning(f"[提示] 建议检查：流通市值≥40亿、成交额≥{self.basic_checker.amount_threshold/1e8:.0f}亿、股价≥60日线、近60日交易天数≥50天")
 
         if not golden_cross_stocks:
             return pd.DataFrame()

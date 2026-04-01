@@ -11,8 +11,6 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-
-
 class IndicatorCalculator:
     """技术指标计算器
     
@@ -147,9 +145,6 @@ class IndicatorCalculator:
             indicators['turnover_rate'] = self._safe_float(today_data.turnover_rate)
             indicators['float_share'] = self._safe_float(getattr(today_data, 'float_share', None))
 
-            # ✅ 调试：记录关键字段值（用于排查数据问题）
-            ts_code_debug = getattr(today_data, 'ts_code', 'unknown')
-            logger.info(f"[DEBUG] {ts_code_debug} - amount原始值: {today_data.amount}, 转换后: {indicators['amount']}, float_share: {indicators['float_share']}")
             
             # ✅ 如果 change_pct 为 0 或 None，尝试从前一日收盘价计算涨幅（用于涨停判断）
             if (indicators.get('change_pct') is None or indicators.get('change_pct') == 0) and len(kline_df) >= 2:
@@ -600,4 +595,3 @@ class IndicatorCalculator:
                 return None
         
         return None
-
