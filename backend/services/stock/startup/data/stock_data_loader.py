@@ -123,6 +123,10 @@ class StockDataLoader:
                     logger.info(f"[DEBUG-LOADER] {ts_code} 数据库查询结果: amount={today_data.amount}, "
                                f"close={today_data.close}, turnover_rate={today_data.turnover_rate}, "
                                f"float_share={getattr(today_data, 'float_share', 'N/A')}")
+                    # 特别调试深市股票（0/3开头）
+                    if ts_code.startswith('0') or ts_code.startswith('3'):
+                        logger.info(f"[DEBUG-深市民生] {ts_code} 深市股票详情: amount={today_data.amount}, vol={today_data.vol}, "
+                                   f"trade_date={today_data.trade_date}")
                 else:
                     logger.info(f"[DEBUG-LOADER] {ts_code} 数据库查询无数据，target_date={target_date}")
                 
