@@ -42,7 +42,8 @@ class IndicatorCalculator:
     DEFAULT_KDJ = 50.0
     DEFAULT_ZERO = 0.0
     
-    DATE_FORMAT = '%Y-%m-%d'
+    # 金额转换因子（千元转元）
+    AMOUNT_CONVERSION_FACTOR = 1000
     
     def calculate_all(
         self,
@@ -140,7 +141,9 @@ class IndicatorCalculator:
             
             # 补充当日数据
             indicators['close'] = self._safe_float(today_data.close)
-            indicators['amount'] = self._safe_float(today_data.amount)
+            # amount 数据库单位是"千元"，转换为"元"
+            indicators['amount'] = self._safe_float(getattr(today_data, 'amount', None)) * self.AMOUNT_CONVERSION_FACTOR
+            logger.debug(f"IndicatorCalc: amount 原始值={getattr(today_data, 'amount', None)}(千元), 转换后={indicators['amount']}(元)")
             indicators['change_pct'] = self._safe_float(today_data.change_pct)
             indicators['turnover_rate'] = self._safe_float(today_data.turnover_rate)
             indicators['float_share'] = self._safe_float(getattr(today_data, 'float_share', None))
@@ -491,7 +494,7 @@ class IndicatorCalculator:
         Args:
             float_share: 流通股数（万股），优先使用
             turnover_rate: 换手率（百分比）
-            amount: 成交额（千元，Tushare单位）
+            amount: 成交额（元，已由调用方从千元转换）
             close: 收盘价（元）
 
         Returns:
@@ -503,16 +506,14 @@ class IndicatorCalculator:
             return float_share * 10000 * close
 
         # 降级：使用成交额和换手率估算
-        # 注意：amount 是千元单位，需要乘以 1000 转换为元
+        # 注意：传入的 amount 已经是元（调用方已从千元转换）
         if turnover_rate <= 0 or close <= 0 or amount <= 0:
             return self.DEFAULT_ZERO
 
         try:
-            # amount（千元）转换为元：amount * 1000
             # turnover_rate 是百分比，如 1.5 表示 1.5%
             # 流通市值 = 成交额（元）/ (换手率 / 100)
-            amount_in_yuan = amount * 1000
-            circulation_market_cap = amount_in_yuan / (turnover_rate / 100)
+            circulation_market_cap = amount / (turnover_rate / 100)
             return circulation_market_cap
         except Exception:
             return self.DEFAULT_ZERO

@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 class StockDataLoader:
     """股票数据加载器"""
-    
+
+    # 金额转换因子（千元转元）
+    AMOUNT_CONVERSION_FACTOR = 1000
+
     # 类级别的实时数据源缓存（避免重复初始化）
     _realtime_source = None
     _realtime_source_lock = None
@@ -183,10 +186,20 @@ class StockDataLoader:
                     'low': float(k.low) if k.low else 0,
                     'close': float(k.close) if k.close else 0,
                     'volume': float(k.vol) if k.vol else 0,
-                    'amount': float(k.amount) if k.amount else 0,
+                    'amount': float(k.amount) * self.AMOUNT_CONVERSION_FACTOR if k.amount else 0,
                     'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0,
                     'float_share': float(k.float_share) if k.float_share else 0
                 } for k in kline])
+
+                # 调试日志：检查 today_data 的 amount 值
+                if today_data:
+                    logger.debug(f"{ts_code} today_data 原始值: amount={today_data.amount}, vol={today_data.vol}, close={today_data.close}")
+
+                # 调试日志：检查第一行和最后一行的 amount 值
+                if kline and len(kline) > 0:
+                    first_amount = kline[0].amount
+                    last_amount = kline[-1].amount
+                    logger.debug(f"{ts_code} 数据库原始 amount: 第一行={first_amount}, 最后一行={last_amount}")
                 
                 kline_df = kline_df.sort_values('trade_date').reset_index(drop=True)
                 
@@ -211,8 +224,9 @@ class StockDataLoader:
                         realtime_source = self._get_realtime_source()
                         
                         if realtime_source:
-                            # 转换股票代码格式（去掉.SH/.SZ后缀，只保留6位数字）
-                            code_6digit = ts_code.replace('.SH', '').replace('.SZ', '').replace('.BJ', '')
+                            # 使用工具函数转换股票代码格式
+                            from backend.utils.stock_code_utils import ts_code_to_code
+                            code_6digit = ts_code_to_code(ts_code)
                             if len(code_6digit) == 6:
                                 quotes = realtime_source.get_realtime_quotes([code_6digit])
                                 
@@ -235,7 +249,8 @@ class StockDataLoader:
                                                 today_data.trade_date = today
                                                 today_data.close = realtime_price
                                                 today_data.change_pct = realtime_pct_chg
-                                                today_data.amount = realtime_amount if realtime_amount > 0 else prev_data.amount
+                                                # ✅ 实时 amount 是元，转换为千元存储
+                                                today_data.amount = realtime_amount / 1000 if realtime_amount > 0 else prev_data.amount
                                                 today_data.vol = realtime_volume * 100 if realtime_volume > 0 else prev_data.vol
                                                 today_data.turnover_rate = realtime_turnover_rate if realtime_turnover_rate > 0 else prev_data.turnover_rate
                                                 today_data.float_share = prev_data.float_share  # 添加流通股数字段
@@ -250,31 +265,34 @@ class StockDataLoader:
                                             today_data.close = realtime_price
                                             # 更新涨跌幅
                                             today_data.change_pct = realtime_pct_chg
-                                            # 更新成交额（如果实时数据有效）
+                                            # 更新成交额（实时数据是元，转换为千元存储）
                                             if realtime_amount > 0:
-                                                today_data.amount = realtime_amount
+                                                today_data.amount = realtime_amount / 1000
                                             # 更新成交量（转换为股数：手 * 100）
                                             if realtime_volume > 0:
                                                 today_data.vol = realtime_volume * 100
                                             # 更新换手率
                                             if realtime_turnover_rate > 0:
                                                 today_data.turnover_rate = realtime_turnover_rate
+
+                                            logger.debug(f"{ts_code}: 已更新 today_data 实时数据 - amount={realtime_amount}(元)")
                                         
                                         # 更新 kline_df 的最后一行（今天的数据）
                                         if not kline_df.empty and len(kline_df) > 0:
                                             last_idx = len(kline_df) - 1
                                             kline_df.at[last_idx, 'close'] = realtime_price
+                                            # 实时 amount 是元，kline_df 也是元，直接赋值
                                             if realtime_amount > 0:
                                                 kline_df.at[last_idx, 'amount'] = realtime_amount
                                             if realtime_volume > 0:
                                                 kline_df.at[last_idx, 'volume'] = realtime_volume * 100
                                             if realtime_turnover_rate > 0:
                                                 kline_df.at[last_idx, 'turnover_rate'] = realtime_turnover_rate
-                                            
+
                                             # 更新最高价（如果实时价格更高）
                                             if realtime_price > kline_df.at[last_idx, 'high']:
                                                 kline_df.at[last_idx, 'high'] = realtime_price
-                                            
+
                                             logger.debug(f"{ts_code}: 已更新实时价格 {realtime_price:.2f} (涨跌幅: {realtime_pct_chg:.2f}%)")
                                         elif force_realtime and prev_data:
                                             # ✅ 如果强制实时数据且 kline_df 中没有今天的数据，添加一行
@@ -287,6 +305,7 @@ class StockDataLoader:
                                                 'low': realtime_price,
                                                 'close': realtime_price,
                                                 'volume': realtime_volume * 100 if realtime_volume > 0 else 0,
+                                                # 实时 amount 是元，kline_df 也是元，直接赋值
                                                 'amount': realtime_amount if realtime_amount > 0 else 0,
                                                 'turnover_rate': realtime_turnover_rate if realtime_turnover_rate > 0 else 0,
                                                 'float_share': prev_float_share
@@ -386,7 +405,7 @@ class StockDataLoader:
                     'low': float(k.low) if k.low else 0,
                     'close': float(k.close) if k.close else 0,
                     'volume': float(k.vol) if k.vol else 0,
-                    'amount': float(k.amount) if k.amount else 0,
+                    'amount': float(k.amount) * self.AMOUNT_CONVERSION_FACTOR if k.amount else 0,
                     'turnover_rate': float(k.turnover_rate) if k.turnover_rate else 0,
                     'float_share': float(k.float_share) if k.float_share else 0
                 } for k in kline])

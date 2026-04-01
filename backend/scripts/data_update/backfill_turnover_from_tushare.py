@@ -75,17 +75,21 @@ def check_and_add_columns():
 def backfill_turnover_data(start_date: str, end_date: str):
     """
     从Tushare获取并回填数据
-    
+
     Args:
         start_date: 开始日期 YYYY-MM-DD
         end_date: 结束日期 YYYY-MM-DD
     """
     try:
         import tushare as ts
-        
-        # 初始化Tushare（需要token）
-        # 请替换为您的Tushare token
-        ts.set_token('a8c7cefabe11094712345428289951c23bd6c1490d4f896847da873e')
+        from data_warehouse.config import get_tushare_token
+
+        # 初始化Tushare（从配置文件读取token）
+        token = get_tushare_token()
+        if not token:
+            logger.error("❌ Tushare token 未配置，请在 config.json 中设置 api_sources.tushare.token")
+            return False
+        ts.set_token(token)
         pro = ts.pro_api()
         
         logger.info(f"=" * 80)
@@ -109,13 +113,23 @@ def backfill_turnover_data(start_date: str, end_date: str):
             logger.info(f"\n[{i}/{len(trade_dates)}] 处理日期: {date_str}")
             
             try:
-                # 获取该日期的daily_basic数据
-                df = pro.daily_basic(trade_date=trade_date)
-                
-                if df is None or df.empty:
-                    logger.warning(f"  ⚠️ 无数据")
+                # 获取该日期的daily_basic数据（包含换手率、股本等）
+                df_basic = pro.daily_basic(trade_date=trade_date)
+
+                # 获取该日期的daily数据（包含成交额 amount）
+                df_daily = pro.daily(trade_date=trade_date)
+
+                if df_basic is None or df_basic.empty:
+                    logger.warning(f"  ⚠️ daily_basic 无数据")
                     continue
-                
+
+                # 合并两个数据源（以 ts_code 为键）
+                if df_daily is not None and not df_daily.empty:
+                    df = df_basic.merge(df_daily[['ts_code', 'amount']], on='ts_code', how='left')
+                else:
+                    df = df_basic
+                    logger.warning(f"  ⚠️ daily 无数据，只更新 basic 字段")
+
                 logger.info(f"  📥 获取到 {len(df)} 只股票的数据")
                 
                 # 更新数据库
@@ -128,26 +142,37 @@ def backfill_turnover_data(start_date: str, end_date: str):
                         turnover_rate = float(row['turnover_rate']) if pd.notna(row['turnover_rate']) else None
                         float_share = float(row['float_share']) if pd.notna(row['float_share']) else None
                         total_share = float(row['total_share']) if pd.notna(row['total_share']) else None
-                        
-                        # 更新fact_daily_price_qfq表
-                        update_sql = text("""
-                            UPDATE fact_daily_price_qfq
-                            SET 
-                                turnover_rate = :turnover_rate,
-                                float_share = :float_share,
-                                total_share = :total_share
-                            WHERE ts_code = :ts_code
-                              AND trade_date = :trade_date
-                        """)
-                        
-                        result = session.execute(update_sql, {
+                        # amount 单位是千元（与 daily 接口一致）
+                        amount = float(row['amount']) if pd.notna(row.get('amount')) else None
+
+                        # 构建动态SQL和参数
+                        update_fields = [
+                            "turnover_rate = :turnover_rate",
+                            "float_share = :float_share",
+                            "total_share = :total_share"
+                        ]
+                        params = {
                             'ts_code': ts_code,
                             'trade_date': date_str,
                             'turnover_rate': turnover_rate,
                             'float_share': float_share,
                             'total_share': total_share
-                        })
-                        
+                        }
+
+                        # 只有当 amount 有效时才更新
+                        if amount is not None and amount > 0:
+                            update_fields.append("amount = :amount")
+                            params['amount'] = amount
+
+                        update_sql = text(f"""
+                            UPDATE fact_daily_price_qfq
+                            SET {', '.join(update_fields)}
+                            WHERE ts_code = :ts_code
+                              AND trade_date = :trade_date
+                        """)
+
+                        result = session.execute(update_sql, params)
+
                         if result.rowcount > 0:
                             updated_count += 1
                     

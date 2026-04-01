@@ -35,50 +35,74 @@ def get_latest_trade_date(
     target_date: Optional[date] = None
 ) -> Optional[date]:
     """
-    查找最近的交易日
-    
+    查找最近的交易日（优先返回实际有价格数据的日期）
+
     Args:
         warehouse_service: 数据仓库服务实例
         max_days_back: 最多往前查找多少天
         target_date: 目标日期（如果为None则使用今天）
-    
+
     Returns:
-        date: 最近的交易日，如果找不到返回None
+        date: 最近的交易日（实际有价格数据的），如果找不到返回None
     """
     if target_date is None:
         target_date = date.today()
-    
+
+    logger.debug(f"🔍 get_latest_trade_date 开始查找，target_date={target_date}")
+
+    # 优先策略：查找实际有价格数据的最新日期
     try:
-        from data_warehouse.models.generated_models import DimTradeCalendar
-        
+        from data_warehouse.models.generated_models import FactDailyPriceQfq
+
         session = warehouse_service.get_session()
         try:
-            # 查询目标日期或之前最近的交易日
+            # 查询实际有价格数据的最新日期
+            result = session.query(FactDailyPriceQfq.trade_date).filter(
+                FactDailyPriceQfq.trade_date <= target_date
+            ).order_by(
+                FactDailyPriceQfq.trade_date.desc()
+            ).first()
+
+            if result:
+                actual_date = result[0]
+                logger.debug(f"✅ 从价格表找到实际有数据的最新日期: {actual_date}")
+                return actual_date
+            else:
+                logger.debug(f"⚠️ 价格表中未找到数据（target_date={target_date}）")
+        finally:
+            session.close()
+    except Exception as e:
+        logger.debug(f"❌ 从价格表查找失败: {e}", exc_info=True)
+
+    # 降级策略1：从交易日历查找
+    try:
+        from data_warehouse.models.generated_models import DimTradeCalendar
+
+        session = warehouse_service.get_session()
+        try:
             result = session.query(DimTradeCalendar.trade_date).filter(
                 DimTradeCalendar.trade_date <= target_date,
                 DimTradeCalendar.is_open == True
             ).order_by(
                 DimTradeCalendar.trade_date.desc()
             ).first()
-            
+
             if result:
                 trade_date = result[0]
                 logger.debug(f"✅ 从交易日历找到最近交易日: {trade_date}")
                 return trade_date
-            else:
-                logger.debug(f"⚠️ 交易日历中未找到数据，使用降级逻辑")
         finally:
             session.close()
     except Exception as e:
         logger.debug(f"从交易日历查找失败: {e}")
-    
-    # 降级：使用简单判断（跳过周末）
+
+    # 降级策略2：简单判断（跳过周末）
     for i in range(max_days_back):
         check_date = target_date - timedelta(days=i)
         if check_date.weekday() < 5:  # 周一到周五
             logger.debug(f"✅ 使用降级逻辑，假定交易日: {check_date}")
             return check_date
-    
+
     logger.warning(f"⚠️ 未找到最近交易日（往前查找{max_days_back}天）")
     return None
 
@@ -123,11 +147,13 @@ def get_trade_date_or_latest(
 ) -> Optional[date]:
     """
     获取交易日期（如果未指定或不是交易日，则返回最近的交易日）
-    
+
+    优先返回实际有价格数据的日期，而不是仅根据交易日历判断
+
     Args:
         warehouse_service: 数据仓库服务实例
         trade_date: 交易日期字符串 (YYYY-MM-DD)，如果为None则使用今天
-    
+
     Returns:
         date: 交易日期，如果找不到返回None
     """
@@ -135,14 +161,24 @@ def get_trade_date_or_latest(
         target_date = datetime.strptime(trade_date, '%Y-%m-%d').date()
     else:
         target_date = date.today()
-    
-    # 检查目标日期是否为交易日
+
+    # 优先策略：直接查找实际有价格数据的最新日期（不依赖交易日历）
+    # 这确保我们使用的是数据库中实际存在数据的日期
+    latest_data_date = get_latest_trade_date(warehouse_service, max_days_back=10, target_date=target_date)
+
+    if latest_data_date:
+        if latest_data_date != target_date:
+            logger.debug(f"📅 使用实际有数据的日期: {latest_data_date}（目标日期 {target_date} 无数据）")
+        return latest_data_date
+
+    # 降级：如果价格表没有数据，检查交易日历
+    logger.debug(f"⚠️ 价格表中没有数据，尝试使用交易日历")
     if is_trade_date(warehouse_service, target_date):
         return target_date
-    
-    # 如果不是交易日，查找最近的交易日
-    logger.debug(f"{target_date} 不是交易日，查找最近交易日...")
-    return get_latest_trade_date(warehouse_service, max_days_back=10, target_date=target_date)
+
+    # 如果连交易日历也找不到，返回None
+    logger.debug(f"❌ 无法找到任何有效的交易日（目标日期: {target_date}）")
+    return None
 
 
 def calculate_trading_days_diff(

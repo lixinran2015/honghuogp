@@ -27,6 +27,7 @@ from typing import Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import os
+import threading
 
 from backend.services.stock.startup.data import StockDataLoader, IndicatorCalculator
 from backend.services.stock.startup.conditions import (
@@ -147,8 +148,14 @@ class StockStartupFilter:
             pd.DataFrame: 筛选结果DataFrame，包含所有得分≥20的股票
         """
         if not trade_date:
-            from datetime import date
-            trade_date = date.today().strftime('%Y-%m-%d')
+            from backend.utils.trade_date_utils import get_trade_date_or_latest
+            latest_date = get_trade_date_or_latest(self.warehouse, None)
+            if latest_date:
+                trade_date = latest_date.strftime('%Y-%m-%d')
+            else:
+                from datetime import date
+                trade_date = date.today().strftime('%Y-%m-%d')
+                logger.warning(f"⚠️ 无法获取最新交易日，使用今天: {trade_date}")
 
         logger.info(f"开始批量筛选启动股票: {len(stock_codes)} 只股票, 日期: {trade_date}")
 
@@ -183,7 +190,7 @@ class StockStartupFilter:
         # ====================================
         logger.info(f"阶段1：并行检查金叉（{max_workers} 个线程）")
         golden_cross_stocks = []
-        
+
         def _check_golden_cross_only(ts_code: str) -> Optional[Dict]:
             """检查单个股票是否有金叉（不保存数据库）"""
             try:
