@@ -8,6 +8,8 @@ LSTM-MAB 每日反馈脚本
 4. 记录预测准确度
 5. 触发模型保存
 
+支持同步和异步两种模式
+
 建议定时：每日收盘后 15:30 执行
 """
 
@@ -15,11 +17,13 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
+import asyncio
 import logging
 import argparse
 import json
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import numpy as np
 from sqlalchemy import text
@@ -37,13 +41,17 @@ logger = logging.getLogger(__name__)
 MODEL_DIR = "backend/models/lstm_mab"
 MODEL_FILENAME = "lstm_mab_latest.pkl"
 
+# 异步线程池
+_executor = ThreadPoolExecutor(max_workers=4)
+
 
 class DailyFeedbackLoop:
-    """每日反馈闭环"""
+    """每日反馈闭环（支持同步和异步模式）"""
 
     def __init__(self):
         self.ws = WarehouseService()
         self.model: Optional[LSTMMABModel] = None
+        self._model_lock = asyncio.Lock()
         self._load_model()
 
     def _load_model(self):
@@ -421,12 +429,135 @@ class DailyFeedbackLoop:
         logger.info("✅ 每日反馈循环完成")
         logger.info("=" * 60)
 
+    # ==================== 异步处理方法 ====================
+
+    async def run_async(self, target_date: Optional[date] = None, dry_run: bool = False):
+        """
+        异步执行完整的反馈循环
+
+        Args:
+            target_date: 要处理的目标日期，默认为5天前
+            dry_run: 如果为True，只打印不实际更新
+        """
+        logger.info("=" * 60)
+        logger.info("🚀 LSTM-MAB 每日反馈循环开始 (异步模式)")
+        logger.info("=" * 60)
+
+        if target_date is None:
+            target_date = date.today() - timedelta(days=5)
+
+        logger.info(f"📅 目标日期: {target_date}")
+
+        # 1. 异步获取待反馈的预测
+        predictions = await self.get_pending_feedback_async(target_date)
+
+        if predictions.empty:
+            logger.info("📭 没有待反馈的预测")
+            return
+
+        # 2. 异步计算实际收益
+        logger.info("💰 异步计算实际收益...")
+        feedback = await self.calculate_actual_returns_async(predictions)
+
+        if feedback.empty:
+            logger.warning("⚠️ 无法计算实际收益，可能缺少价格数据")
+            return
+
+        logger.info(f"📊 成功计算 {len(feedback)} 条实际收益")
+
+        # 3. 异步更新模型
+        if not dry_run and self.model:
+            await self.update_model_with_feedback_async(feedback)
+            await self._save_model_async()
+
+        # 4. 异步保存反馈到数据库
+        if not dry_run:
+            await asyncio.gather(
+                self.save_feedback_to_db_async(feedback),
+                self.update_performance_metrics_async(feedback),
+                return_exceptions=True
+            )
+
+        logger.info("=" * 60)
+        logger.info("✅ 每日反馈循环完成 (异步模式)")
+        logger.info("=" * 60)
+
+    async def get_pending_feedback_async(self, target_date: Optional[date] = None) -> pd.DataFrame:
+        """异步获取待反馈的预测记录"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, self.get_pending_feedback, target_date)
+
+    async def calculate_actual_returns_async(
+        self, predictions_df: pd.DataFrame, holding_days: int = 5
+    ) -> pd.DataFrame:
+        """异步计算实际收益"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            _executor, self.calculate_actual_returns, predictions_df, holding_days
+        )
+
+    async def update_model_with_feedback_async(self, feedback_df: pd.DataFrame):
+        """异步使用反馈更新模型"""
+        async with self._model_lock:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(_executor, self.update_model_with_feedback, feedback_df)
+
+    async def save_feedback_to_db_async(self, feedback_df: pd.DataFrame):
+        """异步保存反馈到数据库"""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, self.save_feedback_to_db, feedback_df)
+
+    async def update_performance_metrics_async(self, feedback_df: pd.DataFrame):
+        """异步更新性能指标"""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, self.update_performance_metrics, feedback_df)
+
+    async def _save_model_async(self):
+        """异步保存模型状态"""
+        async with self._model_lock:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(_executor, self._save_model)
+
+    async def run_batch_async(self, dates: List[date], dry_run: bool = False, max_concurrency: int = 3):
+        """
+        批量异步处理多个日期的反馈
+
+        Args:
+            dates: 要处理的日期列表
+            dry_run: 如果为True，只打印不实际更新
+            max_concurrency: 最大并发数，默认3
+        """
+        logger.info(f"🚀 批量异步处理 {len(dates)} 个日期的反馈")
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def process_with_limit(target_date: date):
+            async with semaphore:
+                await self.run_async(target_date=target_date, dry_run=dry_run)
+                await asyncio.sleep(0.5)  # 小延迟避免数据库压力过大
+
+        tasks = [process_with_limit(d) for d in dates]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 统计结果
+        success_count = sum(1 for r in results if not isinstance(r, Exception))
+        error_count = len(results) - success_count
+
+        logger.info(f"✅ 批量反馈处理完成: 成功 {success_count} 个, 失败 {error_count} 个")
+        return results
+
 
 def main():
     parser = argparse.ArgumentParser(description='LSTM-MAB 每日反馈脚本')
     parser.add_argument('--date', type=str, help='目标日期 (YYYY-MM-DD)，默认为5天前')
     parser.add_argument('--dry-run', action='store_true', help='试运行，不实际更新')
     parser.add_argument('--init', action='store_true', help='初始化数据库表')
+    parser.add_argument('--async', dest='use_async', action='store_true',
+                        help='使用异步模式执行')
+    parser.add_argument('--batch', type=str,
+                        help='批量处理日期范围，格式: start_date,end_date (YYYY-MM-DD,YYYY-MM-DD)，需要配合 --async 使用')
+    parser.add_argument('--max-concurrency', type=int, default=3,
+                        help='异步批量处理时的最大并发数，默认3')
 
     args = parser.parse_args()
 
@@ -440,7 +571,30 @@ def main():
         target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
 
     loop = DailyFeedbackLoop()
-    loop.run(target_date=target_date, dry_run=args.dry_run)
+
+    # 异步模式
+    if args.use_async or args.batch:
+        if args.batch:
+            # 批量处理模式
+            start_str, end_str = args.batch.split(',')
+            start_date = datetime.strptime(start_str.strip(), '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_str.strip(), '%Y-%m-%d').date()
+
+            # 生成日期列表（排除周末）
+            dates = []
+            current = start_date
+            while current <= end_date:
+                if current.weekday() < 5:  # 0-4 是周一到周五
+                    dates.append(current)
+                current += timedelta(days=1)
+
+            asyncio.run(loop.run_batch_async(dates, dry_run=args.dry_run, max_concurrency=args.max_concurrency))
+        else:
+            # 单日期异步模式
+            asyncio.run(loop.run_async(target_date=target_date, dry_run=args.dry_run))
+    else:
+        # 同步模式（默认）
+        loop.run(target_date=target_date, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
