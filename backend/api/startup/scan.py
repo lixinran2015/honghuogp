@@ -14,7 +14,8 @@ from backend.services.stock.stock_startup_filter import StockStartupFilter
 from data_warehouse.service.warehouse_service import WarehouseService
 from data_warehouse.models.startup_candidate import FactStockStartupCandidate
 from backend.utils.trade_date_utils import is_trade_date, get_trade_date_or_latest
-from .common import get_universe_stocks
+from .common import get_universe_stocks, to_native
+from sqlalchemy import func
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,7 +89,6 @@ async def scan_startup_stocks(
             startups = json.loads(json_str)
             
             # 额外处理：确保 numpy 类型转换为 Python 原生类型
-            from .common import to_native
             startups = [to_native(item) for item in startups]
         else:
             startups = []
@@ -107,22 +107,22 @@ async def scan_startup_stocks(
                 FactStockStartupCandidate.trade_date == target_date,
                 FactStockStartupCandidate.score >= 20
             ).count()
-            
-            # 统计各阶段数量
-            golden_cross_count = session.query(FactStockStartupCandidate).filter(
-                FactStockStartupCandidate.trade_date == target_date,
-                FactStockStartupCandidate.stage == 'golden_cross'
-            ).count()
-            
-            confirmed_count = session.query(FactStockStartupCandidate).filter(
-                FactStockStartupCandidate.trade_date == target_date,
-                FactStockStartupCandidate.stage == 'confirmed'
-            ).count()
-            
-            started_count = session.query(FactStockStartupCandidate).filter(
-                FactStockStartupCandidate.trade_date == target_date,
-                FactStockStartupCandidate.stage == 'started'
-            ).count()
+
+            # 统计各阶段数量（一次性查询）
+            stage_counts = dict(
+                session.query(
+                    FactStockStartupCandidate.stage,
+                    func.count(FactStockStartupCandidate.id)
+                ).filter(
+                    FactStockStartupCandidate.trade_date == target_date,
+                    FactStockStartupCandidate.stage.in_(['golden_cross', 'confirmed', 'started'])
+                ).group_by(
+                    FactStockStartupCandidate.stage
+                ).all()
+            )
+            golden_cross_count = int(stage_counts.get('golden_cross', 0))
+            confirmed_count = int(stage_counts.get('confirmed', 0))
+            started_count = int(stage_counts.get('started', 0))
             
         finally:
             session.close()

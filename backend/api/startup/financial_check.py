@@ -24,6 +24,7 @@ from backend.strategy.darwin_long_term import DarwinLongTermFilter
 from backend.services.darwin.darwin_data_service import DarwinDataService
 from backend.models.stock_data import StockData
 from backend.utils.trade_date_utils import get_trade_date_or_latest
+from backend.api.startup.common import normalize_stock_code, ts_code_from_clean
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -149,7 +150,7 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
                 actual_date = row.trade_date
                 ts_code_to_actual_date[ts_code] = actual_date
 
-                clean_code = ts_code.replace('.SH', '').replace('.SZ', '').replace('.sz', '').replace('.sh', '').strip()
+                clean_code = normalize_stock_code(ts_code)
                 code_to_ts_code[clean_code] = ts_code
 
                 stock_dict = {
@@ -218,11 +219,11 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
 
             # 预取 ST/退市 缓存
             def _to_ts(c):
-                c = str(c).replace('sh', '').replace('sz', '').replace('SH', '').replace('SZ', '').strip()
+                c = normalize_stock_code(str(c))
                 if not c:
                     return ''
-                return code_to_ts_code.get(c, '') or (f"{c}.SH" if c.startswith('6') else f"{c}.SZ")
-            all_ts = list({_to_ts(s.code) for s in stock_data_list if _to_ts(s.code)})
+                return code_to_ts_code.get(c, '') or ts_code_from_clean(c)
+            all_ts = list({ts for ts in (_to_ts(s.code) for s in stock_data_list) if ts})
             st_cache = darwin_filter._fetch_st_delisting_cache(all_ts)
 
             _update_task(task_id, {
@@ -238,11 +239,11 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
             )
             passed_codes = set()
             if not healthy_stocks.empty and 'code' in healthy_stocks.columns:
-                def _norm(c):
-                    if c is None or (isinstance(c, float) and pd.isna(c)):
-                        return ''
-                    return str(c).strip().replace('sh', '').replace('sz', '').replace('SH', '').replace('SZ', '')
-                passed_codes = set(_norm(c) for c in healthy_stocks['code'].tolist() if _norm(c))
+                passed_codes = set(
+                    normalize_stock_code(c)
+                    for c in healthy_stocks['code'].tolist()
+                    if not (c is None or (isinstance(c, float) and pd.isna(c)))
+                )
 
             results = []
             passed_count = 0
@@ -251,10 +252,10 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
 
             for idx, stock in enumerate(stock_data_list):
                 try:
-                    clean_code = str(stock.code).strip().replace('sh', '').replace('sz', '').replace('SH', '').replace('SZ', '')
+                    clean_code = normalize_stock_code(str(stock.code))
                     ts_code = code_to_ts_code.get(clean_code, stock.extra.get('ts_code', ''))
                     if not ts_code:
-                        ts_code = f"{clean_code}.SH" if clean_code.startswith('6') else f"{clean_code}.SZ"
+                        ts_code = ts_code_from_clean(clean_code)
                     stock_fin_data = financial_data.get(clean_code, {})
                     is_passed = clean_code in passed_codes
                     failure_reasons_list = failed_reasons_dict.get(clean_code, []) if not is_passed else []
@@ -289,15 +290,10 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
 
                 except Exception as e:
                     logger.error(f"检测股票 {stock.code} 失败: {e}", exc_info=True)
-                    clean_code = stock.code
+                    clean_code = normalize_stock_code(str(stock.code))
                     ts_code_err = code_to_ts_code.get(clean_code, stock.extra.get('ts_code', ''))
                     if not ts_code_err:
-                        if clean_code.startswith('6'):
-                            ts_code_err = f"{clean_code}.SH"
-                        elif clean_code.startswith('0') or clean_code.startswith('3'):
-                            ts_code_err = f"{clean_code}.SZ"
-                        else:
-                            ts_code_err = clean_code
+                        ts_code_err = ts_code_from_clean(clean_code) or clean_code
                     actual_date_for_err = ts_code_to_actual_date.get(ts_code_err, check_date_obj)
                     results.append({
                         "ts_code": ts_code_err,
@@ -332,20 +328,12 @@ def _run_financial_check_sync(task_id: str, ts_codes: List[str], trade_date: str
                     if not ts_code:
                         code = result.get('code')
                         if code:
-                            if code.startswith('6'):
-                                ts_code = f"{code}.SH"
-                            elif code.startswith('0') or code.startswith('3'):
-                                ts_code = f"{code}.SZ"
-                            else:
-                                ts_code = code
+                            ts_code = ts_code_from_clean(normalize_stock_code(code)) or code
                         else:
                             continue
 
                     if '.' not in ts_code:
-                        if ts_code.startswith('6'):
-                            ts_code = f"{ts_code}.SH"
-                        elif ts_code.startswith('0') or ts_code.startswith('3'):
-                            ts_code = f"{ts_code}.SZ"
+                        ts_code = ts_code_from_clean(normalize_stock_code(ts_code)) or ts_code
 
                     actual_date = ts_code_to_actual_date.get(ts_code, check_date_obj)
 

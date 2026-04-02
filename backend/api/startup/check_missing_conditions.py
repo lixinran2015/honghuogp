@@ -9,14 +9,11 @@ import logging
 
 from data_warehouse.service.warehouse_service import WarehouseService
 from data_warehouse.models.startup_candidate import FactStockStartupCandidate
-from data_warehouse.models.generated_models import (
-    DimTradeCalendar,
-    FactDailyPriceQfq
-)
 from backend.services.stock.stock_startup_filter import StockStartupFilter
 from backend.services.stock.startup.conditions.core_condition_checker import CoreConditionChecker
-from sqlalchemy import func, and_, or_
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
+from .common import get_previous_trading_dates, get_trading_dates_between
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,114 +24,6 @@ CORE_CONDITIONS = {
     'volume_amplified': '量能放大(量比≥1.5)',
     'bullish_alignment': '均线多头排列(5>10>20>60)'
 }
-
-
-def _get_previous_trading_dates(
-    session: Session,
-    end_date: date,
-    count: int = 5
-) -> List[date]:
-    """
-    获取指定日期之前的N个交易日
-    
-    Args:
-        session: 数据库会话
-        end_date: 结束日期（不包含）
-        count: 需要获取的交易日数量
-    
-    Returns:
-        List[date]: 交易日列表（按时间顺序，从早到晚）
-    """
-    try:
-        # 优先使用交易日历
-        query = session.query(DimTradeCalendar.trade_date).filter(
-            DimTradeCalendar.trade_date < end_date,
-            DimTradeCalendar.is_open == True
-        ).order_by(
-            DimTradeCalendar.trade_date.desc()
-        ).limit(count)
-        
-        results = query.all()
-        if results:
-            dates = sorted([row[0] for row in results])
-            return dates
-        
-        # 降级：从价格表获取
-        query = session.query(
-            func.distinct(FactDailyPriceQfq.trade_date)
-        ).filter(
-            FactDailyPriceQfq.trade_date < end_date
-        ).order_by(
-            FactDailyPriceQfq.trade_date.desc()
-        ).limit(count)
-        
-        results = query.all()
-        dates = sorted([row[0] for row in results])
-        return dates
-    except Exception as e:
-        logger.error(f"获取前N个交易日失败: {e}", exc_info=True)
-        # 降级：简单计算（跳过周末）
-        dates = []
-        current = end_date - timedelta(days=1)
-        while len(dates) < count and (end_date - current).days < count + 5:
-            if current.weekday() < 5:  # 周一到周五
-                dates.append(current)
-            current -= timedelta(days=1)
-        return sorted(dates)
-
-
-def _get_trading_dates_between(
-    session: Session,
-    start_date: date,
-    end_date: date
-) -> List[date]:
-    """
-    获取两个日期之间的交易日列表
-    
-    Args:
-        session: 数据库会话
-        start_date: 开始日期
-        end_date: 结束日期
-    
-    Returns:
-        List[date]: 交易日列表（按时间顺序）
-    """
-    try:
-        # 优先使用交易日历
-        query = session.query(DimTradeCalendar.trade_date).filter(
-            DimTradeCalendar.trade_date >= start_date,
-            DimTradeCalendar.trade_date <= end_date,
-            DimTradeCalendar.is_open == True
-        ).order_by(
-            DimTradeCalendar.trade_date.asc()
-        )
-        
-        results = query.all()
-        if results:
-            return [row[0] for row in results]
-        
-        # 降级：从价格表获取
-        query = session.query(
-            func.distinct(FactDailyPriceQfq.trade_date)
-        ).filter(
-            FactDailyPriceQfq.trade_date >= start_date,
-            FactDailyPriceQfq.trade_date <= end_date
-        ).order_by(
-            FactDailyPriceQfq.trade_date.asc()
-        )
-        
-        results = query.all()
-        return [row[0] for row in results]
-    except Exception as e:
-        logger.error(f"获取交易日列表失败: {e}", exc_info=True)
-        # 降级：简单计算（跳过周末）
-        dates = []
-        current = start_date
-        while current <= end_date:
-            if current.weekday() < 5:  # 周一到周五
-                dates.append(current)
-            current += timedelta(days=1)
-        return dates
 
 
 def _calculate_trading_days_diff(
@@ -156,7 +45,7 @@ def _calculate_trading_days_diff(
     if golden_cross_date > check_date:
         return -1
     
-    trading_dates = _get_trading_dates_between(session, golden_cross_date, check_date)
+    trading_dates = get_trading_dates_between(session, golden_cross_date, check_date)
     
     if golden_cross_date in trading_dates and check_date in trading_dates:
         return trading_dates.index(check_date) - trading_dates.index(golden_cross_date)
@@ -276,7 +165,7 @@ async def check_missing_conditions(
                     raise HTTPException(status_code=400, detail="开始日期不能晚于结束日期")
                 
                 # 获取交易日列表
-                trading_dates = _get_trading_dates_between(session, start_date_obj, end_date_obj)
+                trading_dates = get_trading_dates_between(session, start_date_obj, end_date_obj)
                 logger.info(f"日期范围模式：{start_date_obj} 至 {end_date_obj}，共 {len(trading_dates)} 个交易日")
             else:
                 raise HTTPException(status_code=400, detail="请提供 trade_date 或 (start_date 和 end_date)")
@@ -312,7 +201,7 @@ async def check_missing_conditions(
                 logger.info(f"[{trading_dates.index(trade_date_obj) + 1}/{len(trading_dates)}] 处理交易日: {trade_date_obj}")
                 
                 # 获取前5个交易日
-                previous_trading_dates = _get_previous_trading_dates(session, trade_date_obj, count=5)
+                previous_trading_dates = get_previous_trading_dates(session, trade_date_obj, count=5)
                 
                 if not previous_trading_dates:
                     logger.debug(f"  {trade_date_obj}: 没有找到前5个交易日")

@@ -31,125 +31,13 @@ from backend.services.stock.startup.state import StartupStateManager
 from backend.services.stock.startup.filter.startup_filter import (
     ScoreConstants, StageConstants, SignalConstants, CoreConditionConstants
 )
-from backend.api.startup.common import get_universe_stocks
+from backend.api.startup.common import get_universe_stocks, get_trading_dates_in_range, get_previous_trading_dates
 from backend.utils.trade_date_utils import calculate_trading_days_diff
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# ✅ 性能优化：缓存交易日列表（避免重复查询）
-_trading_dates_cache = {}
-_trading_dates_cache_expiry = {}
-_CACHE_EXPIRY_SECONDS = 3600  # 缓存1小时
-
-
-def _get_trading_dates_in_range(
-    session: Session,
-    start_date: date,
-    end_date: date,
-    use_cache: bool = True
-) -> list:
-    """
-    获取指定日期范围内的所有交易日
-    
-    性能优化：添加缓存机制，避免重复查询相同的日期范围
-    """
-    cache_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
-    
-    # ✅ 性能优化：检查缓存
-    if use_cache and cache_key in _trading_dates_cache:
-        if time.time() < _trading_dates_cache_expiry[cache_key]:
-            return _trading_dates_cache[cache_key]
-        del _trading_dates_cache[cache_key]
-        del _trading_dates_cache_expiry[cache_key]
-    
-    trading_dates_query = session.query(
-        DimTradeCalendar.trade_date
-    ).filter(
-        and_(
-            DimTradeCalendar.trade_date >= start_date,
-            DimTradeCalendar.trade_date <= end_date,
-            DimTradeCalendar.is_open == True
-        )
-    ).order_by(
-        DimTradeCalendar.trade_date.asc()
-    ).all()
-    
-    if trading_dates_query:
-        result = [row[0] for row in trading_dates_query]
-    else:
-        # 降级：从价格表获取
-        trading_dates_query = session.query(
-            func.distinct(FactDailyPriceQfq.trade_date)
-        ).filter(
-            and_(
-                FactDailyPriceQfq.trade_date >= start_date,
-                FactDailyPriceQfq.trade_date <= end_date
-            )
-        ).order_by(
-            FactDailyPriceQfq.trade_date.asc()
-        ).all()
-        
-        result = [row[0] for row in trading_dates_query]
-    
-    # ✅ 性能优化：缓存结果
-    if use_cache and result:
-        _trading_dates_cache[cache_key] = result
-        _trading_dates_cache_expiry[cache_key] = time.time() + _CACHE_EXPIRY_SECONDS
-    
-    return result
-
-
-def _get_previous_trading_dates(
-    session: Session,
-    end_date: date,
-    count: int = 5
-) -> list:
-    """
-    获取指定日期之前的N个交易日
-    
-    查询策略：交易日历 -> 价格表 -> 简单计算（跳过周末）
-    """
-    try:
-        # 优先使用交易日历
-        query = session.query(DimTradeCalendar.trade_date).filter(
-            DimTradeCalendar.trade_date < end_date,
-            DimTradeCalendar.is_open == True
-        ).order_by(
-            DimTradeCalendar.trade_date.desc()
-        ).limit(count)
-        
-        results = query.all()
-        if results:
-            dates = sorted([row[0] for row in results])
-            return dates
-        
-        # 降级：从价格表获取
-        query = session.query(
-            func.distinct(FactDailyPriceQfq.trade_date)
-        ).filter(
-            FactDailyPriceQfq.trade_date < end_date
-        ).order_by(
-            FactDailyPriceQfq.trade_date.desc()
-        ).limit(count)
-        
-        results = query.all()
-        dates = sorted([row[0] for row in results])
-        return dates
-    except Exception as e:
-        logger.error(f"获取前N个交易日失败: {e}", exc_info=True)
-        # 降级：简单计算（跳过周末）
-        dates = []
-        current = end_date - timedelta(days=1)
-        while len(dates) < count and (end_date - current).days < count + 5:
-            if current.weekday() < 5:  # 周一到周五
-                dates.append(current)
-            current -= timedelta(days=1)
-        return sorted(dates)
-
-
 
 
 def _check_single_condition(
@@ -916,7 +804,7 @@ async def _check_missing_conditions_for_date(
         # ✅ 修复锁阻塞：使用独立的只读 session 进行所有 SELECT 查询，避免长时间持有事务锁
         read_session = warehouse_service.get_session() if warehouse_service else session
         try:
-            previous_trading_dates = _get_previous_trading_dates(read_session, trade_date, count=max_trading_days + 1)
+            previous_trading_dates = get_previous_trading_dates(read_session, trade_date, count=max_trading_days + 1)
             
             if not previous_trading_dates:
                 logger.debug(f"  {trade_date}: 没有找到前{max_trading_days + 1}个交易日")
@@ -1232,7 +1120,7 @@ async def _execute_backfill(
             read_session = ws.get_session()
             try:
                 # 获取日期范围内的所有交易日
-                trading_dates = _get_trading_dates_in_range(read_session, start_date, end_date)
+                trading_dates = get_trading_dates_in_range(read_session, start_date, end_date)
             finally:
                 read_session.close()
             
@@ -1444,7 +1332,7 @@ async def get_backfill_status(
                 start_date_obj = end_date_obj - timedelta(days=365)
             
             # 获取交易日列表
-            trading_dates = _get_trading_dates_in_range(session, start_date_obj, end_date_obj)
+            trading_dates = get_trading_dates_in_range(session, start_date_obj, end_date_obj)
             
             # 统计已有数据（包含所有阶段：golden_cross、confirmed、started）
             existing_dates_query = session.query(

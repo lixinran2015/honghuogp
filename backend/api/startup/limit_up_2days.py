@@ -13,6 +13,7 @@ from data_warehouse.models.guba_popularity import FactGubaPopularityRank
 from data_warehouse.models.generated_models import FactDailyPriceQfq
 from data_warehouse.models.orm_classes import DimStock
 from data_warehouse.models.limit_up_today_60d_high import FactLimitUpToday60dHigh
+from backend.api.startup.common import is_cyb_stock
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -70,13 +71,7 @@ async def find_2_consecutive_limit_up(
                 }
             
             logger.info(f"📊 从人气榜获取 {len(popularity_stocks)} 只股票，开始实时计算2连板...")
-            
-            # 调试：检查红相股份是否在人气榜中
-            if '300427.SZ' in popularity_stocks:
-                logger.info(f"✅ 红相股份(300427.SZ)在人气榜中，排名: {popularity_stocks.index('300427.SZ') + 1}")
-            else:
-                logger.warning(f"⚠️ 红相股份(300427.SZ)不在人气榜中，因此不会被计算")
-            
+
             # 3. 实时计算2连板股票
             limit_up_2days_stocks = _find_2_consecutive_limit_up(session, popularity_stocks, query_date)
             
@@ -184,29 +179,20 @@ def _find_2_consecutive_limit_up(session, ts_codes: List[str], query_date: date)
             yesterday_data = price_data.get(ts_code, {}).get(yesterday_for_func)
             
             if not day_before_data or not yesterday_data:
-                # 调试：记录缺失数据的股票
-                if ts_code == '300427.SZ':  # 红相股份
-                    logger.debug(f"🔍 {ts_code} 价格数据缺失: day_before={day_before_data is not None}, yesterday={yesterday_data is not None}")
                 continue
-            
+
             # 判断是否2连板
             is_limit_up = _is_2_consecutive_limit_up(
-                session, 
-                ts_code, 
-                day_before, 
-                yesterday_for_func, 
-                day_before_data, 
+                session,
+                ts_code,
+                day_before,
+                yesterday_for_func,
+                day_before_data,
                 yesterday_data,
                 stock_info.get(ts_code),
                 price_data.get(ts_code, {})
             )
-            
-            # 调试：记录红相股份的计算结果
-            if ts_code == '300427.SZ':  # 红相股份
-                logger.info(f"🔍 {ts_code} 2连板判断结果: {is_limit_up}")
-                logger.info(f"   前1个交易日({day_before}): close={day_before_data.get('close')}, change_pct={day_before_data.get('change_pct')}")
-                logger.info(f"   查询日期当天({yesterday_for_func}): close={yesterday_data.get('close')}, change_pct={yesterday_data.get('change_pct')}")
-            
+
             if is_limit_up:
                 # 获取人气榜排名信息
                 rank_info = _get_rank_info(session, ts_code, query_date)
@@ -276,7 +262,7 @@ def _is_2_consecutive_limit_up(
         bool: 是否2连板（最近2个交易日都涨停）
     """
     # 判断主板/创业板
-    is_cyb = _is_cyb_stock(ts_code, stock_info)
+    is_cyb = is_cyb_stock(ts_code, stock_info)
     limit_up_ratio = 1.199 if is_cyb else 1.099  # 创业板20%，主板10%
     
     # 获取day_before的前一个交易日的收盘价（用于判断day_before是否涨停）
@@ -329,30 +315,8 @@ def _is_2_consecutive_limit_up(
     yesterday_ratio = yesterday_close / day_before_close_for_yesterday
     is_yesterday_limit_up = yesterday_ratio >= limit_up_ratio
     
-    # 调试：记录红相股份的详细计算过程
-    if ts_code == '300427.SZ':  # 红相股份
-        logger.info(f"🔍 {ts_code} 涨停判断详情:")
-        logger.info(f"   股票类型: {'创业板/科创板' if is_cyb else '主板'}, 涨停比例阈值: {limit_up_ratio}")
-        logger.info(f"   前天({day_before}): {day_before_yesterday_close} -> {day_before_close}, 比例={day_before_ratio:.6f}, 是否涨停={is_day_before_limit_up}")
-        logger.info(f"   昨天({yesterday}): {day_before_close_for_yesterday} -> {yesterday_close}, 比例={yesterday_ratio:.6f}, 是否涨停={is_yesterday_limit_up}")
-    
     # 2连板：前天和昨天都涨停
     return is_day_before_limit_up and is_yesterday_limit_up
-
-
-def _is_cyb_stock(ts_code: str, stock_info: Optional[Dict]) -> bool:
-    """判断是否创业板/科创板股票"""
-    # 方法1：根据代码前缀（注意：ts_code格式是 300001.SZ 或 688001.SH）
-    # 提取6位数字代码
-    code_part = ts_code.split('.')[0] if '.' in ts_code else ts_code
-    if code_part.startswith('300') or code_part.startswith('688'):
-        return True
-    
-    # 方法2：根据股票信息
-    if stock_info and stock_info.get('market') in ['创业板', '科创板']:
-        return True
-    
-    return False
 
 
 def _get_recent_trading_dates(session, end_date: date, count: int = 5) -> List[date]:
@@ -970,7 +934,7 @@ def _is_limit_up_today(
         bool: 今日是否涨停
     """
     # 判断主板/创业板
-    is_cyb = _is_cyb_stock(ts_code, stock_info)
+    is_cyb = is_cyb_stock(ts_code, stock_info)
     limit_up_ratio = 1.199 if is_cyb else 1.099  # 创业板20%，主板10%
     
     # 获取昨日收盘价和今日收盘价
