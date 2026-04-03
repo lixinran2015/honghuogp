@@ -121,7 +121,7 @@ class LSTMFeatureExtractor:
                 # 检查数据丢失
                 if df[col].isna().any():
                     na_count = df[col].isna().sum()
-                    logger.warning(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
+                    logger.debug(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
 
         # 基础价格特征
         df['returns'] = df['close'].pct_change(fill_method=None)
@@ -394,7 +394,7 @@ class LSTMFeatureExtractor:
                     # 检查数据丢失
                     if df[col].isna().any():
                         na_count = df[col].isna().sum()
-                        logger.warning(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
+                        logger.debug(f"列 {col} 有 {na_count} 个无效值被转为 NaN (原类型: {original_dtype})")
 
             # 计算技术指标（与 prepare_sequences 保持一致）
             close = df['close'].values
