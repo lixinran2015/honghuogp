@@ -709,7 +709,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
                     # 转换所有numpy类型为Python原生类型
                     clean_data = {}
                     for k, v in data.items():
-                        if k not in ['sector_code', 'sector_name', 'volume_trend', 'vol_ratio_5', 'vol_ratio_20', 'volume_trend_short']:
+                        if k not in ['sector_code', 'sector_name', 'volume_trend', 'vol_ratio_5', 'vol_ratio_20', 'volume_trend_short', 'style_bias', 'status']:
                             if isinstance(v, (np.integer, np.floating)):
                                 clean_data[k] = float(v)
                             elif isinstance(v, np.ndarray):
