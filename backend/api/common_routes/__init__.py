@@ -77,5 +77,13 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load data_management router: {e}")
 
+    # 数据仓库
+    try:
+        from backend.api.data.data_warehouse import router as data_warehouse_router
+        routers.append(data_warehouse_router)
+        logger.info("Loaded common route: data_warehouse")
+    except ImportError as e:
+        logger.warning(f"Failed to load data_warehouse router: {e}")
+
     logger.info(f"Total common routes loaded: {len(routers)}")
     return routers
