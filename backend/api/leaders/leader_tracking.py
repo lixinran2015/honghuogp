@@ -107,13 +107,143 @@ def _get_price_history(ts_code: str, limit: int = 40) -> Optional[Any]:
         return None
 
 
-def _calculate_factor_values(stock_data: Dict[str, Any]) -> Dict[str, float]:
+def _get_money_flow_factor(ts_code: str, trade_date: Optional[str], warehouse: Optional[Any]) -> float:
+    """从 fact_money_flow 获取主力净流入占比并映射到 0-100"""
+    if warehouse is None or not trade_date:
+        return 50.0
+    try:
+        session = warehouse.warehouse_service.get_session()
+        try:
+            from data_warehouse.models import FactMoneyFlow
+            from sqlalchemy import desc
+            record = session.query(FactMoneyFlow).filter(
+                FactMoneyFlow.ts_code == ts_code,
+                FactMoneyFlow.trade_date <= trade_date,
+            ).order_by(desc(FactMoneyFlow.trade_date)).first()
+            if record and record.main_net_inflow_rate is not None:
+                rate = float(record.main_net_inflow_rate)
+                if rate >= 10:
+                    return 100.0
+                elif rate >= 5:
+                    return 80.0
+                elif rate >= 2:
+                    return 65.0
+                elif rate >= 0:
+                    return 50.0
+                elif rate >= -2:
+                    return 35.0
+                elif rate >= -5:
+                    return 20.0
+                else:
+                    return 10.0
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"获取 {ts_code} 资金流向失败: {e}")
+    return 50.0
+
+
+def _get_sentiment_factor(stock_data: Dict[str, Any], trade_date: Optional[str], warehouse: Optional[Any]) -> float:
+    """综合板块热度与个股情绪得分，映射到 0-100"""
+    if warehouse is None or not trade_date:
+        return 50.0
+    score = 0.0
+    try:
+        session = warehouse.warehouse_service.get_session()
+        try:
+            from data_warehouse.models import FactSectorHeatSnapshot
+            sectors = stock_data.get('sectors') or []
+            max_heat = 0.0
+            for sector in sectors:
+                rec = session.query(FactSectorHeatSnapshot).filter(
+                    FactSectorHeatSnapshot.window_id == 'current_rolling_30d',
+                    FactSectorHeatSnapshot.sector_name == sector,
+                ).first()
+                if rec and rec.heat_score is not None:
+                    max_heat = max(max_heat, float(rec.heat_score))
+            if max_heat >= 25:
+                score += 70
+            elif max_heat >= 20:
+                score += 60
+            elif max_heat >= 15:
+                score += 50
+            elif max_heat >= 10:
+                score += 40
+            else:
+                score += 30
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"获取 {stock_data.get('ts_code')} 板块热度失败: {e}")
+        score += 30
+
+    if stock_data.get('is_space'):
+        score += 10
+    if stock_data.get('is_new'):
+        score += 5
+    cl = stock_data.get('continuous_limit') or 0
+    if cl >= 5:
+        score += 10
+    elif cl >= 3:
+        score += 5
+    elif cl >= 2:
+        score += 2
+
+    return max(0.0, min(100.0, score))
+
+
+def _get_auto_emotion_cycle(trade_date: Optional[str], warehouse: Optional[Any]) -> str:
+    """基于 FactMarketEmotionDaily 自动识别情绪周期"""
+    if warehouse is None or not trade_date:
+        return '震荡期'
+    try:
+        session = warehouse.warehouse_service.get_session()
+        try:
+            from data_warehouse.models import FactMarketEmotionDaily
+            record = session.query(FactMarketEmotionDaily).filter(
+                FactMarketEmotionDaily.trade_date == trade_date,
+            ).first()
+            if record:
+                from backend.services.leader_tracking.emotion_cycle_analyzer import EmotionCycleAnalyzer
+                analyzer = EmotionCycleAnalyzer()
+                market_data = {
+                    'limit_up_count': record.total_limit_up or 0,
+                    'limit_down_count': record.total_limit_down or 0,
+                    'max_continuous_limit': record.highest_streak or 0,
+                    'advance_decline_ratio': 1.0,
+                    'volume_ratio': 1.0,
+                }
+                result = analyzer.analyze(market_data)
+                return result.cycle
+            # 如果没有记录，fallback 尝试emotion_stage字段
+            record2 = session.query(FactMarketEmotionDaily.emotion_stage).filter(
+                FactMarketEmotionDaily.trade_date == trade_date,
+            ).scalar()
+            if record2:
+                mapping = {
+                    '冰点': '冰点期',
+                    '回暖': '低迷期',
+                    '震荡': '震荡期',
+                    '退潮': '退潮期',
+                    '高潮': '高涨期',
+                }
+                return mapping.get(record2, '震荡期')
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"自动识别情绪周期失败: {e}")
+    return '震荡期'
+
+
+def _calculate_factor_values(stock_data: Dict[str, Any], trade_date: Optional[str] = None, warehouse: Optional[Any] = None) -> Dict[str, float]:
     """
     根据股票数据计算 LSTM-MAB 需要的因子值
 
     因子:
     - leader_position: 龙头地位 (0-100)
     - technical: 技术形态 (0-100)
+    - money_flow: 资金流向 (0-100)
+    - sentiment: 情绪热度 (0-100)
     """
     factors = {}
 
@@ -198,6 +328,16 @@ def _calculate_factor_values(stock_data: Dict[str, Any]) -> Dict[str, float]:
 
     factors['technical'] = max(0.0, min(100.0, technical_score))
 
+    # 资金流向因子
+    factors['money_flow'] = _get_money_flow_factor(
+        stock_data.get('ts_code'), trade_date, warehouse
+    )
+
+    # 情绪热度因子
+    factors['sentiment'] = _get_sentiment_factor(
+        stock_data, trade_date, warehouse
+    )
+
     return factors
 
 
@@ -212,7 +352,7 @@ def _score_stocks(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for stock in stocks:
         try:
             # 计算因子值
-            factor_values = _calculate_factor_values(stock)
+            factor_values = _calculate_factor_values(stock, trade_date=None, warehouse=None)
 
             # 获取历史价格数据用于 LSTM 预测
             price_history = _get_price_history(stock['ts_code'], limit=40)
@@ -221,7 +361,7 @@ def _score_stocks(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             result = model.predict(
                 ts_code=stock['ts_code'],
                 factor_values=factor_values,
-                price_history=price_history
+                price_history=price_history,
             )
 
             # 合并评分结果到股票数据
@@ -326,11 +466,20 @@ async def get_leader_tracking_pool(
         if model is None:
             result['score_warning'] = 'LSTM-MAB 模型未训练或加载失败，返回未评分数据'
         else:
+            # 自动识别情绪周期并更新模型
+            td_str = result.get('trade_date')
+            warehouse = _get_warehouse()
+            emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
+            if emotion_cycle:
+                model.update_emotion_cycle(emotion_cycle)
+
             # 对每只股票进行评分
             scored_stocks = []
             for stock in pool:
                 try:
-                    factor_values = _calculate_factor_values(stock)
+                    factor_values = _calculate_factor_values(
+                        stock, trade_date=td_str, warehouse=warehouse
+                    )
 
                     # 获取历史价格数据用于 LSTM 预测
                     price_history = _get_price_history(stock['ts_code'], limit=40)
@@ -339,7 +488,7 @@ async def get_leader_tracking_pool(
                         ts_code=stock['ts_code'],
                         factor_values=factor_values,
                         price_history=price_history,
-                        trade_date=result.get('trade_date')
+                        trade_date=td_str
                     )
 
                     # 记录预测到数据库（用于模型进化）
@@ -539,6 +688,13 @@ async def get_top_scored_leaders(
             'top_stocks': pool[:top_n] if top_n else pool
         }
 
+    # 自动识别情绪周期并更新模型
+    td_str = result.get('trade_date')
+    warehouse = _get_warehouse()
+    emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
+    if emotion_cycle:
+        model.update_emotion_cycle(emotion_cycle)
+
     # 对每只股票进行评分
     from backend.services.lstm_mab import get_evolution_service
 
@@ -546,7 +702,9 @@ async def get_top_scored_leaders(
     for stock in pool:
         ts_code = stock.get('ts_code', '')
         try:
-            factor_values = _calculate_factor_values(stock)
+            factor_values = _calculate_factor_values(
+                stock, trade_date=td_str, warehouse=warehouse
+            )
 
             # 获取历史价格数据用于 LSTM 预测
             price_history = _get_price_history(stock['ts_code'], limit=40)
@@ -555,7 +713,7 @@ async def get_top_scored_leaders(
                 ts_code=stock['ts_code'],
                 factor_values=factor_values,
                 price_history=price_history,
-                trade_date=result.get('trade_date')
+                trade_date=td_str
             )
 
             # 记录预测到数据库（用于模型进化）

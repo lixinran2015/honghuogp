@@ -72,6 +72,8 @@ class LSTMMABModel:
         self.factor_names = factor_names or [
             'leader_position',
             'technical',
+            'money_flow',
+            'sentiment',
         ]
 
         # 初始化LSTM特征提取器
