@@ -16,6 +16,8 @@ ALTER TABLE fact_fundamental ALTER COLUMN roe TYPE NUMERIC(12,4);
 ALTER TABLE fact_fundamental ALTER COLUMN net_margin TYPE NUMERIC(12,4);
 ALTER TABLE fact_fundamental ALTER COLUMN gross_margin TYPE NUMERIC(12,4);
 ALTER TABLE fact_fundamental ALTER COLUMN profit_volatility TYPE NUMERIC(12,4);
+ALTER TABLE fact_fundamental ALTER COLUMN revenue_growth TYPE NUMERIC(12,4);
+ALTER TABLE fact_fundamental ALTER COLUMN deduct_net_margin TYPE NUMERIC(12,4);
 
 -- ============================================
 -- 3. fact_daily_fundamental 表

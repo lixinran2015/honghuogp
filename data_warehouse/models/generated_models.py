@@ -463,7 +463,7 @@ class FactFundamental(Base):
     sources_used: Mapped[Optional[list]] = mapped_column(ARRAY(String()), comment='实际参与合并的数据源数组')
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='更新时间')
     revenue: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(20, 4), comment='营业收入（元）')
-    revenue_growth: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='营收增长率（%）')
+    revenue_growth: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(12, 4), comment='营收增长率（%）')
     net_profit: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(20, 4), comment='净利润（元）')
     ocf_to_revenue: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='经营现金流/营收（%）')
     operate_profit: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(20, 4), comment='营业利润（元）')
@@ -471,7 +471,7 @@ class FactFundamental(Base):
     goodwill: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(20, 4), comment='商誉（元）')
     total_equity: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(20, 4), comment='归属母公司净资产（元）')
     audit_result: Mapped[str] = mapped_column(String(200), comment='审计意见')
-    deduct_net_margin: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='扣非净利率（%）')
+    deduct_net_margin: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(12, 4), comment='扣非净利率（%）')
 
 
 class FactGubaPopularityRank(Base):
