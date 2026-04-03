@@ -569,6 +569,35 @@ class LeaderTrackingPoolServiceEnhanced(LeaderTrackingPoolService):
                     } if r.startup_score is not None else None,
                 })
 
+            # 用当日 analyzer 实时结果覆盖可能过期的状态字段
+            current_state_map = {}
+            try:
+                from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
+                analyzer = StartupSectorAnalyzer(self.ws)
+                analyzer_result = analyzer.analyze(
+                    start_date=trade_date,
+                    end_date=trade_date,
+                    min_score=60,
+                    stage_filter='confirmed',
+                    leader_window_ids=['rolling_30d_v2'],
+                )
+                if analyzer_result and analyzer_result.get('success'):
+                    current_state_map = self._build_current_state_map(analyzer_result, trade_date)
+            except Exception as e:
+                logger.warning(f"获取当日实时龙头状态失败（不影响主逻辑）: {e}")
+
+            for item in pool_list:
+                tc = item['ts_code']
+                if tc in current_state_map:
+                    state = current_state_map[tc]
+                    item['is_space'] = state['is_space']
+                    item['is_new'] = state['is_new']
+                    item['continuous_limit'] = state['continuous_limit']
+                else:
+                    item['is_space'] = False
+                    item['is_new'] = False
+                    item['continuous_limit'] = 0
+
             result = {
                 'success': True,
                 'trade_date': trade_date.isoformat(),
