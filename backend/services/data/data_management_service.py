@@ -56,6 +56,7 @@ class DataManagementService:
         'north_holding_update',        # 北向持股 fact_north_holding
         'north_flow_update',           # 北向资金市场净流入 fact_north_flow
         'sector_daily_update',         # 板块日线 fact_sector_daily（主题轮动/明日预测）
+        'limit_up_emotion_update',     # 涨停板+市场情绪更新
     ]
     
     def __init__(self):
@@ -917,6 +918,7 @@ class DataManagementService:
             'north_holding_update': lambda tid: self._run_north_holding_update(),
             'north_flow_update': lambda tid: self._run_north_flow_update(),
             'sector_daily_update': lambda tid: self._run_sector_daily_update(),
+            'limit_up_emotion_update': lambda tid: self._run_limit_up_emotion_update(),
         }
         
         # 生成任务ID
@@ -1032,6 +1034,33 @@ class DataManagementService:
         except Exception as e:
             logger.error(f"板块日线更新失败: {e}", exc_info=True)
             raise RuntimeError(f"板块日线更新失败: {e}")
+
+    def _run_limit_up_emotion_update(self):
+        """更新涨停板明细和市场情绪数据（收盘后执行）"""
+        from datetime import date as date_type
+        from data_warehouse.service.warehouse_service import WarehouseService
+        from backend.utils.trade_date_utils import get_latest_trade_date, is_trade_date
+        from backend.scripts.data_fill.fill_limitup_emotion import fill_limit_up_daily, calculate_market_emotion
+
+        today = date_type.today()
+        ws = WarehouseService()
+        try:
+            if is_trade_date(ws, today):
+                target_date_str = today.strftime('%Y-%m-%d')
+            else:
+                latest = get_latest_trade_date(ws, 10, today)
+                target_date_str = latest.strftime('%Y-%m-%d') if latest else today.strftime('%Y-%m-%d')
+        finally:
+            ws.get_session().close()
+
+        logger.info(f"开始更新涨停板与情绪数据: {target_date_str}")
+        limitup_ok = fill_limit_up_daily(target_date_str)
+        emotion_ok = calculate_market_emotion(target_date_str)
+
+        if not limitup_ok:
+            raise RuntimeError(f"{target_date_str} 涨停数据更新失败")
+        if not emotion_ok:
+            raise RuntimeError(f"{target_date_str} 市场情绪计算失败")
 
     def _run_moneyflow_update(self):
         """执行资金流向更新（Tushare 行业 moneyflow_ind_ths + 板块/概念），写入 data_warehouse/moneyflow/*.json"""

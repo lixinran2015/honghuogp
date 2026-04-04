@@ -13,6 +13,10 @@ from backend.services.short_term.core_service import (
     SignalType,
     SignalLevel
 )
+from backend.utils.trade_date_utils import (
+    get_latest_trade_date,
+    get_trade_date_n_days_ago,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/short-term/dashboard", tags=["短线仪表盘"])
@@ -238,30 +242,40 @@ async def get_market_brief():
         session = ws.get_session()
 
         try:
-            today = date.today()
+            # 获取情绪表中实际有数据的最新日期（不同表更新进度可能不同）
+            latest_emotion_date = (
+                session.query(func.max(FactMarketEmotionDaily.trade_date))
+                .scalar()
+            )
+            today = latest_emotion_date or date.today()
 
-            # 1. 获取今日市场情绪数据
+            # 1. 获取最近交易日市场情绪数据
             emotion_record = (
                 session.query(FactMarketEmotionDaily)
                 .filter(FactMarketEmotionDaily.trade_date == today)
                 .first()
             )
 
-            # 2. 获取昨日数据计算溢价
-            yesterday = today - timedelta(days=1)
+            # 2. 获取前一交易日数据计算溢价
+            yesterday = get_trade_date_n_days_ago(session, today, 1)
             yesterday_record = (
                 session.query(FactMarketEmotionDaily)
                 .filter(FactMarketEmotionDaily.trade_date == yesterday)
                 .first()
-            )
+            ) if yesterday else None
 
-            # 3. 获取连板高度（从涨停表）
+            # 3. 获取连板高度（从涨停表，按情绪表同日期查；若涨停表无该日数据则 fallback 到涨停表自身最新日期）
+            limit_up_latest = (
+                session.query(func.max(FactLimitUpDaily.trade_date))
+                .scalar()
+            )
+            limit_up_query_date = today if limit_up_latest and limit_up_latest >= today else limit_up_latest
             limit_up_stats = (
                 session.query(
-                    func.max(FactLimitUpDaily.continuous_limit).label("max_height"),
+                    func.max(FactLimitUpDaily.continuous_days).label("max_height"),
                     func.count(FactLimitUpDaily.ts_code).label("limit_up_count")
                 )
-                .filter(FactLimitUpDaily.trade_date == today)
+                .filter(FactLimitUpDaily.trade_date == limit_up_query_date)
                 .first()
             )
 
@@ -297,10 +311,8 @@ async def get_market_brief():
                     elif emotion_record.total_limit_down >= 50:
                         emotion_cycle = "退潮期"
 
-            # 7. 计算昨日涨停溢价
+            # 7. 计算昨日涨停溢价（当前情绪表无该字段，暂为空）
             premium_yesterday = 0.0
-            if yesterday_record and yesterday_record.avg_limit_up_return:
-                premium_yesterday = yesterday_record.avg_limit_up_return
 
             # 8. 计算市场状态
             limit_up_count = limit_up_stats.limit_up_count if limit_up_stats else 0
@@ -348,4 +360,70 @@ async def get_market_brief():
                 "premium_yesterday": 0.0,
                 "market_status": "正常",
             }
+        }
+
+
+@router.get("/limit-up-ladder")
+async def get_limit_up_ladder():
+    """
+    获取全市场涨停梯队图数据
+
+    基于 fact_limit_up_daily 返回最近交易日所有涨停股票，
+    并按连板高度分组。与龙头跟踪池交叉，标记系统认定的空间龙头。
+    """
+    try:
+        from data_warehouse.service.warehouse_service import WarehouseService
+        from data_warehouse.models import FactLimitUpDaily, FactLeaderTrackingPool, DimStock
+        from sqlalchemy import func
+
+        ws = WarehouseService()
+        session = ws.get_session()
+
+        try:
+            # 获取涨停表最新日期
+            latest_date = session.query(func.max(FactLimitUpDaily.trade_date)).scalar()
+            if not latest_date:
+                return {"success": True, "trade_date": None, "ladder": {}}
+
+            # 获取当日所有涨停股票，并关联 dim_stock 取名称
+            # 左关联 leader_tracking_pool 判断是否为系统认定的空间龙头
+            results = session.query(
+                FactLimitUpDaily.ts_code,
+                DimStock.name,
+                FactLimitUpDaily.continuous_days,
+                FactLeaderTrackingPool.is_space,
+            ).join(
+                DimStock, FactLimitUpDaily.ts_code == DimStock.ts_code
+            ).outerjoin(
+                FactLeaderTrackingPool, FactLimitUpDaily.ts_code == FactLeaderTrackingPool.ts_code
+            ).filter(
+                FactLimitUpDaily.trade_date == latest_date
+            ).all()
+
+            ladder = {}
+            for ts_code, name, continuous_days, is_space in results:
+                height = continuous_days or 1
+                if height not in ladder:
+                    ladder[height] = []
+                ladder[height].append({
+                    "ts_code": ts_code,
+                    "name": name or ts_code,
+                    "is_space_leader": bool(is_space),
+                })
+
+            return {
+                "success": True,
+                "trade_date": str(latest_date),
+                "ladder": ladder,
+            }
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        logger.error(f"获取涨停梯队失败: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "ladder": {},
         }

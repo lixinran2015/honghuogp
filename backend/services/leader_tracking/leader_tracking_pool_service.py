@@ -380,19 +380,19 @@ class LeaderTrackingPoolService:
           "is_new": False,
           "continuous_limit": stock.get("continuous_limit"),
         }
-    # 刚启动
+    # sectors.chain 中的股票：提取所有连板数据，仅对符合标准的标记 is_new
     for sec in result.get("sectors", []) or []:
       chain = sec.get("chain", []) or []
       for c in chain:
         tc = c.get("ts_code")
         if not tc:
           continue
-        if not _qualifies_as_new_for_tracking_pool(c):
-          continue
+        is_new = _qualifies_as_new_for_tracking_pool(c)
         cl = c.get("continuous_limit")
         if tc in state_map:
-          # 已经是空间龙头，也标记 is_new
-          state_map[tc]["is_new"] = True
+          # 已经是空间龙头，补充 is_new 和更高的连板数
+          if is_new:
+            state_map[tc]["is_new"] = True
           if cl is not None:
             prev = state_map[tc].get("continuous_limit")
             if prev is None or cl > prev:
@@ -400,7 +400,7 @@ class LeaderTrackingPoolService:
         else:
           state_map[tc] = {
             "is_space": False,
-            "is_new": True,
+            "is_new": is_new,
             "continuous_limit": cl,
           }
     return state_map
@@ -528,10 +528,9 @@ class LeaderTrackingPoolService:
           item["is_new"] = state["is_new"]
           item["continuous_limit"] = state["continuous_limit"]
         else:
-          # 当日不在雷达中：清空活跃角色，连板置 0
+          # 当日不在雷达中：清空活跃角色标记，但保留持久化的连板记录
           item["is_space"] = False
           item["is_new"] = False
-          item["continuous_limit"] = 0
 
       return {"success": True, "trade_date": trade_date.isoformat(), "pool": pool_list}
     finally:

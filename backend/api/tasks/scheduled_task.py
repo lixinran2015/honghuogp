@@ -378,6 +378,7 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'north_holding_update': 'north_holding_update',
                 'north_flow_update': 'north_flow_update',
                 'sector_daily_update': 'sector_daily_update',
+                'limit_up_emotion_update': 'limit_up_emotion_update',
             }
             
             task_type = task_type_mapping.get(task.task_type)

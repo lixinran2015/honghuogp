@@ -833,6 +833,7 @@ class DataScheduler:
                         'industry_cycle_suggest': 'industry_cycle_suggest',
                         'pe_pb_update': 'pe_pb_update',
                         'abnormal_analysis_scan': 'abnormal_analysis_scan',
+                        'limit_up_emotion_update': 'limit_up_emotion_update',
                     }
                     
                     expected_type = EXPECTED_TASK_TYPES.get(task.task_name)

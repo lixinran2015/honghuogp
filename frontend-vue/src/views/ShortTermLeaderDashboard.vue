@@ -195,16 +195,16 @@
 
           <div class="space-y-2">
             <div
-              v-for="(stocks, height) in sortedLadder"
-              :key="height"
+              v-for="item in sortedLadder"
+              :key="item.height"
               class="flex items-center gap-3"
             >
               <div class="w-12 text-xs font-medium text-warmgray-500 text-right">
-                {{ height }}板
+                {{ item.height }}板
               </div>
               <div class="flex-1 flex items-center gap-2 flex-wrap">
                 <span
-                  v-for="stock in stocks"
+                  v-for="stock in item.stocks"
                   :key="stock.ts_code"
                   :class="[
                     'px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors',
@@ -217,7 +217,7 @@
                   {{ stock.name }}
                   <span v-if="stock.is_space_leader" class="ml-1">👑</span>
                 </span>
-                <span v-if="stocks.length === 0" class="text-xs text-warmgray-400">-</span>
+                <span v-if="item.stocks.length === 0" class="text-xs text-warmgray-400">-</span>
               </div>
             </div>
           </div>
@@ -428,13 +428,18 @@ const getBombRateClass = computed(() => {
 })
 
 const sortedLadder = computed(() => {
-  // 按连板高度降序排列
+  // 按连板高度降序排列（返回数组，避免对象遍历自动升序）
   const entries = Object.entries(leaderLadder.value)
-    .sort(([a], [b]) => Number(b) - Number(a))
-    .reduce((acc, [key, value]) => {
-      acc[key] = value
-      return acc
-    }, {})
+    .sort(([a], [b]) => {
+      const na = Number(a)
+      const nb = Number(b)
+      // 非数字键（如"观察"）始终放最后
+      if (Number.isNaN(na) && Number.isNaN(nb)) return 0
+      if (Number.isNaN(na)) return 1
+      if (Number.isNaN(nb)) return -1
+      return nb - na
+    })
+    .map(([height, stocks]) => ({ height, stocks }))
   return entries
 })
 
@@ -505,21 +510,11 @@ async function fetchTopPicks() {
 
 async function fetchLeaderLadder() {
   try {
-    // 获取龙头池并按连板高度分组
-    const response = await fetch('/api/leader-tracking/pool?with_scores=true')
+    // 获取全市场涨停梯队（含龙头标记）
+    const response = await fetch('/api/short-term/dashboard/limit-up-ladder')
     const data = await response.json()
-    if (data.success && data.pool) {
-      const ladder = {}
-      data.pool.forEach(stock => {
-        const height = stock.continuous_limit || 1
-        if (!ladder[height]) ladder[height] = []
-        ladder[height].push({
-          ts_code: stock.ts_code,
-          name: stock.name,
-          is_space_leader: stock.is_space
-        })
-      })
-      leaderLadder.value = ladder
+    if (data.success && data.ladder) {
+      leaderLadder.value = data.ladder
     }
   } catch (e) {
     console.error('获取龙头梯队失败:', e)

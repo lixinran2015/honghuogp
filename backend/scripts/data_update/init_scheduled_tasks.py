@@ -221,6 +221,15 @@ def init_scheduled_tasks():
             'is_enabled': True,
             'task_type': 'sector_daily_update',
         },
+        {
+            'task_name': 'limit_up_emotion_update',
+            'task_display_name': '涨停情绪数据更新',
+            'task_description': '从 AKShare/东方财富获取涨停板数据并计算市场情绪指标，写入 fact_limit_up_daily 和 fact_market_emotion_daily',
+            'schedule_time': '15:35',
+            'schedule_days': '1-5',
+            'is_enabled': True,
+            'task_type': 'limit_up_emotion_update',
+        },
     ]
     
     ws = WarehouseService()
