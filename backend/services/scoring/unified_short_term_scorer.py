@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.services.lstm_mab import LSTMMABModel, get_evolution_service
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
+from backend.services.leader_tracking import detect_emotion_cycle
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 
 logger = logging.getLogger(__name__)
@@ -180,54 +181,16 @@ class UnifiedShortTermScorer:
 
     def get_emotion_cycle(self, trade_date: Optional[str]) -> str:
         """基于 FactMarketEmotionDaily 自动识别情绪周期"""
-        if self.warehouse is None or not trade_date:
+        if not trade_date:
             return "震荡期"
         try:
-            session = self.warehouse.warehouse_service.get_session()
-            try:
-                from data_warehouse.models import FactMarketEmotionDaily
+            from datetime import date as dt_date
 
-                record = (
-                    session.query(FactMarketEmotionDaily)
-                    .filter(FactMarketEmotionDaily.trade_date == trade_date)
-                    .first()
-                )
-                if record:
-                    from backend.services.leader_tracking.emotion_cycle_analyzer import (
-                        EmotionCycleAnalyzer,
-                    )
-
-                    analyzer = EmotionCycleAnalyzer()
-                    market_data = {
-                        "limit_up_count": record.total_limit_up or 0,
-                        "limit_down_count": record.total_limit_down or 0,
-                        "max_continuous_limit": record.highest_streak or 0,
-                        "advance_decline_ratio": 1.0,
-                        "volume_ratio": 1.0,
-                    }
-                    result = analyzer.analyze(market_data)
-                    return result.cycle
-
-                # fallback：尝试 emotion_stage 字段
-                stage = (
-                    session.query(FactMarketEmotionDaily.emotion_stage)
-                    .filter(FactMarketEmotionDaily.trade_date == trade_date)
-                    .scalar()
-                )
-                if stage:
-                    mapping = {
-                        "冰点": "冰点期",
-                        "回暖": "低迷期",
-                        "震荡": "震荡期",
-                        "退潮": "退潮期",
-                        "高潮": "高涨期",
-                    }
-                    return mapping.get(stage, "震荡期")
-            finally:
-                session.close()
+            d = dt_date.fromisoformat(trade_date) if isinstance(trade_date, str) else trade_date
+            return detect_emotion_cycle(d, self.warehouse)
         except Exception as e:
             logger.warning(f"自动识别情绪周期失败: {e}")
-        return "震荡期"
+            return "震荡期"
 
     def calculate_factor_values(
         self, stock_data: Dict[str, Any], trade_date: Optional[str]
@@ -361,8 +324,8 @@ class UnifiedShortTermScorer:
                 factor_values=factor_values,
                 emotion_cycle=emotion_cycle,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"记录预测历史失败: {e}")
 
         total_score = round(prediction.total_score, 2)
         grade = prediction.grade

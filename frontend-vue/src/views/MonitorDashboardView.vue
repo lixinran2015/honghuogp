@@ -18,6 +18,15 @@
       </div>
     </div>
 
+    <!-- 错误提示 -->
+    <div
+      v-if="errorMessage"
+      class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3"
+    >
+      <ShieldExclamationIcon class="w-5 h-5 text-red-600 flex-shrink-0" />
+      <span class="text-sm text-red-700">{{ errorMessage }}</span>
+    </div>
+
     <!-- 熔断告警 -->
     <div
       v-if="circuitBreaker?.triggered"
@@ -175,9 +184,10 @@ const performance = ref(null)
 const gradePerformance = ref(null)
 const healthReport = ref(null)
 const circuitBreaker = ref(null)
+const errorMessage = ref(null)
 
 function formatPercent(value) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '-'
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
   return (value * 100).toFixed(2) + '%'
 }
 
@@ -225,7 +235,8 @@ async function refreshData() {
     }
   } catch (error) {
     console.error('刷新监控数据失败:', error)
-    alert('获取监控数据失败，请检查网络或后端服务')
+    errorMessage.value = '获取监控数据失败，请检查网络或后端服务'
+    setTimeout(() => { errorMessage.value = null }, 5000)
   } finally {
     isLoading.value = false
   }

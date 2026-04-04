@@ -77,17 +77,15 @@ async def get_circuit_breaker_status() -> Dict:
     获取熔断状态
     """
     try:
-        # 查询最近一次未恢复的熔断记录
+        # 查询最近的信号记录用于判断是否存在历史数据
         session = WarehouseService().get_session()
         try:
             from sqlalchemy import desc
-            row = (
+            has_history = (
                 session.query(ShortTermSignalTracking)
                 .filter(ShortTermSignalTracking.exit_date.isnot(None))
-                .order_by(desc(ShortTermSignalTracking.exit_date))
-                .limit(20)
-                .all()
-            )
+                .first()
+            ) is not None
         finally:
             session.close()
 
