@@ -36,14 +36,14 @@
       </div>
     </div>
 
-    <!-- 统计与提示 -->
+    <!-- 合并提示 -->
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
       <div class="font-medium mb-1">任务合并提示</div>
       <ul class="list-disc list-inside space-y-1 text-yellow-700">
         <li>推荐效果追踪 + 推荐自动平仓 → <span class="font-semibold">推荐系统日终维护</span></li>
         <li>北向持股更新 + 北向资金净流入更新 → <span class="font-semibold">北向资金更新</span></li>
         <li>板块热度更新 + 板块龙头更新 + 板块日线更新 → <span class="font-semibold">板块日终维护</span></li>
-        <li>带 <span class="inline-block px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span> 标记的任务建议删除，统一使用合并后的新任务</li>
+        <li>带 <span class="inline-block px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span> 标记的任务建议删除</li>
       </ul>
     </div>
 
@@ -64,111 +64,94 @@
         </div>
       </div>
 
-      <div v-if="loading" class="py-12 text-center text-gray-500">
-        加载中...
-      </div>
-
-      <div v-else-if="groupedTasks.length === 0" class="py-12 text-center text-gray-500">
-        暂无任务
-      </div>
-
-      <div v-else class="space-y-6">
-        <div v-for="group in groupedTasks" :key="group.key">
-          <div class="flex items-center gap-2 mb-2">
-            <h3 class="text-sm font-semibold text-gray-700">{{ group.label }}</h3>
-            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
-              {{ group.tasks.length }} 个
-            </span>
-          </div>
-
-          <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务名称</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行时间</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行日期</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最后执行</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="task in group.tasks" :key="task.id" :class="taskMeta(task).deprecated ? 'bg-gray-50/60' : 'hover:bg-gray-50'">
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-medium" :class="taskMeta(task).deprecated ? 'text-gray-500' : 'text-gray-900'">
-                        {{ task.task_display_name }}
-                      </span>
-                      <span v-if="taskMeta(task).deprecated" class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span>
-                      <span v-if="taskMeta(task).badge" class="px-1.5 py-0.5 text-xs rounded" :class="taskMeta(task).badgeClass">{{ taskMeta(task).badge }}</span>
-                    </div>
-                    <div class="text-xs text-gray-500 mt-0.5">{{ task.task_description || '--' }}</div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-xs text-gray-500">{{ task.task_type }}</div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">{{ task.schedule_time || '--' }}</div>
-                    <div v-if="task.cron_expression" class="text-xs text-gray-500">{{ task.cron_expression }}</div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">{{ formatScheduleDays(task.schedule_days) }}</div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="flex items-center gap-2">
-                      <span
-                        :class="[
-                          'px-2 py-1 text-xs rounded font-medium',
-                          task.is_enabled
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        ]"
-                      >
-                        {{ task.is_enabled ? '已启用' : '已禁用' }}
-                      </span>
-                      <span
-                        v-if="task.is_running"
-                        class="px-2 py-1 text-xs rounded font-medium bg-blue-100 text-blue-700"
-                      >
-                        运行中
-                      </span>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">
-                      {{ task.last_run_at ? formatDateTime(task.last_run_at) : '--' }}
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                    <div class="flex items-center gap-2">
-                      <button
-                        @click="handleEditTask(task)"
-                        class="text-blue-600 hover:text-blue-900"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        @click="handleTriggerTask(task)"
-                        :disabled="task.is_running"
-                        class="text-green-600 hover:text-green-900 disabled:opacity-50"
-                      >
-                        {{ task.is_running ? '运行中' : '执行' }}
-                      </button>
-                      <button
-                        @click="handleDeleteTask(task)"
-                        class="text-red-600 hover:text-red-900"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务名称</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行时间</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行日期</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最后执行</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="task in filteredTasks" :key="task.id" :class="taskMeta(task).deprecated ? 'bg-gray-50/60' : 'hover:bg-gray-50'">
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium" :class="taskMeta(task).deprecated ? 'text-gray-500' : 'text-gray-900'">
+                    {{ task.task_display_name }}
+                  </span>
+                  <span v-if="taskMeta(task).deprecated" class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span>
+                  <span v-if="taskMeta(task).badge" class="px-1.5 py-0.5 text-xs rounded" :class="taskMeta(task).badgeClass">{{ taskMeta(task).badge }}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ task.task_description || '--' }}</div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2 py-1 text-xs rounded font-medium" :class="categoryStyle(task.task_type).class">
+                  {{ categoryStyle(task.task_type).label }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ task.schedule_time || '--' }}</div>
+                <div v-if="task.cron_expression" class="text-xs text-gray-500">{{ task.cron_expression }}</div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ formatScheduleDays(task.schedule_days) }}</div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="[
+                      'px-2 py-1 text-xs rounded font-medium',
+                      task.is_enabled
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700'
+                    ]"
+                  >
+                    {{ task.is_enabled ? '已启用' : '已禁用' }}
+                  </span>
+                  <span
+                    v-if="task.is_running"
+                    class="px-2 py-1 text-xs rounded font-medium bg-blue-100 text-blue-700"
+                  >
+                    运行中
+                  </span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ task.last_run_at ? formatDateTime(task.last_run_at) : '--' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="handleEditTask(task)"
+                    class="text-blue-600 hover:text-blue-900"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    @click="handleTriggerTask(task)"
+                    :disabled="task.is_running"
+                    class="text-green-600 hover:text-green-900 disabled:opacity-50"
+                  >
+                    {{ task.is_running ? '运行中' : '执行' }}
+                  </button>
+                  <button
+                    @click="handleDeleteTask(task)"
+                    class="text-red-600 hover:text-red-900"
+                  >
+                    删除
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -317,7 +300,6 @@ const editForm = ref({
   is_enabled: true,
 })
 
-// 任务分类与选项
 const TASK_TYPE_CATEGORIES = [
   {
     key: 'data',
@@ -398,10 +380,8 @@ const TASK_TYPE_CATEGORIES = [
   },
 ]
 
-// 扁平化的快捷查找
 const ALL_TASK_OPTIONS = TASK_TYPE_CATEGORIES.flatMap(c => c.options)
 
-// 已合并的旧任务映射
 const MERGED_TASKS = {
   recommendation_daily_track: { to: 'recommendation_daily', name: '推荐系统日终维护' },
   recommendation_auto_close: { to: 'recommendation_daily', name: '推荐系统日终维护' },
@@ -412,20 +392,19 @@ const MERGED_TASKS = {
   sector_daily_update: { to: 'sector_daily_maintenance', name: '板块日终维护' },
 }
 
-// 已下线
 const DEPRECATED_TASKS = ['limit_up_volume_shrink']
 
-const taskMeta = (task) => {
-  const type = task.task_type
-  const merged = MERGED_TASKS[type]
-  const deprecated = DEPRECATED_TASKS.includes(type)
-  if (deprecated) {
-    return { deprecated: true, badge: '已下线', badgeClass: 'bg-red-100 text-red-700' }
-  }
-  if (merged) {
-    return { deprecated: true, badge: `已合并为 ${merged.name}`, badgeClass: 'bg-amber-100 text-amber-700' }
-  }
-  return { deprecated: false, badge: '', badgeClass: '' }
+const CATEGORY_MAP = {
+  data: { label: '数据更新', class: 'bg-blue-100 text-blue-700' },
+  sector: { label: '板块与行业', class: 'bg-cyan-100 text-cyan-700' },
+  recommendation: { label: '推荐系统', class: 'bg-purple-100 text-purple-700' },
+  north: { label: '北向资金', class: 'bg-indigo-100 text-indigo-700' },
+  market: { label: '市场情绪', class: 'bg-rose-100 text-rose-700' },
+  short_term: { label: '短线监控', class: 'bg-red-100 text-red-700' },
+  strategy: { label: '投资策略', class: 'bg-emerald-100 text-emerald-700' },
+  crawler: { label: '资讯爬虫', class: 'bg-amber-100 text-amber-700' },
+  other: { label: '其他', class: 'bg-gray-100 text-gray-700' },
+  deprecated: { label: '已下线', class: 'bg-gray-200 text-gray-600' },
 }
 
 const getTaskCategory = (task) => {
@@ -442,38 +421,39 @@ const getTaskCategory = (task) => {
   return 'other'
 }
 
-const CATEGORY_ORDER = [
-  { key: 'data', label: '数据更新' },
-  { key: 'sector', label: '板块与行业' },
-  { key: 'recommendation', label: '推荐系统' },
-  { key: 'north', label: '北向资金' },
-  { key: 'market', label: '市场情绪' },
-  { key: 'short_term', label: '短线监控' },
-  { key: 'strategy', label: '投资策略' },
-  { key: 'crawler', label: '资讯爬虫' },
-  { key: 'other', label: '其他' },
-  { key: 'deprecated', label: '已下线/已合并' },
-]
+const categoryStyle = (type) => {
+  const catKey = getTaskCategory({ task_type: type })
+  return CATEGORY_MAP[catKey] || CATEGORY_MAP.other
+}
+
+const taskMeta = (task) => {
+  const type = task.task_type
+  const merged = MERGED_TASKS[type]
+  const deprecated = DEPRECATED_TASKS.includes(type)
+  if (deprecated) {
+    return { deprecated: true, badge: '已下线', badgeClass: 'bg-red-100 text-red-700' }
+  }
+  if (merged) {
+    return { deprecated: true, badge: `已合并为 ${merged.name}`, badgeClass: 'bg-amber-100 text-amber-700' }
+  }
+  return { deprecated: false, badge: '', badgeClass: '' }
+}
 
 const filteredTasks = computed(() => {
   let list = tasks.value
   if (filterEnabled.value !== null) {
     list = list.filter(task => task.is_enabled === filterEnabled.value)
   }
-  return list
-})
-
-const groupedTasks = computed(() => {
-  const map = {}
-  CATEGORY_ORDER.forEach(c => { map[c.key] = [] })
-  filteredTasks.value.forEach(task => {
-    const cat = getTaskCategory(task)
-    if (map[cat]) map[cat].push(task)
-    else map.other.push(task)
+  // 按分类排序（保持列表清晰）
+  const order = Object.keys(CATEGORY_MAP)
+  return list.slice().sort((a, b) => {
+    const ca = getTaskCategory(a)
+    const cb = getTaskCategory(b)
+    const ia = order.indexOf(ca)
+    const ib = order.indexOf(cb)
+    if (ia !== ib) return ia - ib
+    return a.task_name.localeCompare(b.task_name)
   })
-  return CATEGORY_ORDER
-    .map(c => ({ ...c, tasks: map[c.key] }))
-    .filter(g => g.tasks.length > 0)
 })
 
 const formatScheduleDays = (days) => {
@@ -518,7 +498,7 @@ const handleRefresh = () => {
 }
 
 const handleFilterChange = () => {
-  // filterEnabled 改变时，自动重新计算
+  // filterEnabled 改变时自动重新计算
 }
 
 const onTaskTypeChange = () => {
