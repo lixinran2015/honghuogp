@@ -468,14 +468,16 @@ async def get_broken_board_ladder():
 
             ladder = {}
             for ts_code, name, consecutive_limit_up, break_status, price_change_pct, is_leader in results:
-                height = consecutive_limit_up or 1
+                if consecutive_limit_up is None:
+                    continue
+                height = consecutive_limit_up
                 if height not in ladder:
                     ladder[height] = []
                 ladder[height].append({
                     "ts_code": ts_code,
                     "name": name or ts_code,
                     "break_status": break_status,
-                    "price_change_pct": round(float(price_change_pct), 2) if price_change_pct else None,
+                    "price_change_pct": round(float(price_change_pct), 2) if price_change_pct is not None else None,
                     "is_leader": bool(is_leader),
                 })
 

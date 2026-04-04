@@ -13,6 +13,22 @@ from data_warehouse.models.scheduled_task import DimScheduledTask
 
 logger = logging.getLogger(__name__)
 
+
+def _start_task_thread(task_name: str, target):
+    """在后台线程中执行任务函数，并统一处理日志和异常"""
+    import threading
+
+    def wrapper():
+        try:
+            target()
+            logger.info(f"✅ 任务执行完成: {task_name}")
+        except Exception as e:
+            logger.error(f"❌ 任务执行失败 {task_name}: {e}", exc_info=True)
+
+    thread = threading.Thread(target=wrapper, daemon=True)
+    thread.start()
+
+
 router = APIRouter(prefix="/api/scheduled-task", tags=["scheduled-task"])
 
 
@@ -455,22 +471,8 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
 
             # 断板检测任务
             if task_type == 'break_board_detection':
-                import threading
-                def run_break_board():
-                    try:
-                        import sys
-                        from pathlib import Path
-                        project_root = Path(__file__).parent.parent.parent
-                        if str(project_root) not in sys.path:
-                            sys.path.insert(0, str(project_root))
-                        from backend.services.break_board_detection_service import run_break_board_detection
-                        run_break_board_detection()
-                        logger.info(f"✅ 断板检测任务执行完成: {task_name}")
-                    except Exception as e:
-                        logger.error(f"❌ 断板检测任务执行失败: {e}", exc_info=True)
-
-                thread = threading.Thread(target=run_break_board, daemon=True)
-                thread.start()
+                from backend.services.break_board_detection_service import run_break_board_detection
+                _start_task_thread(task_name, run_break_board_detection)
 
                 task.last_run_at = datetime.now()
                 session.commit()
@@ -481,22 +483,8 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
 
             # 断板价格监控任务
             if task_type == 'break_board_price_monitor':
-                import threading
-                def run_break_board_monitor():
-                    try:
-                        import sys
-                        from pathlib import Path
-                        project_root = Path(__file__).parent.parent.parent
-                        if str(project_root) not in sys.path:
-                            sys.path.insert(0, str(project_root))
-                        from backend.services.break_board_price_monitor import run_price_monitor
-                        run_price_monitor()
-                        logger.info(f"✅ 断板价格监控任务执行完成: {task_name}")
-                    except Exception as e:
-                        logger.error(f"❌ 断板价格监控任务执行失败: {e}", exc_info=True)
-
-                thread = threading.Thread(target=run_break_board_monitor, daemon=True)
-                thread.start()
+                from backend.services.break_board_price_monitor import run_price_monitor
+                _start_task_thread(task_name, run_price_monitor)
 
                 task.last_run_at = datetime.now()
                 session.commit()

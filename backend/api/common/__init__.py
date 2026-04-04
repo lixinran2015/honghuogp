@@ -136,11 +136,4 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ 启动模块路由加载失败: {e}")
 
-try:
-    from backend.api import break_board
-    router.include_router(break_board.router)
-    logger.info("✅ 断板监控路由已加载")
-except Exception as e:
-    logger.warning(f"⚠️ 断板监控路由加载失败: {e}")
-
 logger.info("🚀 公共基础模块路由聚合完成")

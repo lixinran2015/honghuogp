@@ -136,7 +136,7 @@ class BreakBoardDetectionService:
             FactLimitUpDaily.ts_code,
             FactLimitUpDaily.continuous_days,
             DimStock.name,
-        ).join(
+        ).outerjoin(
             DimStock, FactLimitUpDaily.ts_code == DimStock.ts_code
         ).filter(
             FactLimitUpDaily.trade_date == trade_date,
