@@ -21,6 +21,8 @@ from backend.services.sector.eastmoney_sector_service import (
     get_industry_boards_from_db,
     get_latest_trade_date_with_boards,
 )
+from data_warehouse.service.warehouse_service import WarehouseService
+from data_warehouse.models import FactSectorHeatSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -254,11 +256,11 @@ async def get_industry_boards_with_leaders_api(
 def _generate_sector_strategy(heat_score: float, leader: Optional[Dict]) -> str:
     """
     根据板块热度和龙头股生成策略建议
-    
+
     Args:
         heat_score: 板块热度评分
         leader: 龙头股信息
-    
+
     Returns:
         str: 策略建议
     """
@@ -280,4 +282,68 @@ def _generate_sector_strategy(heat_score: float, leader: Optional[Dict]) -> str:
     except Exception as e:
         logger.warning(f"生成策略建议失败: {e}")
         return "建议关注板块动态"
+
+
+@router.get("/heat-snapshot")
+async def get_sector_heat_snapshot(
+    limit: int = 20,
+    window_id: str = "current_rolling_30d"
+) -> Dict:
+    """
+    获取板块热度快照（用于短线龙头仪表盘）
+
+    Args:
+        limit: 返回板块数量
+        window_id: 窗口ID，默认当前滚动30天
+
+    Returns:
+        dict: 板块热度列表
+    """
+    try:
+        ws = WarehouseService()
+        session = ws.get_session()
+        try:
+            # 查询板块热度快照
+            records = (
+                session.query(FactSectorHeatSnapshot)
+                .filter(FactSectorHeatSnapshot.window_id == window_id)
+                .order_by(FactSectorHeatSnapshot.return_index.desc())
+                .limit(limit)
+                .all()
+            )
+
+            sectors = []
+            for r in records:
+                # 计算热度分数（基于多个指标）
+                heat_score = 0.0
+                if r.return_index is not None:
+                    heat_score += r.return_index * 2
+                if r.active_stock_ratio_30d is not None:
+                    heat_score += r.active_stock_ratio_30d * 50
+
+                sectors.append({
+                    "name": r.sector_name,
+                    "code": r.sector_code,
+                    "heat": round(heat_score, 1),
+                    "return_30d": round(r.return_30d, 2) if r.return_30d else 0,
+                    "return_index": round(r.return_index, 2) if r.return_index else 0,
+                    "turnover_ratio": round(r.avg_turnover_ratio_now, 2) if r.avg_turnover_ratio_now else 0,
+                    "amount": r.amount_now,
+                })
+
+            # 按热度排序
+            sectors.sort(key=lambda x: x["heat"], reverse=True)
+
+            return {
+                "success": True,
+                "sectors": sectors,
+                "count": len(sectors),
+                "window_id": window_id,
+            }
+        finally:
+            session.close()
+
+    except Exception as e:
+        logger.error(f"获取板块热度快照失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取板块热度失败: {str(e)}")
 

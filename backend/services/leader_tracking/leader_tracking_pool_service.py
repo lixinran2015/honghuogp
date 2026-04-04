@@ -568,7 +568,9 @@ class LeaderTrackingPoolService:
         score_info = stock.get("lstm_mab_score") or {}
         buy_signal = stock.get("buy_signal")
 
-        row.score = score_info.get("total_score")
+        # 将 numpy 类型转换为 Python 原生类型，避免 SQLAlchemy 报错
+        total_score = score_info.get("total_score")
+        row.score = float(total_score) if total_score is not None else None
         row.grade = score_info.get("grade")
         row.buy_signal = buy_signal.get("signal_type") if isinstance(buy_signal, dict) else buy_signal
         row.emotion_cycle = score_info.get("factor_values", {}).get("emotion_cycle")
@@ -588,17 +590,27 @@ class LeaderTrackingPoolService:
         else:
           row.sector_strength = None
 
+        # 转换所有数值为原生 Python 类型
+        def _convert_numpy(obj):
+          if hasattr(obj, 'item'):  # numpy scalar
+            return obj.item()
+          if isinstance(obj, dict):
+            return {k: _convert_numpy(v) for k, v in obj.items()}
+          if isinstance(obj, list):
+            return [_convert_numpy(v) for v in obj]
+          return obj
+
         row.score_breakdown = {
           "trade_date": trade_date.isoformat(),
-          "total_score": score_info.get("total_score"),
+          "total_score": _convert_numpy(score_info.get("total_score")),
           "grade": score_info.get("grade"),
-          "expected_return": score_info.get("expected_return"),
-          "confidence": score_info.get("confidence"),
-          "factor_scores": score_info.get("factor_scores"),
-          "factor_weights": score_info.get("factor_weights"),
-          "factor_values": score_info.get("factor_values"),
-          "recommendation": score_info.get("recommendation"),
-          "buy_signal": buy_signal if isinstance(buy_signal, dict) else None,
+          "expected_return": _convert_numpy(score_info.get("expected_return")),
+          "confidence": _convert_numpy(score_info.get("confidence")),
+          "factor_scores": _convert_numpy(score_info.get("factor_scores")),
+          "factor_weights": _convert_numpy(score_info.get("factor_weights")),
+          "factor_values": _convert_numpy(score_info.get("factor_values")),
+          "recommendation": _convert_numpy(score_info.get("recommendation")),
+          "buy_signal": _convert_numpy(buy_signal) if isinstance(buy_signal, dict) else None,
         }
         updated += 1
 

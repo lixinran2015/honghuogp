@@ -100,6 +100,14 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load sectors/sector_rotation router: {e}")
 
+    # 板块热度
+    try:
+        from backend.api.sectors.hot_sectors import router as hot_sectors_router
+        routers.append(hot_sectors_router)
+        logger.info("Loaded short_term route: sectors/hot_sectors")
+    except ImportError as e:
+        logger.warning(f"Failed to load sectors/hot_sectors router: {e}")
+
     # 情绪周期
     try:
         from backend.api.market.emotion_cycle import router as emotion_cycle_router
@@ -123,6 +131,14 @@ def get_routers() -> List[APIRouter]:
         logger.info("Loaded short_term route: short_term_monitor")
     except ImportError as e:
         logger.warning(f"Failed to load short_term_monitor router: {e}")
+
+    # 短线仪表盘 (market-brief, signals, daily-report)
+    try:
+        from backend.api.short_term import dashboard as short_term_dashboard
+        routers.append(short_term_dashboard.router)
+        logger.info("Loaded short_term route: short_term_dashboard")
+    except ImportError as e:
+        logger.warning(f"Failed to load short_term_dashboard router: {e}")
 
     # 龙头推荐
     try:

@@ -161,6 +161,7 @@ const allMenuGroups = [
     title: '选股中心',
     module: 'common',
     items: [
+      { path: '/short-term-dashboard', label: '短线龙头仪表盘', icon: 'ChartBarIcon' },
       { path: '/holdings', label: '我的自选', icon: 'BriefcaseIcon' },
       { path: '/watchlist', label: '股票跟踪', icon: 'EyeIcon' },
       { path: '/leader-tracking', label: '龙头跟踪', icon: 'ChartBarIcon' },

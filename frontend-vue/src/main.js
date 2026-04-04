@@ -52,6 +52,7 @@ const routes = [
   { path: '/lstm-mab', component: () => import('./views/LSTMMABView.vue') },
   { path: '/lstm-mab-evolution', component: () => import('./views/LSTMMABEvolutionView.vue') },
   { path: '/monitor-dashboard', component: () => import('./views/MonitorDashboardView.vue') },
+  { path: '/short-term-dashboard', component: () => import('./views/ShortTermLeaderDashboard.vue') },
 ]
 
 const router = createRouter({
