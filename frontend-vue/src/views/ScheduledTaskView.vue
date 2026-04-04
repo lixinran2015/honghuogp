@@ -44,7 +44,6 @@
           <select
             v-model="filterEnabled"
             class="px-3 py-1.5 text-sm border border-gray-300 rounded-md"
-            @change="handleFilterChange"
           >
             <option :value="null">全部</option>
             <option :value="true">已启用</option>
@@ -455,10 +454,6 @@ const loadTasks = async () => {
 
 const handleRefresh = () => {
   loadTasks()
-}
-
-const handleFilterChange = () => {
-  // filterEnabled 改变时自动重新计算
 }
 
 const onTaskTypeChange = () => {

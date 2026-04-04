@@ -460,6 +460,7 @@ const leaderLadder = ref({})
 const brokenBoardLadder = ref({})
 const holdings = ref([])
 const sectorHeat = ref([])
+const sectorHeatListCached = ref([])
 const circuitBreaker = ref(null)
 
 // 计算属性
@@ -509,12 +510,7 @@ const sortedBrokenBoardLadder = computed(() => {
 })
 
 const sectorHeatList = computed(() => {
-  // 为板块生成气泡位置
-  return sectorHeat.value.map((sector, index) => ({
-    ...sector,
-    x: 15 + (index % 4) * 23 + Math.random() * 5,
-    y: 20 + Math.floor(index / 4) * 30 + Math.random() * 10
-  }))
+  return sectorHeatListCached.value
 })
 
 const topSectors = computed(() => {
@@ -647,6 +643,12 @@ async function fetchSectorHeat() {
       { name: '地产', heat: 8.2 },
     ]
   }
+  // 为板块生成气泡位置（仅数据变更时生成一次，避免 computed 中的 Math.random 导致抖动）
+  sectorHeatListCached.value = sectorHeat.value.map((sector, index) => ({
+    ...sector,
+    x: 15 + (index % 4) * 23 + Math.random() * 5,
+    y: 20 + Math.floor(index / 4) * 30 + Math.random() * 10
+  }))
 }
 
 async function fetchCircuitBreaker() {

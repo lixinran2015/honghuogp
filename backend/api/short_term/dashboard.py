@@ -282,12 +282,12 @@ async def get_market_brief():
             # 4. 获取跌停数（情绪表中的跌停数据）
             limit_down_count = emotion_record.total_limit_down if emotion_record else 0
 
-            # 5. 计算炸板率（需要炸板数据，这里用情绪表数据估算）
+            # 5. 计算炸板率
             bomb_rate = 0.0
-            if emotion_record and emotion_record.total_limit_up:
-                # 炸板率 = 炸板数 / (涨停数 + 炸板数)
-                # 简化计算：使用情绪表中其他指标估算
-                bomb_rate = min(30.0, max(5.0, limit_down_count * 2))  # 简化估算
+            if emotion_record and emotion_record.total_limit_up is not None and emotion_record.broken_limit_up is not None:
+                total = emotion_record.total_limit_up + emotion_record.broken_limit_up
+                if total > 0:
+                    bomb_rate = (emotion_record.broken_limit_up / total) * 100
 
             # 6. 确定情绪周期
             emotion_cycle = "震荡期"
@@ -392,7 +392,7 @@ async def get_limit_up_ladder():
                 DimStock.name,
                 FactLimitUpDaily.continuous_days,
                 FactLeaderTrackingPool.is_space,
-            ).join(
+            ).outerjoin(
                 DimStock, FactLimitUpDaily.ts_code == DimStock.ts_code
             ).outerjoin(
                 FactLeaderTrackingPool, FactLimitUpDaily.ts_code == FactLeaderTrackingPool.ts_code

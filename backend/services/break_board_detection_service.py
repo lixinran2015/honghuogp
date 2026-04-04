@@ -64,6 +64,7 @@ class BreakBoardDetectionService:
             Dict: 统计信息
         """
         logger.info(f"开始识别 {trade_date} 的断板股票...")
+        started_at = datetime.now()
 
         # 获取前一交易日
         prev_date = self._get_previous_trade_date(trade_date)
@@ -97,7 +98,7 @@ class BreakBoardDetectionService:
                 self._update_consecutive_limit(ts_code, leader_info, trade_date)
 
         # 4. 记录运行日志
-        self._log_monitor(trade_date, len(leaders), len(break_boards), 0)
+        self._log_monitor(trade_date, len(leaders), len(break_boards), 0, started_at=started_at)
 
         logger.info(f"断板识别完成：{len(break_boards)} 只断板，{len(recovered)} 只继续涨停")
 
@@ -297,7 +298,7 @@ class BreakBoardDetectionService:
 
     def _log_monitor(self, trade_date: date, checked: int, updated: int,
                      alerts: int, status: str = "success",
-                     error: str = None):
+                     error: str = None, started_at: datetime = None):
         """记录监控日志"""
         log = FactBreakBoardMonitorLog(
             trade_date=trade_date,
@@ -307,7 +308,7 @@ class BreakBoardDetectionService:
             stocks_updated=updated,
             alerts_triggered=alerts,
             error_message=error,
-            started_at=datetime.now(),
+            started_at=started_at or datetime.now(),
             completed_at=datetime.now(),
         )
         self.session.add(log)

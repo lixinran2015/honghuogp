@@ -39,11 +39,10 @@ class DataManagementService:
         'daily_update',
         'fundamental_update',
         'refresh_snapshot',
-        'sector_heat_update',
-        'sector_leaders_update',
         'sync_stock',
         'sync_industry',          # 申万行业同步（dim_stock.industry 统一为申万一级）
         'moneyflow_update',       # 资金流向（行业/板块，Tushare moneyflow_ind_ths）
+        'money_flow_update',      # 个股主力资金 fact_money_flow
         's1_universe_update',
         'industry_cycle_collect',  # 行业周期数据采集（含申万行业同步）
         'industry_cycle_suggest',  # 行业周期建议生成（suggest_YYYYMMDD.json）
@@ -52,8 +51,6 @@ class DataManagementService:
         'recommendation_daily',        # 推荐系统日终维护（追踪+自动平仓）
         'recommendation_daily_track',  # 已合并到 recommendation_daily
         'recommendation_auto_close',   # 已合并到 recommendation_daily
-        'moneyflow_update',            # 资金流向（行业/板块）
-        'money_flow_update',           # 个股主力资金 fact_money_flow
         'north_money_update',          # 北向资金数据（持股+净流入）
         'north_holding_update',        # 已合并到 north_money_update
         'north_flow_update',           # 已合并到 north_money_update

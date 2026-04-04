@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 def _start_task_thread(task_name: str, target):
     """在后台线程中执行任务函数，并统一处理日志和异常"""
     import threading
+    from data_warehouse.db import get_session
+    from data_warehouse.models import DimScheduledTask
 
     def wrapper():
         try:
@@ -24,6 +26,17 @@ def _start_task_thread(task_name: str, target):
             logger.info(f"✅ 任务执行完成: {task_name}")
         except Exception as e:
             logger.error(f"❌ 任务执行失败 {task_name}: {e}", exc_info=True)
+        finally:
+            try:
+                session = get_session()
+                task = session.query(DimScheduledTask).filter(DimScheduledTask.task_name == task_name).first()
+                if task:
+                    task.is_running = False
+                    task.last_run_at = datetime.now()
+                    session.commit()
+                session.close()
+            except Exception as inner_e:
+                logger.error(f"❌ 重置任务状态失败 {task_name}: {inner_e}", exc_info=True)
 
     thread = threading.Thread(target=wrapper, daemon=True)
     thread.start()
@@ -409,10 +422,9 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
             
             # 特殊处理：股吧人气榜爬虫
             if task_type == 'guba_popularity_crawl':
-                import threading
                 import sys
                 from pathlib import Path
-                
+
                 def run_crawler():
                     try:
                         project_root = Path(__file__).parent.parent.parent
@@ -425,14 +437,11 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                             crawler.save_to_database(data)
                     except Exception as e:
                         logger.error(f"执行股吧人气榜爬虫失败: {e}", exc_info=True)
-                
-                thread = threading.Thread(target=run_crawler, daemon=True)
-                thread.start()
-                
-                # 更新最后执行时间
-                task.last_run_at = datetime.now()
+
+                task.is_running = True
                 session.commit()
-                
+                _start_task_thread(task_name, run_crawler)
+
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"
@@ -440,10 +449,9 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
             
             # 特殊处理：同步交易日历
             if task_type == 'sync_trade_calendar':
-                import threading
                 import sys
                 from pathlib import Path
-                
+
                 def run_sync():
                     try:
                         project_root = Path(__file__).parent.parent.parent
@@ -453,14 +461,11 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                         sync_trade_calendar()
                     except Exception as e:
                         logger.error(f"执行交易日历同步失败: {e}", exc_info=True)
-                
-                thread = threading.Thread(target=run_sync, daemon=True)
-                thread.start()
-                
-                # 更新最后执行时间
-                task.last_run_at = datetime.now()
+
+                task.is_running = True
                 session.commit()
-                
+                _start_task_thread(task_name, run_sync)
+
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"
@@ -469,10 +474,9 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
             # 断板检测任务
             if task_type == 'break_board_detection':
                 from backend.services.break_board_detection_service import run_break_board_detection
-                _start_task_thread(task_name, run_break_board_detection)
-
-                task.last_run_at = datetime.now()
+                task.is_running = True
                 session.commit()
+                _start_task_thread(task_name, run_break_board_detection)
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"
@@ -481,10 +485,9 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
             # 断板价格监控任务
             if task_type == 'break_board_price_monitor':
                 from backend.services.break_board_price_monitor import run_price_monitor
-                _start_task_thread(task_name, run_price_monitor)
-
-                task.last_run_at = datetime.now()
+                task.is_running = True
                 session.commit()
+                _start_task_thread(task_name, run_price_monitor)
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"

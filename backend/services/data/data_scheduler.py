@@ -833,15 +833,15 @@ class DataScheduler:
                         'pe_pb_update': 'pe_pb_update',
                         'abnormal_analysis_scan': 'abnormal_analysis_scan',
                         'recommendation_daily': 'recommendation_daily',
-                        'recommendation_daily_track': 'recommendation_daily_track',      # deprecated，同 recommendation_daily
-                        'recommendation_auto_close': 'recommendation_auto_close',        # deprecated，同 recommendation_daily
+                        'recommendation_daily_track': 'recommendation_daily',            # deprecated，同 recommendation_daily
+                        'recommendation_auto_close': 'recommendation_daily',             # deprecated，同 recommendation_daily
                         'north_money_update': 'north_money_update',
-                        'north_holding_update': 'north_holding_update',                  # deprecated，同 north_money_update
-                        'north_flow_update': 'north_flow_update',                        # deprecated，同 north_money_update
+                        'north_holding_update': 'north_money_update',                    # deprecated，同 north_money_update
+                        'north_flow_update': 'north_money_update',                       # deprecated，同 north_money_update
                         'sector_daily_maintenance': 'sector_daily_maintenance',
-                        'sector_heat_update': 'sector_heat_update',                      # deprecated，同 sector_daily_maintenance
-                        'sector_daily_update': 'sector_daily_update',                    # deprecated，同 sector_daily_maintenance
-                        'sector_leaders_update': 'sector_leaders_update',                # deprecated，同 sector_daily_maintenance
+                        'sector_heat_update': 'sector_daily_maintenance',                # deprecated，同 sector_daily_maintenance
+                        'sector_daily_update': 'sector_daily_maintenance',               # deprecated，同 sector_daily_maintenance
+                        'sector_leaders_update': 'sector_daily_maintenance',             # deprecated，同 sector_daily_maintenance
                         'limit_up_emotion_update': 'limit_up_emotion_update',
                         'break_board_detect': 'break_board_detection',
                         'break_board_price_monitor': 'break_board_price_monitor',
