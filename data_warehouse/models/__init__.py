@@ -123,6 +123,7 @@ def _fallback_import():
         FactSoldStock,
         FactGubaPopularityRank,
         FactGubaRankHistory,
+        ShortTermSignalTracking,
     )
 
     # 别名：FactDailyPrice 指向 FactDailyPriceQfq（前复权价格）
@@ -221,6 +222,8 @@ def _fallback_import():
         # 复盘相关
         'FactDailyReviewReport',
         'FactOperationAdviceHistory',
+        # 短线信号跟踪
+        'ShortTermSignalTracking',
     ]
 
     # 将所有模型添加到 globals

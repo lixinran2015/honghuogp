@@ -25,56 +25,56 @@ router = APIRouter(tags=["短线龙头系统"])
 
 # 导入各子模块路由（这些路由本身已有 /api/* 前缀）
 try:
-    from backend.api import leader_tracking
+    from backend.api.leaders import leader_tracking
     router.include_router(leader_tracking.router)
     logger.info("✅ 龙头跟踪路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 龙头跟踪路由加载失败: {e}")
 
 try:
-    from backend.api import limit_up_volume_shrink
+    from backend.api.limitup import limit_up_volume_shrink
     router.include_router(limit_up_volume_shrink.router)
     logger.info("✅ 涨停缩量路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 涨停缩量路由加载失败: {e}")
 
 try:
-    from backend.api import stock_startup
+    from backend.api.stocks import stock_startup
     router.include_router(stock_startup.router)
     logger.info("✅ 股票启动路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 股票启动路由加载失败: {e}")
 
 try:
-    from backend.api import hot_sectors
+    from backend.api.sectors import hot_sectors
     router.include_router(hot_sectors.router)
     logger.info("✅ 热点板块路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 热点板块路由加载失败: {e}")
 
 try:
-    from backend.api import sector_rotation
+    from backend.api.sectors import sector_rotation
     router.include_router(sector_rotation.router)
     logger.info("✅ 板块轮动路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 板块轮动路由加载失败: {e}")
 
 try:
-    from backend.api import sentiment
+    from backend.api.market import sentiment
     router.include_router(sentiment.router)
     logger.info("✅ 市场情绪路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 市场情绪路由加载失败: {e}")
 
 try:
-    from backend.api import abnormal_analysis
+    from backend.api.limitup import abnormal_analysis
     router.include_router(abnormal_analysis.router)
     logger.info("✅ 异动分析路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 异动分析路由加载失败: {e}")
 
 try:
-    from backend.api import backtest
+    from backend.api.backtest import backtest
     router.include_router(backtest.router)
     logger.info("✅ 回测路由已加载")
 except Exception as e:
@@ -102,14 +102,14 @@ except Exception as e:
     logger.warning(f"⚠️ 启动监控路由加载失败: {e}")
 
 try:
-    from backend.api import stock_selector
+    from backend.api.stocks import stock_selector
     router.include_router(stock_selector.router)
     logger.info("✅ 选股器路由已加载")
 except Exception as e:
     logger.warning(f"⚠️ 选股器路由加载失败: {e}")
 
 try:
-    from backend.api import money_flow
+    from backend.api.market import money_flow
     router.include_router(money_flow.router)
     logger.info("✅ 资金流向路由已加载")
 except Exception as e:
@@ -157,7 +157,7 @@ except Exception as e:
 
 # 龙头优化系统路由（Phase 1-6）
 try:
-    from backend.api.leader_optimization_routes import register_leader_optimization_routes
+    from backend.api.leaders.leader_optimization_routes import register_leader_optimization_routes
     # 由于 register_leader_optimization_routes 需要 app 对象，我们在 app.py 中调用
     # 这里先导入模块，稍后在 app.py 中统一注册
     logger.info("✅ 龙头优化系统路由模块已加载")

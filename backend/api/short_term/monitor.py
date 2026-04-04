@@ -11,6 +11,8 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Dict, Optional
 import logging
 
+from sqlalchemy.exc import ProgrammingError, OperationalError
+
 from backend.services.trading.monitor_stats_service import MonitorStatsService
 from backend.services.leader_tracking.model_monitor import ModelMonitor
 from backend.services.lstm_mab import get_evolution_service
@@ -78,16 +80,20 @@ async def get_circuit_breaker_status() -> Dict:
     """
     try:
         # 查询最近的信号记录用于判断是否存在历史数据
-        session = WarehouseService().get_session()
+        has_history = False
         try:
-            from sqlalchemy import desc
-            has_history = (
-                session.query(ShortTermSignalTracking)
-                .filter(ShortTermSignalTracking.exit_date.isnot(None))
-                .first()
-            ) is not None
-        finally:
-            session.close()
+            session = WarehouseService().get_session()
+            try:
+                has_history = (
+                    session.query(ShortTermSignalTracking)
+                    .filter(ShortTermSignalTracking.exit_date.isnot(None))
+                    .first()
+                ) is not None
+            finally:
+                session.close()
+        except (ProgrammingError, OperationalError) as e:
+            logger.warning(f"short_term_signal_tracking 表不存在或无数据，按无历史处理: {e}")
+            has_history = False
 
         # 计算当前健康度
         svc = MonitorStatsService()
@@ -107,6 +113,7 @@ async def get_circuit_breaker_status() -> Dict:
             "triggered": triggered,
             "health_score": report.get("health_score"),
             "critical_count": report.get("critical_count"),
+            "history_available": has_history,
             "performance": perf,
             "suggestions": report.get("suggestions"),
         }

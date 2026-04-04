@@ -13,6 +13,7 @@ from .generated_models import (
     FactRecommendationResult,
     FactSectorLeaderSnapshot,
     FactStockStartupCandidateBak,
+    ShortTermSignalTracking,
 )
 
 # 从独立模型文件导入（这些模型有额外的业务逻辑或自定义定义）
@@ -65,6 +66,7 @@ __all__ = [
     'FactMonitorNear5940',
     'FactIntradayPrice1m',
     'FactMoneyFlow',
+    'ShortTermSignalTracking',
     # 情绪/分析
     'FactMarketEmotionDaily',
     'FactAbnormalAnalysis',

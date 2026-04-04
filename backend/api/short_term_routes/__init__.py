@@ -116,6 +116,14 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load model_monitor router: {e}")
 
+    # 短线监控与熔断 (performance, health, circuit-breaker)
+    try:
+        from backend.api.short_term import monitor as short_term_monitor
+        routers.append(short_term_monitor.router)
+        logger.info("Loaded short_term route: short_term_monitor")
+    except ImportError as e:
+        logger.warning(f"Failed to load short_term_monitor router: {e}")
+
     # 龙头推荐
     try:
         from backend.api.leaders.leader_recommendation import router as leader_recommendation_router

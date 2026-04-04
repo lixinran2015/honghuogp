@@ -23,18 +23,18 @@ def register_leader_optimization_routes(app):
     注册短线龙头优化系统所有路由
 
     在主应用的 main.py 中调用：
-        from backend.api.leader_optimization_routes import register_leader_optimization_routes
+        from backend.api.leaders.leader_optimization_routes import register_leader_optimization_routes
         register_leader_optimization_routes(app)
     """
     # 导入各模块路由
-    from backend.api import leader_score
-    from backend.api import leader_recommendation
-    from backend.api import leader_signals
-    from backend.api import emotion_cycle
-    from backend.api import model_monitor
-    from backend.api import backtest
-    from backend.api import leader_optimization_diag
-    from backend.api import leader_optimization_quick
+    from backend.api.leaders import leader_score
+    from backend.api.leaders import leader_recommendation
+    from backend.api.leaders import leader_signals
+    from backend.api.market import emotion_cycle
+    from backend.api.monitor import model_monitor
+    from backend.api.backtest import backtest
+    from backend.api.leaders import leader_optimization_diag
+    from backend.api.leaders import leader_optimization_quick
 
     # 注册路由
     app.include_router(leader_score.router)

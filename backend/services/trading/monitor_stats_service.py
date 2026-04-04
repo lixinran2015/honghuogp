@@ -8,10 +8,25 @@ import logging
 from typing import Dict, List, Optional
 import numpy as np
 
+from sqlalchemy.exc import ProgrammingError, OperationalError
+
 from data_warehouse.service.warehouse_service import WarehouseService
 from data_warehouse.models import ShortTermSignalTracking
 
 logger = logging.getLogger(__name__)
+
+
+def _empty_performance() -> Dict:
+    return {
+        'sample_count': 0,
+        'win_rate': 0.0,
+        'profit_factor': 0.0,
+        'avg_return': 0.0,
+        'sharpe_ratio': 0.0,
+        'max_drawdown': 0.0,
+        'avg_holding_days': 0.0,
+        'consecutive_losses': 0,
+    }
 
 
 class MonitorStatsService:
@@ -45,20 +60,14 @@ class MonitorStatsService:
                 .limit(recent_n)
                 .all()
             )
+        except (ProgrammingError, OperationalError) as e:
+            logger.warning(f"short_term_signal_tracking 表查询失败（可能表不存在）: {e}")
+            return _empty_performance()
         finally:
             session.close()
 
         if not rows:
-            return {
-                'sample_count': 0,
-                'win_rate': 0.0,
-                'profit_factor': 0.0,
-                'avg_return': 0.0,
-                'sharpe_ratio': 0.0,
-                'max_drawdown': 0.0,
-                'avg_holding_days': 0.0,
-                'consecutive_losses': 0,
-            }
+            return _empty_performance()
 
         returns = []
         holding_days = []
@@ -117,6 +126,9 @@ class MonitorStatsService:
                 .limit(recent_n)
                 .all()
             )
+        except (ProgrammingError, OperationalError) as e:
+            logger.warning(f"short_term_signal_tracking 表查询失败（可能表不存在）: {e}")
+            return {}
         finally:
             session.close()
 
