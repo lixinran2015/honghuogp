@@ -331,35 +331,49 @@ class EmotionAdaptiveAllocator:
     根据情绪周期自动调整基础权重配置
     """
 
-    # 不同情绪周期的基础权重配置（Phase 1 验证后：仅使用 leader_position 和 technical）
+    # 不同情绪周期的基础权重配置
     EMOTION_WEIGHTS = {
         '高涨期': {
-            'leader_position': 0.65,
-            'technical': 0.35,
+            'leader_position': 0.40,
+            'technical': 0.20,
+            'money_flow': 0.25,
+            'sentiment': 0.15,
         },
         '主升期': {
-            'leader_position': 0.60,
-            'technical': 0.40,
+            'leader_position': 0.35,
+            'technical': 0.25,
+            'money_flow': 0.25,
+            'sentiment': 0.15,
         },
         '震荡期': {
-            'leader_position': 0.55,
-            'technical': 0.45,
+            'leader_position': 0.30,
+            'technical': 0.25,
+            'money_flow': 0.25,
+            'sentiment': 0.20,
         },
         '分歧期': {
-            'leader_position': 0.50,
-            'technical': 0.50,
+            'leader_position': 0.25,
+            'technical': 0.30,
+            'money_flow': 0.25,
+            'sentiment': 0.20,
         },
         '低迷期': {
-            'leader_position': 0.40,
-            'technical': 0.60,
+            'leader_position': 0.20,
+            'technical': 0.35,
+            'money_flow': 0.20,
+            'sentiment': 0.25,
         },
         '退潮期': {
-            'leader_position': 0.35,
-            'technical': 0.65,
+            'leader_position': 0.15,
+            'technical': 0.30,
+            'money_flow': 0.20,
+            'sentiment': 0.35,
         },
         '冰点期': {
-            'leader_position': 0.30,
-            'technical': 0.70,
+            'leader_position': 0.10,
+            'technical': 0.35,
+            'money_flow': 0.15,
+            'sentiment': 0.40,
         },
     }
 

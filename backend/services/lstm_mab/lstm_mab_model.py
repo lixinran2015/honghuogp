@@ -69,10 +69,11 @@ class LSTMMABModel:
         mab_algorithm: str = 'thompson',
         emotion_cycle: str = '震荡期',
     ):
-        # Phase 1 验证结果：仅使用 leader_position（A级）和 technical（B级）两个有效因子
         self.factor_names = factor_names or [
             'leader_position',
             'technical',
+            'money_flow',
+            'sentiment',
         ]
 
         # 初始化LSTM特征提取器

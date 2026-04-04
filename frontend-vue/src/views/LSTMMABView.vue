@@ -48,19 +48,18 @@
 
     <!-- 使用因子展示 -->
     <div class="bg-white rounded-lg border border-border p-6">
-      <h3 class="text-lg font-semibold text-warmgray-900 mb-4">当前使用因子（Phase 1 验证通过）</h3>
-      <div class="flex gap-3">
+      <h3 class="text-lg font-semibold text-warmgray-900 mb-4">当前使用因子</h3>
+      <div class="flex gap-3 flex-wrap">
         <div
           v-for="factor in currentFactors"
           :key="factor.name"
           class="px-4 py-2 bg-cta/10 text-cta rounded-lg text-sm font-medium"
         >
           {{ factor.label }}
-          <span class="ml-1 text-xs opacity-75">({{ factor.grade }}级)</span>
         </div>
       </div>
       <p class="text-xs text-warmgray-500 mt-3">
-        * 基于 Phase 1 因子验证结果，仅使用 leader_position（A级）和 technical（B级）两个有效因子
+        * 使用 4 因子模型：龙头地位、技术形态、资金流向、情绪热度
       </p>
     </div>
 
@@ -166,7 +165,7 @@
     <!-- 股票评分测试 -->
     <div class="bg-white rounded-lg border border-border p-6">
       <h3 class="text-lg font-semibold text-warmgray-900 mb-4">股票评分预测</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div>
           <label class="block text-sm font-medium text-warmgray-700 mb-1">股票代码</label>
           <input
@@ -177,7 +176,7 @@
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-warmgray-700 mb-1">龙头地位得分 (0-100)</label>
+          <label class="block text-sm font-medium text-warmgray-700 mb-1">龙头地位 (0-100)</label>
           <input
             v-model.number="predictParams.factor_values.leader_position"
             type="number"
@@ -187,9 +186,29 @@
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-warmgray-700 mb-1">技术形态得分 (0-100)</label>
+          <label class="block text-sm font-medium text-warmgray-700 mb-1">技术形态 (0-100)</label>
           <input
             v-model.number="predictParams.factor_values.technical"
+            type="number"
+            min="0"
+            max="100"
+            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-warmgray-700 mb-1">资金流向 (0-100)</label>
+          <input
+            v-model.number="predictParams.factor_values.money_flow"
+            type="number"
+            min="0"
+            max="100"
+            class="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cta/20"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-warmgray-700 mb-1">情绪热度 (0-100)</label>
+          <input
+            v-model.number="predictParams.factor_values.sentiment"
             type="number"
             min="0"
             max="100"
@@ -247,8 +266,11 @@
             </div>
           </div>
         </div>
-        <div class="mt-3 text-xs text-warmgray-500">
-          技术权重: {{ (predictResult.factor_weights.technical * 100).toFixed(1) }}%
+        <div class="mt-3 text-xs text-warmgray-500 grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div>龙头: {{ (predictResult.factor_weights.leader_position * 100).toFixed(1) }}%</div>
+          <div>技术: {{ (predictResult.factor_weights.technical * 100).toFixed(1) }}%</div>
+          <div>资金: {{ (predictResult.factor_weights.money_flow * 100).toFixed(1) }}%</div>
+          <div>情绪: {{ (predictResult.factor_weights.sentiment * 100).toFixed(1) }}%</div>
         </div>
       </div>
     </div>
@@ -272,7 +294,7 @@
         </button>
       </div>
       <p class="text-xs text-warmgray-500 mt-3">
-        * 不同情绪周期下，因子权重会自动调整。高涨期龙头地位权重65%/技术形态35%，冰点期龙头地位30%/技术形态70%
+        * 不同情绪周期下，因子权重会自动调整。如：高涨期龙头地位权重提升至40%，冰点期技术形态权重提升至35%
       </p>
     </div>
   </div>
@@ -282,10 +304,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { PlayIcon, ArrowPathIcon, SparklesIcon } from '@heroicons/vue/24/outline'
 
-// 当前使用的因子（Phase 1 验证通过）
+// 当前使用的4因子
 const currentFactors = [
-  { name: 'leader_position', label: '龙头地位', grade: 'A' },
-  { name: 'technical', label: '技术形态', grade: 'B' },
+  { name: 'leader_position', label: '龙头地位' },
+  { name: 'technical', label: '技术形态' },
+  { name: 'money_flow', label: '资金流向' },
+  { name: 'sentiment', label: '情绪热度' },
 ]
 
 // 情绪周期选项
@@ -321,6 +345,8 @@ const predictParams = ref({
   factor_values: {
     leader_position: 80,
     technical: 75,
+    money_flow: 70,
+    sentiment: 65,
   },
 })
 

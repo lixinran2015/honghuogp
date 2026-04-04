@@ -195,7 +195,7 @@ class UnifiedShortTermScorer:
     def calculate_factor_values(
         self, stock_data: Dict[str, Any], trade_date: Optional[str]
     ) -> Dict[str, float]:
-        """计算 LSTM-MAB 所需的 2 因子值（Phase 1 验证：仅使用 leader_position 和 technical）"""
+        """计算 LSTM-MAB 所需的 4 因子值"""
         factors = {}
 
         # 龙头地位因子
@@ -268,8 +268,13 @@ class UnifiedShortTermScorer:
 
         factors["technical"] = max(0.0, min(100.0, technical_score))
 
-        # Note: Phase 1 验证结果，仅使用 leader_position 和 technical 两个有效因子
-        # money_flow 和 sentiment 因子已移除
+        # 资金流向因子
+        factors["money_flow"] = self._get_money_flow_factor(
+            stock_data.get("ts_code"), trade_date
+        )
+
+        # 情绪热度因子
+        factors["sentiment"] = self._get_sentiment_factor(stock_data, trade_date)
 
         return factors
 
