@@ -22,7 +22,7 @@ from backend.services.break_board_price_monitor import (
     BreakBoardPriceMonitor,
 )
 
-router = APIRouter(prefix="/break-board", tags=["断板监控"])
+router = APIRouter(prefix="/api/break-board", tags=["断板监控"])
 
 
 # ============ 数据模型 ============

@@ -427,3 +427,71 @@ async def get_limit_up_ladder():
             "error": str(e),
             "ladder": {},
         }
+
+
+@router.get("/broken-board-ladder")
+async def get_broken_board_ladder():
+    """
+    获取断板龙头梯队图数据
+
+    基于 fact_stock_watchlist_break_board 返回最近日期的断板龙头股票，
+    并按断板前连板高度分组。含20%标记、断板状态等字段。
+    """
+    try:
+        from data_warehouse.service.warehouse_service import WarehouseService
+        from data_warehouse.models import FactStockWatchlistBreakBoard, DimStock
+        from sqlalchemy import func
+
+        ws = WarehouseService()
+        session = ws.get_session()
+
+        try:
+            latest_date = session.query(
+                func.max(FactStockWatchlistBreakBoard.break_date)
+            ).scalar()
+            if not latest_date:
+                return {"success": True, "trade_date": None, "ladder": {}}
+
+            results = session.query(
+                FactStockWatchlistBreakBoard.ts_code,
+                DimStock.name,
+                FactStockWatchlistBreakBoard.consecutive_limit_up,
+                FactStockWatchlistBreakBoard.break_status,
+                FactStockWatchlistBreakBoard.price_change_pct,
+                FactStockWatchlistBreakBoard.is_leader,
+            ).outerjoin(
+                DimStock, FactStockWatchlistBreakBoard.ts_code == DimStock.ts_code
+            ).filter(
+                FactStockWatchlistBreakBoard.break_date == latest_date,
+                FactStockWatchlistBreakBoard.is_leader == True,
+            ).all()
+
+            ladder = {}
+            for ts_code, name, consecutive_limit_up, break_status, price_change_pct, is_leader in results:
+                height = consecutive_limit_up or 1
+                if height not in ladder:
+                    ladder[height] = []
+                ladder[height].append({
+                    "ts_code": ts_code,
+                    "name": name or ts_code,
+                    "break_status": break_status,
+                    "price_change_pct": round(float(price_change_pct), 2) if price_change_pct else None,
+                    "is_leader": bool(is_leader),
+                })
+
+            return {
+                "success": True,
+                "trade_date": str(latest_date),
+                "ladder": ladder,
+            }
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        logger.error(f"获取断板梯队失败: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "ladder": {},
+        }

@@ -19,10 +19,10 @@ from sqlalchemy.orm import Session
 from data_warehouse.models import (
     FactStockWatchlistBreakBoard,
     FactBreakBoardMonitorLog,
-    FactSectorLeaderSnapshot,
     FactLimitUpDaily,
     FactDailyPriceQfq,
     FactLeaderTrackingPool,
+    DimStock,
 )
 from data_warehouse.db import get_session
 
@@ -131,50 +131,30 @@ class BreakBoardDetectionService:
         """
         leaders = {}
 
-        # 从龙头快照表获取
-        snapshots = self.session.query(FactSectorLeaderSnapshot).filter(
-            FactSectorLeaderSnapshot.trade_date == trade_date,
-            FactSectorLeaderSnapshot.continuous_limit >= 2
-        ).all()
-
-        for snapshot in snapshots:
-            ts_code = snapshot.ts_code
-            if ts_code not in leaders:
-                leaders[ts_code] = {
-                    "name": snapshot.name,
-                    "consecutive_limit_up": snapshot.continuous_limit,
-                    "max_limit_up_date": trade_date,
-                    "sectors": [snapshot.sector_name] if snapshot.sector_name else [],
-                    "is_space": True,
-                    "is_new": False,
-                }
-            else:
-                # 更新最高连板数
-                if snapshot.continuous_limit > leaders[ts_code]["consecutive_limit_up"]:
-                    leaders[ts_code]["consecutive_limit_up"] = snapshot.continuous_limit
-                # 合并板块
-                if snapshot.sector_name and snapshot.sector_name not in leaders[ts_code]["sectors"]:
-                    leaders[ts_code]["sectors"].append(snapshot.sector_name)
-
-        # 从涨停表补充（可能没有板块信息）
-        limit_ups = self.session.query(FactLimitUpDaily).filter(
+        # 从涨停表获取2连板以上股票，并关联 DimStock 取名称
+        results = self.session.query(
+            FactLimitUpDaily.ts_code,
+            FactLimitUpDaily.continuous_days,
+            DimStock.name,
+        ).join(
+            DimStock, FactLimitUpDaily.ts_code == DimStock.ts_code
+        ).filter(
             FactLimitUpDaily.trade_date == trade_date,
-            FactLimitUpDaily.consecutive_boards >= 2
+            FactLimitUpDaily.continuous_days >= 2
         ).all()
 
-        for lu in limit_ups:
-            ts_code = lu.ts_code
+        for ts_code, continuous_days, name in results:
             if ts_code not in leaders:
                 leaders[ts_code] = {
-                    "name": lu.name,
-                    "consecutive_limit_up": lu.consecutive_boards,
+                    "name": name or ts_code,
+                    "consecutive_limit_up": continuous_days,
                     "max_limit_up_date": trade_date,
                     "sectors": [],
                     "is_space": True,
                     "is_new": False,
                 }
 
-        # 从跟踪池获取龙头类型标记
+        # 从跟踪池获取龙头类型标记和板块信息
         for ts_code in leaders:
             pool_entry = self.session.query(FactLeaderTrackingPool).filter(
                 FactLeaderTrackingPool.ts_code == ts_code
@@ -279,7 +259,7 @@ class BreakBoardDetectionService:
         ).first()
 
         if lu_data:
-            consecutive = lu_data.consecutive_boards
+            consecutive = lu_data.continuous_days
 
             # 检查是否已存在记录
             existing = self.session.query(FactStockWatchlistBreakBoard).filter(

@@ -210,15 +210,65 @@
                     'px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors',
                     stock.is_space_leader
                       ? 'bg-red-100 text-red-700 border border-red-200'
-                      : 'bg-warmgray-100 text-warmgray-700 hover:bg-warmgray-200'
+                      : is20cmLimitUp(stock.ts_code)
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200'
+                        : 'bg-warmgray-100 text-warmgray-700 hover:bg-warmgray-200'
                   ]"
                   @click="viewStockDetail(stock)"
                 >
                   {{ stock.name }}
                   <span v-if="stock.is_space_leader" class="ml-1">👑</span>
+                  <span v-else-if="is20cmLimitUp(stock.ts_code)" class="ml-1">20%</span>
                 </span>
                 <span v-if="item.stocks.length === 0" class="text-xs text-warmgray-400">-</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 断板龙头梯队图 -->
+        <div class="bg-white rounded-lg border border-border p-4">
+          <h2 class="text-sm font-semibold text-warmgray-900 mb-3 flex items-center gap-2">
+            <RectangleStackIcon class="w-4 h-4 text-loss" />
+            断板龙头梯队图
+          </h2>
+
+          <div class="space-y-2">
+            <div
+              v-for="item in sortedBrokenBoardLadder"
+              :key="item.height"
+              class="flex items-center gap-3"
+            >
+              <div class="w-12 text-xs font-medium text-warmgray-500 text-right">
+                {{ item.height }}板
+              </div>
+              <div class="flex-1 flex items-center gap-2 flex-wrap">
+                <span
+                  v-for="stock in item.stocks"
+                  :key="stock.ts_code"
+                  :class="[
+                    'px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors',
+                    stock.break_status === 'rebound'
+                      ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200'
+                      : stock.break_status === 'recovered'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
+                        : 'bg-loss/10 text-loss border border-loss/20 hover:bg-loss/20'
+                  ]"
+                  @click="viewStockDetail(stock)"
+                >
+                  {{ stock.name }}
+                  <span
+                    v-if="stock.price_change_pct !== null"
+                    :class="stock.price_change_pct >= 0 ? 'text-green-600 ml-1' : 'text-loss ml-1'"
+                  >
+                    {{ stock.price_change_pct > 0 ? '+' : '' }}{{ stock.price_change_pct }}%
+                  </span>
+                </span>
+                <span v-if="item.stocks.length === 0" class="text-xs text-warmgray-400">-</span>
+              </div>
+            </div>
+            <div v-if="sortedBrokenBoardLadder.length === 0" class="text-xs text-warmgray-400 py-2">
+              暂无断板龙头数据
             </div>
           </div>
         </div>
@@ -407,6 +457,7 @@ const error = ref(null)
 const marketBrief = ref({})
 const topPicks = ref([])
 const leaderLadder = ref({})
+const brokenBoardLadder = ref({})
 const holdings = ref([])
 const sectorHeat = ref([])
 const circuitBreaker = ref(null)
@@ -434,6 +485,20 @@ const sortedLadder = computed(() => {
       const na = Number(a)
       const nb = Number(b)
       // 非数字键（如"观察"）始终放最后
+      if (Number.isNaN(na) && Number.isNaN(nb)) return 0
+      if (Number.isNaN(na)) return 1
+      if (Number.isNaN(nb)) return -1
+      return nb - na
+    })
+    .map(([height, stocks]) => ({ height, stocks }))
+  return entries
+})
+
+const sortedBrokenBoardLadder = computed(() => {
+  const entries = Object.entries(brokenBoardLadder.value)
+    .sort(([a], [b]) => {
+      const na = Number(a)
+      const nb = Number(b)
       if (Number.isNaN(na) && Number.isNaN(nb)) return 0
       if (Number.isNaN(na)) return 1
       if (Number.isNaN(nb)) return -1
@@ -484,6 +549,12 @@ function getSectorBubbleClass(heat) {
   return 'w-10 h-10 bg-warmgray-300 text-warmgray-700'
 }
 
+function is20cmLimitUp(ts_code) {
+  if (!ts_code) return false
+  const prefix = ts_code.split('.')[0]
+  return prefix.startsWith('300') || prefix.startsWith('301') || prefix.startsWith('688')
+}
+
 async function fetchMarketBrief() {
   try {
     const response = await fetch('/api/short-term/dashboard/market-brief')
@@ -518,6 +589,18 @@ async function fetchLeaderLadder() {
     }
   } catch (e) {
     console.error('获取龙头梯队失败:', e)
+  }
+}
+
+async function fetchBrokenBoardLadder() {
+  try {
+    const response = await fetch('/api/short-term/dashboard/broken-board-ladder')
+    const data = await response.json()
+    if (data.success && data.ladder) {
+      brokenBoardLadder.value = data.ladder
+    }
+  } catch (e) {
+    console.error('获取断板梯队失败:', e)
   }
 }
 
@@ -586,6 +669,7 @@ async function refreshAllData() {
     fetchMarketBrief(),
     fetchTopPicks(),
     fetchLeaderLadder(),
+    fetchBrokenBoardLadder(),
     fetchHoldings(),
     fetchSectorHeat(),
     fetchCircuitBreaker(),
