@@ -834,6 +834,8 @@ class DataScheduler:
                         'pe_pb_update': 'pe_pb_update',
                         'abnormal_analysis_scan': 'abnormal_analysis_scan',
                         'limit_up_emotion_update': 'limit_up_emotion_update',
+                        'break_board_detect': 'break_board_detection',
+                        'break_board_price_monitor': 'break_board_price_monitor',
                     }
                     
                     expected_type = EXPECTED_TASK_TYPES.get(task.task_name)
@@ -895,6 +897,14 @@ class DataScheduler:
                                 tracker = RecommendationTracker()
                                 result = tracker.auto_close()
                                 logger.info(f"✅ 任务执行完成: {task_display_name}, 平仓 {result.get('closed', 0)} 只")
+                            elif task_type == 'break_board_detection':
+                                from backend.services.break_board_detection_service import run_break_board_detection
+                                result = run_break_board_detection()
+                                logger.info(f"✅ 任务执行完成: {task_display_name}, 断板 {result.get('break_boards', 0)} 只")
+                            elif task_type == 'break_board_price_monitor':
+                                from backend.services.break_board_price_monitor import run_price_monitor
+                                result = run_price_monitor()
+                                logger.info(f"✅ 任务执行完成: {task_display_name}, 监控 {result.get('monitored_count', 0)} 只, 提醒 {result.get('alerts_triggered', 0)} 条")
                             else:
                                 from backend.services.data.data_management_service import DataManagementService
                                 data_management_service = DataManagementService()
