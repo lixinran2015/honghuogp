@@ -51,6 +51,7 @@ const routes = [
   { path: '/leader-optimization', component: () => import('./views/LeaderOptimizationView.vue') },
   { path: '/lstm-mab', component: () => import('./views/LSTMMABView.vue') },
   { path: '/lstm-mab-evolution', component: () => import('./views/LSTMMABEvolutionView.vue') },
+  { path: '/monitor-dashboard', component: () => import('./views/MonitorDashboardView.vue') },
 ]
 
 const router = createRouter({
