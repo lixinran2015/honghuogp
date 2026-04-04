@@ -381,6 +381,51 @@ class DailyFeedbackLoop:
         finally:
             session.close()
 
+    def process_signal_tracking_feedback(self, dry_run: bool = False):
+        """
+        从 short_term_signal_tracking 读取已平仓信号，生成 feedback。
+        用于将实际买卖点策略的执行结果回传到模型进化系统。
+        """
+        session = self.ws.get_session()
+        try:
+            query = text("""
+                SELECT s.prediction_id, s.ts_code, s.signal_date as prediction_date,
+                       p.expected_return, s.total_return as actual_return
+                FROM short_term_signal_tracking s
+                JOIN lstm_mab_predictions p ON s.prediction_id = p.id
+                LEFT JOIN lstm_mab_feedback f ON s.prediction_id = f.prediction_id
+                WHERE s.exit_date IS NOT NULL
+                  AND s.prediction_id IS NOT NULL
+                  AND f.id IS NULL
+                ORDER BY s.signal_date
+            """)
+            rows = session.execute(query).fetchall()
+            if not rows:
+                logger.info("📭 没有来自信号跟踪表的新反馈")
+                return
+
+            feedback_df = pd.DataFrame(rows, columns=[
+                'prediction_id', 'ts_code', 'prediction_date',
+                'expected_return', 'actual_return'
+            ])
+
+            logger.info(f"📊 找到 {len(feedback_df)} 条来自信号跟踪表的实际收益记录")
+
+            if not dry_run:
+                self.save_feedback_to_db(feedback_df)
+                self.update_performance_metrics(feedback_df)
+                logger.info("✅ 信号跟踪表反馈已保存")
+
+        except Exception as e:
+            logger.error(f"❌ 处理信号跟踪反馈失败: {e}", exc_info=True)
+        finally:
+            session.close()
+
+    async def process_signal_tracking_feedback_async(self, dry_run: bool = False):
+        """异步处理信号跟踪反馈"""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, self.process_signal_tracking_feedback, dry_run)
+
     def run(self, target_date: Optional[date] = None, dry_run: bool = False):
         """
         执行完整的反馈循环
@@ -424,6 +469,9 @@ class DailyFeedbackLoop:
         if not dry_run:
             self.save_feedback_to_db(feedback)
             self.update_performance_metrics(feedback)
+
+        # 5. 处理信号跟踪表反馈
+        self.process_signal_tracking_feedback(dry_run=dry_run)
 
         logger.info("=" * 60)
         logger.info("✅ 每日反馈循环完成")
@@ -477,6 +525,9 @@ class DailyFeedbackLoop:
                 self.update_performance_metrics_async(feedback),
                 return_exceptions=True
             )
+
+        # 5. 异步处理信号跟踪表反馈
+        await self.process_signal_tracking_feedback_async(dry_run=dry_run)
 
         logger.info("=" * 60)
         logger.info("✅ 每日反馈循环完成 (异步模式)")

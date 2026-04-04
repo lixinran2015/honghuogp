@@ -115,6 +115,7 @@ class SignalTrackingService:
                     'buy_point_type': bs.get('signal_type'),
                     'lstm_mab_score': stock.get('lstm_mab_score', {}).get('total_score'),
                     'grade': stock.get('lstm_mab_score', {}).get('grade'),
+                    'prediction_id': stock.get('lstm_mab_score', {}).get('prediction_id'),
                 })
 
         if not candidates:
@@ -150,6 +151,7 @@ class SignalTrackingService:
                     lstm_mab_score=cand['lstm_mab_score'],
                     grade=cand['grade'],
                     emotion_cycle=emotion_cycle,
+                    prediction_id=cand['prediction_id'],
                 )
                 session.add(record)
                 inserted += 1
@@ -162,6 +164,39 @@ class SignalTrackingService:
             session.close()
 
         return inserted
+
+    def record_actual_trade(
+        self,
+        signal_id: str,
+        actual_entry_price: Optional[float] = None,
+        actual_quantity: Optional[int] = None,
+    ) -> bool:
+        """
+        记录实盘成交信息。
+        用于小仓位实盘验证，将实际成交价格/数量写入信号跟踪表。
+        """
+        session = self.ws.get_session()
+        try:
+            record = session.query(ShortTermSignalTracking).filter(
+                ShortTermSignalTracking.signal_id == signal_id
+            ).first()
+            if not record:
+                logger.warning(f"未找到信号记录: {signal_id}")
+                return False
+
+            if actual_entry_price is not None:
+                record.actual_entry_price = actual_entry_price
+            if actual_quantity is not None:
+                record.actual_quantity = actual_quantity
+            session.commit()
+            logger.info(f"实盘成交已记录: {signal_id} 价格={actual_entry_price} 数量={actual_quantity}")
+            return True
+        except Exception as e:
+            logger.error(f"记录实盘成交失败: {e}", exc_info=True)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
     def _get_close_prices(self, ts_codes: List[str], trade_date_str: str) -> Dict[str, float]:
         """批量查询收盘价"""

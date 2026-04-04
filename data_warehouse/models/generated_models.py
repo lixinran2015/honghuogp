@@ -1472,5 +1472,8 @@ class ShortTermSignalTracking(Base):
     lstm_mab_score: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(6, 2), comment='AI评分')
     grade: Mapped[Optional[str]] = mapped_column(String(2), comment='等级')
     emotion_cycle: Mapped[Optional[str]] = mapped_column(String(20), comment='情绪周期')
+    prediction_id: Mapped[Optional[int]] = mapped_column(Integer, comment='关联的 LSTM-MAB 预测记录 ID')
+    actual_entry_price: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='实际成交买入价')
+    actual_quantity: Mapped[Optional[int]] = mapped_column(Integer, comment='实际成交数量')
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))

@@ -13,6 +13,7 @@ import logging
 
 from backend.services.trading.monitor_stats_service import MonitorStatsService
 from backend.services.leader_tracking.model_monitor import ModelMonitor
+from backend.services.lstm_mab import get_evolution_service
 from data_warehouse.service.warehouse_service import WarehouseService
 from data_warehouse.models import ShortTermSignalTracking
 
@@ -114,3 +115,20 @@ async def get_circuit_breaker_status() -> Dict:
     except Exception as e:
         logger.error(f"获取熔断状态失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取熔断状态失败: {str(e)}")
+
+
+@router.get("/evolution-report")
+async def get_evolution_report() -> Dict:
+    """
+    获取模型进化报告（复用 LSTM-MAB 进化服务）
+    """
+    try:
+        evo_service = get_evolution_service()
+        report = evo_service.get_evolution_report()
+        return {
+            "success": True,
+            "report": report,
+        }
+    except Exception as e:
+        logger.error(f"获取进化报告失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取进化报告失败: {str(e)}")
