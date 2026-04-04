@@ -1445,3 +1445,32 @@ class TaskExecutionLog(Base):
     error_message: Mapped[str] = mapped_column(Text)
     records_processed: Mapped[Optional[int]] = mapped_column(Integer, server_default=text('0'))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+
+class ShortTermSignalTracking(Base):
+    __tablename__ = 'short_term_signal_tracking'
+
+    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, server_default=text("nextval('short_term_signal_tracking_id_seq'::regclass)"))
+    signal_id: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, comment='信号唯一标识')
+    ts_code: Mapped[str] = mapped_column(String(20), nullable=False, comment='股票代码')
+    signal_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, comment='信号日期')
+    signal_type: Mapped[str] = mapped_column(String(20), nullable=False, comment='信号类型：leader / limit_up / startup')
+    buy_point_type: Mapped[Optional[str]] = mapped_column(String(50), comment='买点类型')
+    entry_price: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='建议买入价')
+    day1_high: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='次日最高价')
+    day1_close: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='次日收盘价')
+    day3_max: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='3日内最高价')
+    day3_close: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='第3日收盘价')
+    day5_max: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='5日内最高价')
+    day5_close: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='第5日收盘价')
+    exit_price: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 2), comment='实际退出价')
+    exit_date: Mapped[Optional[datetime.date]] = mapped_column(Date, comment='实际退出日期')
+    exit_reason: Mapped[Optional[str]] = mapped_column(String(20), comment='退出原因')
+    total_return: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='总收益率')
+    max_drawdown: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='最大回撤')
+    holding_days: Mapped[Optional[int]] = mapped_column(Integer, comment='实际持仓天数')
+    lstm_mab_score: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(6, 2), comment='AI评分')
+    grade: Mapped[Optional[str]] = mapped_column(String(2), comment='等级')
+    emotion_cycle: Mapped[Optional[str]] = mapped_column(String(20), comment='情绪周期')
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))

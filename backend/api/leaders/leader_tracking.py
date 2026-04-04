@@ -12,6 +12,7 @@ from fastapi import APIRouter, Query, HTTPException
 
 from backend.services.leader_tracking.leader_tracking_pool_service import LeaderTrackingPoolService
 from backend.services.leader_tracking.leader_recent_days_service import LeaderRecentDaysService
+from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
 from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 
@@ -535,6 +536,23 @@ async def get_leader_tracking_pool(
             result['pool'] = scored_stocks
             result['model_scored'] = True
 
+    # 附加买点信号（无论是否请求评分）
+    if result.get('success') and result.get('pool'):
+        try:
+            td_str = result.get('trade_date')
+            warehouse = _get_warehouse()
+            emotion_cycle = model.mab.current_emotion if (with_scores and model) else _get_auto_emotion_cycle(td_str, warehouse)
+            buy_signals = get_buy_signals_for_pool(
+                result['pool'],
+                trade_date_str=td_str,
+                warehouse=warehouse,
+                emotion_cycle=emotion_cycle,
+            )
+            for item in result['pool']:
+                item['buy_signal'] = buy_signals.get(item.get('ts_code'))
+        except Exception as e:
+            logger.warning(f"买点信号计算失败（不影响主逻辑）: {e}")
+
     return result
 
 
@@ -767,6 +785,20 @@ async def get_top_scored_leaders(
         key=lambda x: x.get('lstm_mab_score', {}).get('total_score', 0),
         reverse=True
     )
+
+    # 附加买点信号
+    try:
+        warehouse = _get_warehouse()
+        buy_signals = get_buy_signals_for_pool(
+            scored_stocks,
+            trade_date_str=td_str,
+            warehouse=warehouse,
+            emotion_cycle=emotion_cycle,
+        )
+        for item in scored_stocks:
+            item['buy_signal'] = buy_signals.get(item.get('ts_code'))
+    except Exception as e:
+        logger.warning(f"Top-scored 买点信号计算失败（不影响主逻辑）: {e}")
 
     return {
         'success': True,

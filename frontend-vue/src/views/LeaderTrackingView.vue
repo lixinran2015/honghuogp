@@ -269,6 +269,12 @@
                     预期: {{ stock.lstm_mab_score?.expected_return?.toFixed ? `${stock.lstm_mab_score.expected_return.toFixed(1)}%` : '-' }}
                   </div>
                 </div>
+                <div v-if="stock.buy_signal" class="flex items-center gap-1 mt-0.5">
+                  <span class="text-2xs px-1 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                    {{ stock.buy_signal.signal_type }}
+                  </span>
+                  <span class="text-2xs text-warmgray-500">{{ stock.buy_signal.strength_score }}分</span>
+                </div>
                 <div class="text-2xs text-warmgray-400 mt-0.5">
                   {{ stock.is_space && stock.is_new ? '空间+刚启动' : stock.is_space ? '空间龙头' : '刚启动' }}
                   <span v-if="stock.continuous_limit">· 连板{{ stock.continuous_limit }}</span>
@@ -573,22 +579,20 @@
               </div>
               <div class="text-center">
                 <span
-                  v-if="buyPointMap[row.ts_code]?.type === 'breakout'"
-                  class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700"
+                  v-if="buyPointMap[row.ts_code]?.type"
+                  class="inline-flex flex-col items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                  :class="{
+                    'bg-amber-50 text-amber-700': true,
+                    'bg-indigo-50 text-indigo-700': ['右侧接力', '断板反包'].includes(buyPointMap[row.ts_code].type),
+                    'bg-sky-50 text-sky-700': ['缩量回踩', '龙头首阴', '分时低吸'].includes(buyPointMap[row.ts_code].type),
+                    'bg-emerald-50 text-emerald-700': ['首板放量', '二板缩量', '三板换手', '刚启动'].includes(buyPointMap[row.ts_code].type)
+                  }"
+                  :title="buyPointMap[row.ts_code]?.confidence || ''"
                 >
-                  右侧接力
-                </span>
-                <span
-                  v-else-if="buyPointMap[row.ts_code]?.type === 'pullback'"
-                  class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-50 text-sky-700"
-                >
-                  缩量回踩
-                </span>
-                <span
-                  v-else-if="buyPointMap[row.ts_code]?.type === 'first_move'"
-                  class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700"
-                >
-                  刚启动
+                  {{ buyPointMap[row.ts_code].type }}
+                  <span v-if="buyPointMap[row.ts_code]?.strength_score" class="text-[9px] opacity-80">
+                    {{ buyPointMap[row.ts_code].strength_score }}分
+                  </span>
                 </span>
                 <span v-else class="--text-warmgray-500">--</span>
               </div>
@@ -1170,6 +1174,11 @@ const sortOrder = ref('desc') // asc | desc
 const buyPointMapFresh = computed(() => {
   const stats = rowStatsPlain.value || {}
   const klinesMap = rowKlinesPlain.value || {}
+  const rows = leaderRowsBase.value || []
+  const rowByCode = {}
+  for (const r of rows) {
+    if (r?.ts_code) rowByCode[r.ts_code] = r
+  }
   const res = {}
 
   const pctLastBarFromDb = (code) => {
@@ -1265,6 +1274,18 @@ const buyPointMapFresh = computed(() => {
     if (isBreakout) type = 'breakout'
     else if (isPullback) type = 'pullback'
     else if (isFirstMove) type = 'first_move'
+
+    const backendSignal = rowByCode[code]?.buy_signal
+    if (backendSignal?.signal_type) {
+      res[code] = {
+        type: backendSignal.signal_type,
+        strength_score: backendSignal.strength_score,
+        confidence: backendSignal.confidence,
+        suggested_position: backendSignal.suggested_position,
+        source: 'backend',
+      }
+      continue
+    }
 
     res[code] = { type }
   }
