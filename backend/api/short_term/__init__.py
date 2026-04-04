@@ -147,6 +147,14 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ 短线仪表盘路由加载失败: {e}")
 
+# 监控与熔断
+try:
+    from backend.api.short_term import monitor
+    router.include_router(monitor.router)
+    logger.info("✅ 短线监控路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 短线监控路由加载失败: {e}")
+
 # 龙头优化系统路由（Phase 1-6）
 try:
     from backend.api.leader_optimization_routes import register_leader_optimization_routes

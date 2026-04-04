@@ -65,6 +65,29 @@ def main():
         count = svc.update_open_signals(trade_date)
         logger.info(f"更新未平仓信号: {count} 条")
 
+    # 每日盘后检查熔断状态
+    try:
+        from backend.services.trading.monitor_stats_service import MonitorStatsService
+        stats_svc = MonitorStatsService()
+        perf = stats_svc.get_performance(recent_n=20)
+        from backend.services.leader_tracking.model_monitor import ModelMonitor
+        monitor = ModelMonitor()
+        report = monitor.check_all_metrics({
+            'win_rate': perf['win_rate'],
+            'profit_loss_ratio': perf['profit_factor'],
+            'max_drawdown': perf['max_drawdown'],
+            'signal_accuracy': perf['win_rate'],
+            'daily_returns': [],
+        })
+        if report.get('circuit_breaker_triggered'):
+            logger.warning(
+                f"⚠️ 熔断触发！健康度={report.get('health_score')} 关键告警={report.get('critical_count')} 建议={'; '.join(report.get('suggestions', []))}"
+            )
+        else:
+            logger.info(f"熔断检查正常，健康度={report.get('health_score')}")
+    except Exception as e:
+        logger.warning(f"熔断检查失败: {e}")
+
     logger.info("信号跟踪表更新完成")
 
 

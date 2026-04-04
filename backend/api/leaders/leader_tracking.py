@@ -15,6 +15,7 @@ from backend.services.leader_tracking.leader_recent_days_service import LeaderRe
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
 from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
+from backend.services.trading.monitor_stats_service import MonitorStatsService
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
 logger = logging.getLogger(__name__)
@@ -800,7 +801,18 @@ async def get_top_scored_leaders(
     except Exception as e:
         logger.warning(f"Top-scored 买点信号计算失败（不影响主逻辑）: {e}")
 
-    return {
+    # 熔断检查
+    circuit_breaker_warning = None
+    try:
+        if MonitorStatsService().is_trading_paused():
+            circuit_breaker_warning = (
+                "模型监控触发熔断，近期表现不佳，建议暂停新开仓，"
+                "关注现有持仓的止损与止盈。"
+            )
+    except Exception as e:
+        logger.warning(f"熔断检查失败（不影响主逻辑）: {e}")
+
+    response = {
         'success': True,
         'model_available': True,
         'trade_date': result.get('trade_date'),
@@ -808,3 +820,6 @@ async def get_top_scored_leaders(
         'total_count': len(scored_stocks),
         'top_stocks': scored_stocks[:top_n] if top_n else scored_stocks
     }
+    if circuit_breaker_warning:
+        response['circuit_breaker_warning'] = circuit_breaker_warning
+    return response
