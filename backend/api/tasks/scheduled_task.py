@@ -377,23 +377,27 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'daily_update': 'daily_update',
                 'fundamental_update': 'fundamental_update',
                 'refresh_snapshot': 'refresh_snapshot',
-                'sector_heat_update': 'sector_heat_update',
-                'sector_leaders_update': 'sector_leaders_update',
                 'sync_stock': 'sync_stock',
                 'sync_industry': 'sync_industry',
                 'moneyflow_update': 'moneyflow_update',
+                'money_flow_update': 'money_flow_update',
                 'industry_cycle_collect': 'industry_cycle_collect',
                 's1_universe_update': 's1_universe_update',
                 'sync_trade_calendar': 'sync_trade_calendar',
                 'guba_popularity_crawl': 'guba_popularity_crawl',
-                'limit_up_volume_shrink': 'limit_up_volume_shrink',
+                'guba_popularity_crawl_morning': 'guba_popularity_crawl',
+                'guba_popularity_crawl_noon': 'guba_popularity_crawl',
                 'abnormal_analysis_scan': 'abnormal_analysis_scan',
+                'recommendation_daily': 'recommendation_daily',
                 'recommendation_daily_track': 'recommendation_daily_track',
                 'recommendation_auto_close': 'recommendation_auto_close',
-                'money_flow_update': 'money_flow_update',
+                'north_money_update': 'north_money_update',
                 'north_holding_update': 'north_holding_update',
                 'north_flow_update': 'north_flow_update',
+                'sector_daily_maintenance': 'sector_daily_maintenance',
+                'sector_heat_update': 'sector_heat_update',
                 'sector_daily_update': 'sector_daily_update',
+                'sector_leaders_update': 'sector_leaders_update',
                 'limit_up_emotion_update': 'limit_up_emotion_update',
                 'break_board_detect': 'break_board_detection',
                 'break_board_price_monitor': 'break_board_price_monitor',
@@ -462,13 +466,6 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                     "message": f"任务 {task_name} 已触发执行"
                 }
             
-            # 涨停缩量功能已下线，跳过执行
-            if task_type == 'limit_up_volume_shrink':
-                return {
-                    "success": False,
-                    "message": "涨停缩量功能已下线，已跳过执行"
-                }
-
             # 断板检测任务
             if task_type == 'break_board_detection':
                 from backend.services.break_board_detection_service import run_break_board_detection

@@ -819,20 +819,29 @@ class DataScheduler:
                         'daily_update': 'daily_update',
                         'fundamental_update': 'fundamental_update',
                         'refresh_snapshot': 'refresh_snapshot',
-                        'sector_heat_update': 'sector_heat_update',
-                        'sector_leaders_update': 'sector_leaders_update',
                         'sync_stock': 'sync_stock',
+                        'sync_industry': 'sync_industry',
                         'sync_trade_calendar': 'sync_trade_calendar',
+                        'moneyflow_update': 'moneyflow_update',
+                        'money_flow_update': 'money_flow_update',
+                        'guba_popularity_crawl': 'guba_popularity_crawl',
                         'guba_popularity_crawl_morning': 'guba_popularity_crawl',
                         'guba_popularity_crawl_noon': 'guba_popularity_crawl',
-                        'limit_up_volume_shrink': 'limit_up_volume_shrink',
-                        'recommendation_daily_track': 'recommendation_daily_track',
-                        'recommendation_auto_close': 'recommendation_auto_close',
                         's1_universe_update': 's1_universe_update',
                         'industry_cycle_collect': 'industry_cycle_collect',
                         'industry_cycle_suggest': 'industry_cycle_suggest',
                         'pe_pb_update': 'pe_pb_update',
                         'abnormal_analysis_scan': 'abnormal_analysis_scan',
+                        'recommendation_daily': 'recommendation_daily',
+                        'recommendation_daily_track': 'recommendation_daily_track',      # deprecated，同 recommendation_daily
+                        'recommendation_auto_close': 'recommendation_auto_close',        # deprecated，同 recommendation_daily
+                        'north_money_update': 'north_money_update',
+                        'north_holding_update': 'north_holding_update',                  # deprecated，同 north_money_update
+                        'north_flow_update': 'north_flow_update',                        # deprecated，同 north_money_update
+                        'sector_daily_maintenance': 'sector_daily_maintenance',
+                        'sector_heat_update': 'sector_heat_update',                      # deprecated，同 sector_daily_maintenance
+                        'sector_daily_update': 'sector_daily_update',                    # deprecated，同 sector_daily_maintenance
+                        'sector_leaders_update': 'sector_leaders_update',                # deprecated，同 sector_daily_maintenance
                         'limit_up_emotion_update': 'limit_up_emotion_update',
                         'break_board_detect': 'break_board_detection',
                         'break_board_price_monitor': 'break_board_price_monitor',
@@ -887,16 +896,12 @@ class DataScheduler:
                                 abnormal_svc = AbnormalAnalysisService()
                                 result = abnormal_svc.run_daily_scan(max_stocks=30)
                                 logger.info(f"✅ 任务执行完成: {task_display_name}, 分析 {result.get('analyzed', 0)} 只, 保存 {result.get('saved', 0)} 只")
-                            elif task_type == 'recommendation_daily_track':
+                            elif task_type in ('recommendation_daily', 'recommendation_daily_track', 'recommendation_auto_close'):
                                 from backend.services.recommendation.recommendation_tracker import RecommendationTracker
                                 tracker = RecommendationTracker()
-                                result = tracker.track_daily()
-                                logger.info(f"✅ 任务执行完成: {task_display_name}, 追踪 {result.get('tracked', 0)} 只")
-                            elif task_type == 'recommendation_auto_close':
-                                from backend.services.recommendation.recommendation_tracker import RecommendationTracker
-                                tracker = RecommendationTracker()
-                                result = tracker.auto_close()
-                                logger.info(f"✅ 任务执行完成: {task_display_name}, 平仓 {result.get('closed', 0)} 只")
+                                result_track = tracker.track_daily()
+                                result_close = tracker.auto_close()
+                                logger.info(f"✅ 任务执行完成: {task_display_name}, 追踪 {result_track.get('tracked', 0)} 只, 平仓 {result_close.get('closed', 0)} 只")
                             elif task_type == 'break_board_detection':
                                 from backend.services.break_board_detection_service import run_break_board_detection
                                 result = run_break_board_detection()

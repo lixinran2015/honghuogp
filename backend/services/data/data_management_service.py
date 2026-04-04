@@ -44,18 +44,23 @@ class DataManagementService:
         'sync_stock',
         'sync_industry',          # 申万行业同步（dim_stock.industry 统一为申万一级）
         'moneyflow_update',       # 资金流向（行业/板块，Tushare moneyflow_ind_ths）
-        'limit_up_volume_shrink',  # 已下线，触发时仅记录并跳过
         's1_universe_update',
         'industry_cycle_collect',  # 行业周期数据采集（含申万行业同步）
         'industry_cycle_suggest',  # 行业周期建议生成（suggest_YYYYMMDD.json）
         'pe_pb_update',  # 从 Tushare daily_basic 更新 fact_daily_price_qfq 的 PE/PB
         'abnormal_analysis_scan',  # 异动分析扫描（收盘后自动扫描异动股票）
-        'recommendation_daily_track',  # 推荐效果追踪（每日更新推荐表现）
-        'recommendation_auto_close',   # 推荐自动平仓（触及止损/止盈）
+        'recommendation_daily',        # 推荐系统日终维护（追踪+自动平仓）
+        'recommendation_daily_track',  # 已合并到 recommendation_daily
+        'recommendation_auto_close',   # 已合并到 recommendation_daily
+        'moneyflow_update',            # 资金流向（行业/板块）
         'money_flow_update',           # 个股主力资金 fact_money_flow
-        'north_holding_update',        # 北向持股 fact_north_holding
-        'north_flow_update',           # 北向资金市场净流入 fact_north_flow
-        'sector_daily_update',         # 板块日线 fact_sector_daily（主题轮动/明日预测）
+        'north_money_update',          # 北向资金数据（持股+净流入）
+        'north_holding_update',        # 已合并到 north_money_update
+        'north_flow_update',           # 已合并到 north_money_update
+        'sector_daily_maintenance',    # 板块日终维护（热度+龙头+日线）
+        'sector_heat_update',          # 已合并到 sector_daily_maintenance
+        'sector_leaders_update',       # 已合并到 sector_daily_maintenance
+        'sector_daily_update',         # 已合并到 sector_daily_maintenance
         'limit_up_emotion_update',     # 涨停板+市场情绪更新
     ]
     
@@ -901,23 +906,25 @@ class DataManagementService:
             'daily_update': lambda tid: self._run_daily_update(tid),
             'fundamental_update': lambda tid: self._run_fundamental_update(tid),
             'refresh_snapshot': lambda tid: self._run_refresh_snapshot(),
-            'sector_heat_update': lambda tid: self._run_sector_heat_update(),
-            'sector_leaders_update': lambda tid: self._run_sector_leaders_update(),
             'sync_stock': lambda tid: self._run_sync_stock(),
             'sync_industry': lambda tid: self._run_sync_industry(),
             'moneyflow_update': lambda tid: self._run_moneyflow_update(),
-            'limit_up_volume_shrink': lambda tid: logger.info("涨停缩量功能已下线，跳过执行"),
+            'money_flow_update': lambda tid: self._run_money_flow_update(),
             's1_universe_update': lambda tid: self._run_s1_universe_update(),
             'industry_cycle_collect': lambda tid: self._run_industry_cycle_collect(tid),
             'industry_cycle_suggest': lambda tid: self._run_industry_cycle_suggest(),
             'pe_pb_update': lambda tid: self._run_pe_pb_update(),
             'abnormal_analysis_scan': lambda tid: self._run_abnormal_analysis_scan(),
-            'recommendation_daily_track': lambda tid: self._run_recommendation_daily_track(),
-            'recommendation_auto_close': lambda tid: self._run_recommendation_auto_close(),
-            'money_flow_update': lambda tid: self._run_money_flow_update(),
-            'north_holding_update': lambda tid: self._run_north_holding_update(),
-            'north_flow_update': lambda tid: self._run_north_flow_update(),
-            'sector_daily_update': lambda tid: self._run_sector_daily_update(),
+            'recommendation_daily': lambda tid: self._run_recommendation_daily(),
+            'recommendation_daily_track': lambda tid: self._run_recommendation_daily(),  # deprecated
+            'recommendation_auto_close': lambda tid: self._run_recommendation_daily(),   # deprecated
+            'north_money_update': lambda tid: self._run_north_money_update(),
+            'north_holding_update': lambda tid: self._run_north_money_update(),          # deprecated
+            'north_flow_update': lambda tid: self._run_north_money_update(),             # deprecated
+            'sector_daily_maintenance': lambda tid: self._run_sector_daily_maintenance(),
+            'sector_heat_update': lambda tid: self._run_sector_daily_maintenance(),      # deprecated
+            'sector_leaders_update': lambda tid: self._run_sector_daily_maintenance(),   # deprecated
+            'sector_daily_update': lambda tid: self._run_sector_daily_maintenance(),     # deprecated
             'limit_up_emotion_update': lambda tid: self._run_limit_up_emotion_update(),
         }
         
@@ -991,6 +998,22 @@ class DataManagementService:
         """执行申万行业同步（dim_stock.industry 统一为申万一级）"""
         from backend.scripts.data_update.sync_industry_from_sw import sync_industry_from_sw
         sync_industry_from_sw()
+
+    def _run_recommendation_daily(self):
+        """执行推荐系统日终维护：效果追踪 + 自动平仓"""
+        self._run_recommendation_daily_track()
+        self._run_recommendation_auto_close()
+
+    def _run_north_money_update(self):
+        """更新北向资金数据：持股 + 市场净流入"""
+        self._run_north_holding_update()
+        self._run_north_flow_update()
+
+    def _run_sector_daily_maintenance(self):
+        """执行板块日终维护：热度 + 龙头 + 日线"""
+        self._run_sector_heat_update()
+        self._run_sector_leaders_update()
+        self._run_sector_daily_update()
 
     def _run_money_flow_update(self):
         """从 Tushare moneyflow 更新 fact_money_flow（个股主力资金）"""
