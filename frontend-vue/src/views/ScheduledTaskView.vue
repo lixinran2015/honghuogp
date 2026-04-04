@@ -36,17 +36,6 @@
       </div>
     </div>
 
-    <!-- 合并提示 -->
-    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-      <div class="font-medium mb-1">任务合并提示</div>
-      <ul class="list-disc list-inside space-y-1 text-yellow-700">
-        <li>推荐效果追踪 + 推荐自动平仓 → <span class="font-semibold">推荐系统日终维护</span></li>
-        <li>北向持股更新 + 北向资金净流入更新 → <span class="font-semibold">北向资金更新</span></li>
-        <li>板块热度更新 + 板块龙头更新 + 板块日线更新 → <span class="font-semibold">板块日终维护</span></li>
-        <li>带 <span class="inline-block px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span> 标记的任务建议删除</li>
-      </ul>
-    </div>
-
     <!-- 任务列表 -->
     <div>
       <div class="flex items-center justify-between mb-4">
@@ -78,14 +67,12 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="task in filteredTasks" :key="task.id" :class="taskMeta(task).deprecated ? 'bg-gray-50/60' : 'hover:bg-gray-50'">
+            <tr v-for="task in filteredTasks" :key="task.id" class="hover:bg-gray-50">
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium" :class="taskMeta(task).deprecated ? 'text-gray-500' : 'text-gray-900'">
+                  <span class="text-sm font-medium text-gray-900">
                     {{ task.task_display_name }}
                   </span>
-                  <span v-if="taskMeta(task).deprecated" class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">旧</span>
-                  <span v-if="taskMeta(task).badge" class="px-1.5 py-0.5 text-xs rounded" :class="taskMeta(task).badgeClass">{{ taskMeta(task).badge }}</span>
                 </div>
                 <div class="text-xs text-gray-500 mt-0.5">{{ task.task_description || '--' }}</div>
               </td>
@@ -382,18 +369,6 @@ const TASK_TYPE_CATEGORIES = [
 
 const ALL_TASK_OPTIONS = TASK_TYPE_CATEGORIES.flatMap(c => c.options)
 
-const MERGED_TASKS = {
-  recommendation_daily_track: { to: 'recommendation_daily', name: '推荐系统日终维护' },
-  recommendation_auto_close: { to: 'recommendation_daily', name: '推荐系统日终维护' },
-  north_holding_update: { to: 'north_money_update', name: '北向资金更新' },
-  north_flow_update: { to: 'north_money_update', name: '北向资金更新' },
-  sector_heat_update: { to: 'sector_daily_maintenance', name: '板块日终维护' },
-  sector_leaders_update: { to: 'sector_daily_maintenance', name: '板块日终维护' },
-  sector_daily_update: { to: 'sector_daily_maintenance', name: '板块日终维护' },
-}
-
-const DEPRECATED_TASKS = ['limit_up_volume_shrink']
-
 const CATEGORY_MAP = {
   data: { label: '数据更新', class: 'bg-blue-100 text-blue-700' },
   sector: { label: '板块与行业', class: 'bg-cyan-100 text-cyan-700' },
@@ -404,12 +379,10 @@ const CATEGORY_MAP = {
   strategy: { label: '投资策略', class: 'bg-emerald-100 text-emerald-700' },
   crawler: { label: '资讯爬虫', class: 'bg-amber-100 text-amber-700' },
   other: { label: '其他', class: 'bg-gray-100 text-gray-700' },
-  deprecated: { label: '已下线', class: 'bg-gray-200 text-gray-600' },
 }
 
 const getTaskCategory = (task) => {
   const type = task.task_type
-  if (DEPRECATED_TASKS.includes(type)) return 'deprecated'
   if (['daily_update', 'fundamental_update', 'refresh_snapshot', 'sync_stock', 'sync_industry', 'sync_trade_calendar', 'pe_pb_update', 'moneyflow_update', 'money_flow_update'].includes(type)) return 'data'
   if (['sector_daily_maintenance', 'sector_heat_update', 'sector_leaders_update', 'sector_daily_update', 'industry_cycle_collect', 'industry_cycle_suggest'].includes(type)) return 'sector'
   if (['recommendation_daily', 'recommendation_daily_track', 'recommendation_auto_close'].includes(type)) return 'recommendation'
@@ -424,19 +397,6 @@ const getTaskCategory = (task) => {
 const categoryStyle = (type) => {
   const catKey = getTaskCategory({ task_type: type })
   return CATEGORY_MAP[catKey] || CATEGORY_MAP.other
-}
-
-const taskMeta = (task) => {
-  const type = task.task_type
-  const merged = MERGED_TASKS[type]
-  const deprecated = DEPRECATED_TASKS.includes(type)
-  if (deprecated) {
-    return { deprecated: true, badge: '已下线', badgeClass: 'bg-red-100 text-red-700' }
-  }
-  if (merged) {
-    return { deprecated: true, badge: `已合并为 ${merged.name}`, badgeClass: 'bg-amber-100 text-amber-700' }
-  }
-  return { deprecated: false, badge: '', badgeClass: '' }
 }
 
 const filteredTasks = computed(() => {
