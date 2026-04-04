@@ -537,3 +537,78 @@ class LeaderTrackingPoolService:
     finally:
       session.close()
 
+  def update_pool_scores(
+    self,
+    trade_date: date,
+    scored_stocks: List[Dict[str, Any]],
+  ) -> int:
+    """
+    将评分结果持久化到 fact_leader_tracking_pool。
+    更新字段：score, grade, buy_signal, risk_level, emotion_cycle, sector_strength, score_breakdown
+    """
+    if not scored_stocks:
+      return 0
+
+    session = self.ws.get_session()
+    try:
+      codes = [s.get("ts_code") for s in scored_stocks if s.get("ts_code")]
+      rows = (
+        session.query(FactLeaderTrackingPool)
+        .filter(FactLeaderTrackingPool.ts_code.in_(codes))
+        .all()
+      )
+      row_map = {r.ts_code: r for r in rows}
+      updated = 0
+
+      for stock in scored_stocks:
+        tc = stock.get("ts_code")
+        if not tc or tc not in row_map:
+          continue
+        row = row_map[tc]
+        score_info = stock.get("lstm_mab_score") or {}
+        buy_signal = stock.get("buy_signal")
+
+        row.score = score_info.get("total_score")
+        row.grade = score_info.get("grade")
+        row.buy_signal = buy_signal.get("signal_type") if isinstance(buy_signal, dict) else buy_signal
+        row.emotion_cycle = score_info.get("factor_values", {}).get("emotion_cycle")
+        # risk_level 由评分等级映射
+        grade = score_info.get("grade", "D")
+        row.risk_level = {
+          "S": "低",
+          "A": "低",
+          "B": "中",
+          "C": "高",
+          "D": "高",
+        }.get(grade, "高")
+        # sector_strength 从 sentiment 因子值粗略映射（若存在原始 heat 更好，但这里简单处理）
+        sentiment_score = score_info.get("factor_values", {}).get("sentiment")
+        if sentiment_score is not None:
+          row.sector_strength = min(100.0, max(0.0, float(sentiment_score)))
+        else:
+          row.sector_strength = None
+
+        row.score_breakdown = {
+          "trade_date": trade_date.isoformat(),
+          "total_score": score_info.get("total_score"),
+          "grade": score_info.get("grade"),
+          "expected_return": score_info.get("expected_return"),
+          "confidence": score_info.get("confidence"),
+          "factor_scores": score_info.get("factor_scores"),
+          "factor_weights": score_info.get("factor_weights"),
+          "factor_values": score_info.get("factor_values"),
+          "recommendation": score_info.get("recommendation"),
+          "buy_signal": buy_signal if isinstance(buy_signal, dict) else None,
+        }
+        updated += 1
+
+      session.commit()
+      logger.info("跟踪池评分持久化完成：%s 只（trade_date=%s）", updated, trade_date)
+      return updated
+    except Exception as e:
+      logger.error(f"跟踪池评分持久化失败: {e}", exc_info=True)
+      session.rollback()
+      return 0
+    finally:
+      session.close()
+

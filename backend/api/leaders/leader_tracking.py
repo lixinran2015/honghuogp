@@ -16,6 +16,7 @@ from backend.services.leader_tracking.buy_signal_integration import get_buy_sign
 from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 from backend.services.trading.monitor_stats_service import MonitorStatsService
+from backend.services.scoring import UnifiedShortTermScorer
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
 logger = logging.getLogger(__name__)
@@ -458,91 +459,31 @@ async def get_leader_tracking_pool(
         replay_sync_days=replay_sync_days,
     )
 
-    # 如果请求了评分，调用 LSTM-MAB 模型
+    # 如果请求了评分，调用统一评分引擎
     if with_scores and result.get('success') and result.get('pool'):
-        from backend.services.lstm_mab import get_evolution_service
-
         pool = result['pool']
-        model = _get_model()
-
-        if model is None:
+        td_str = result.get('trade_date')
+        scorer = UnifiedShortTermScorer(_get_warehouse())
+        if scorer.model is None:
             result['score_warning'] = 'LSTM-MAB 模型未训练或加载失败，返回未评分数据'
         else:
-            # 自动识别情绪周期并更新模型
-            td_str = result.get('trade_date')
-            warehouse = _get_warehouse()
-            emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
-            if emotion_cycle:
-                model.update_emotion_cycle(emotion_cycle)
-
-            # 对每只股票进行评分
-            scored_stocks = []
-            for stock in pool:
-                try:
-                    factor_values = _calculate_factor_values(
-                        stock, trade_date=td_str, warehouse=warehouse
-                    )
-
-                    # 获取历史价格数据用于 LSTM 预测
-                    price_history = _get_price_history(stock['ts_code'], limit=40)
-
-                    prediction = model.predict(
-                        ts_code=stock['ts_code'],
-                        factor_values=factor_values,
-                        price_history=price_history,
-                        trade_date=td_str
-                    )
-
-                    # 记录预测到数据库（用于模型进化）
-                    try:
-                        evo_service = get_evolution_service()
-                        emotion_cycle = model.mab.current_emotion
-                        prediction_id = evo_service.record_prediction(
-                            ts_code=stock['ts_code'],
-                            result=prediction,
-                            factor_values=factor_values,
-                            emotion_cycle=emotion_cycle
-                        )
-                    except Exception:
-                        prediction_id = None
-
-                    scored_stock = {
-                        **stock,
-                        'lstm_mab_score': {
-                            'prediction_id': prediction_id,
-                            'total_score': round(prediction.total_score, 2),
-                            'grade': prediction.grade,
-                            'expected_return': round(prediction.expected_return * 100, 2),  # 转为百分比
-                            'confidence': round(prediction.confidence * 100, 1),  # 转为百分比
-                            'factor_scores': prediction.factor_scores,
-                            'factor_weights': prediction.factor_weights,
-                            'factor_values': factor_values,
-                        }
-                    }
-                    scored_stocks.append(scored_stock)
-                except Exception as e:
-                    scored_stocks.append({
-                        **stock,
-                        'lstm_mab_score': None,
-                        'score_error': str(e)
-                    })
-
-            # 按总分排序
-            scored_stocks.sort(
-                key=lambda x: x.get('lstm_mab_score', {}).get('total_score', 0)
-                if x.get('lstm_mab_score') else 0,
-                reverse=True
-            )
-
+            scored_stocks = scorer.batch_score(pool, trade_date=td_str)
             result['pool'] = scored_stocks
             result['model_scored'] = True
+            # 持久化到跟踪池
+            try:
+                pool_td = date.fromisoformat(td_str) if td_str else None
+                if pool_td:
+                    svc.update_pool_scores(pool_td, scored_stocks)
+            except Exception as e:
+                logger.warning(f"评分持久化失败（不影响主逻辑）: {e}")
 
-    # 附加买点信号（无论是否请求评分）
-    if result.get('success') and result.get('pool'):
+    # 附加买点信号（仅在未请求评分或模型未加载时补充）
+    if result.get('success') and result.get('pool') and not (with_scores and result.get('model_scored')):
         try:
             td_str = result.get('trade_date')
             warehouse = _get_warehouse()
-            emotion_cycle = model.mab.current_emotion if (with_scores and model) else _get_auto_emotion_cycle(td_str, warehouse)
+            emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
             buy_signals = get_buy_signals_for_pool(
                 result['pool'],
                 trade_date_str=td_str,
@@ -696,110 +637,27 @@ async def get_top_scored_leaders(
             for tc in missing_codes:
                 if tc in missing_stocks_map:
                     pool.append(missing_stocks_map[tc])
-    model = _get_model()
+    td_str = result.get('trade_date')
+    scorer = UnifiedShortTermScorer(_get_warehouse())
 
-    if model is None:
+    if scorer.model is None:
         return {
             'success': True,
             'warning': 'LSTM-MAB 模型未训练或加载失败，返回未排序数据',
             'model_available': False,
-            'trade_date': result.get('trade_date'),
+            'trade_date': td_str,
             'top_stocks': pool[:top_n] if top_n else pool
         }
 
-    # 自动识别情绪周期并更新模型
-    td_str = result.get('trade_date')
-    warehouse = _get_warehouse()
-    emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
-    if emotion_cycle:
-        model.update_emotion_cycle(emotion_cycle)
+    scored_stocks = scorer.batch_score(pool, trade_date=td_str)
 
-    # 对每只股票进行评分
-    from backend.services.lstm_mab import get_evolution_service
-
-    scored_stocks = []
-    for stock in pool:
-        ts_code = stock.get('ts_code', '')
-        try:
-            factor_values = _calculate_factor_values(
-                stock, trade_date=td_str, warehouse=warehouse
-            )
-
-            # 获取历史价格数据用于 LSTM 预测
-            price_history = _get_price_history(stock['ts_code'], limit=40)
-
-            prediction = model.predict(
-                ts_code=stock['ts_code'],
-                factor_values=factor_values,
-                price_history=price_history,
-                trade_date=td_str
-            )
-
-            # 记录预测到数据库（用于模型进化）
-            try:
-                evo_service = get_evolution_service()
-                emotion_cycle = model.mab.current_emotion
-                prediction_id = evo_service.record_prediction(
-                    ts_code=stock['ts_code'],
-                    result=prediction,
-                    factor_values=factor_values,
-                    emotion_cycle=emotion_cycle
-                )
-            except Exception:
-                prediction_id = None
-
-            # 记录评分日志（调试用）
-            logger.info(f"📊 评分: {stock.get('ts_code')} {stock.get('name', '')} "
-                       f"总分={prediction.total_score:.2f}, 等级={prediction.grade}, "
-                       f"因子={factor_values}")
-
-            scored_stock = {
-                **stock,
-                'lstm_mab_score': {
-                    'prediction_id': prediction_id,
-                    'total_score': round(prediction.total_score, 2),
-                    'grade': prediction.grade,
-                    'expected_return': round(prediction.expected_return * 100, 2),
-                    'confidence': round(prediction.confidence * 100, 1),
-                    'factor_scores': prediction.factor_scores,
-                    'factor_weights': prediction.factor_weights,
-                    'factor_values': factor_values,
-                }
-            }
-            scored_stocks.append(scored_stock)
-        except Exception as e:
-            # 评分失败，记录详细错误日志并使用默认低分
-            logger.error(f"评分失败 {stock.get('ts_code', 'unknown')}: {e}", exc_info=True)
-            scored_stocks.append({
-                **stock,
-                'lstm_mab_score': {
-                    'total_score': 0,
-                    'grade': 'D',
-                    'expected_return': 0,
-                    'confidence': 0,
-                    'error': str(e)
-                }
-            })
-
-    # 按总分排序
-    scored_stocks.sort(
-        key=lambda x: x.get('lstm_mab_score', {}).get('total_score', 0),
-        reverse=True
-    )
-
-    # 附加买点信号
+    # 持久化到跟踪池
     try:
-        warehouse = _get_warehouse()
-        buy_signals = get_buy_signals_for_pool(
-            scored_stocks,
-            trade_date_str=td_str,
-            warehouse=warehouse,
-            emotion_cycle=emotion_cycle,
-        )
-        for item in scored_stocks:
-            item['buy_signal'] = buy_signals.get(item.get('ts_code'))
+        pool_td = date.fromisoformat(td_str) if td_str else None
+        if pool_td:
+            svc.update_pool_scores(pool_td, scored_stocks)
     except Exception as e:
-        logger.warning(f"Top-scored 买点信号计算失败（不影响主逻辑）: {e}")
+        logger.warning(f"评分持久化失败（不影响主逻辑）: {e}")
 
     # 熔断检查
     circuit_breaker_warning = None
@@ -816,7 +674,7 @@ async def get_top_scored_leaders(
         'success': True,
         'model_available': True,
         'trade_date': result.get('trade_date'),
-        'emotion_cycle': model.mab.current_emotion,
+        'emotion_cycle': scorer.model.mab.current_emotion,
         'total_count': len(scored_stocks),
         'top_stocks': scored_stocks[:top_n] if top_n else scored_stocks
     }
