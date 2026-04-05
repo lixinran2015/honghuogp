@@ -140,7 +140,17 @@
                   class="border-b border-border hover:bg-warmgray-50 transition-colors"
                 >
                   <td class="px-3 py-2.5">
-                    <div class="font-medium text-warmgray-900">{{ stock.name }}</div>
+                    <div
+                      :class="[
+                        'font-medium',
+                        stock.lstm_mab_score?.grade === 'S'
+                          ? 'text-cta cursor-pointer hover:underline'
+                          : 'text-warmgray-900'
+                      ]"
+                      @click="stock.lstm_mab_score?.grade === 'S' ? openStockDetailDrawer(stock.ts_code) : null"
+                    >
+                      {{ stock.name }}
+                    </div>
                     <div class="text-xs text-warmgray-500">{{ stock.ts_code }}</div>
                   </td>
                   <td class="px-3 py-2.5 text-center">
@@ -432,10 +442,180 @@
       </div>
     </div>
   </div>
+
+  <!-- 股票详情抽屉 -->
+  <div
+    v-if="drawerOpen"
+    class="fixed inset-0 z-50"
+    aria-modal="true"
+    role="dialog"
+  >
+    <!-- 遮罩 -->
+    <div
+      class="absolute inset-0 bg-black/40 transition-opacity"
+      @click="closeDrawer"
+    ></div>
+
+    <!-- 抽屉面板 -->
+    <div
+      class="absolute inset-y-0 right-0 w-full max-w-md bg-white shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col"
+      :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
+    >
+      <!-- 头部 -->
+      <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div>
+          <h3 class="text-base font-semibold text-warmgray-900">
+            {{ drawerStock && drawerStock.name ? drawerStock.name : '加载中...' }}
+          </h3>
+          <p class="text-xs text-warmgray-500">{{ drawerTsCode }}</p>
+        </div>
+        <button
+          class="p-1.5 rounded-md hover:bg-warmgray-100 text-warmgray-500"
+          @click="closeDrawer"
+          aria-label="关闭"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <!-- 加载 -->
+        <div v-if="drawerLoading" class="flex items-center justify-center py-10">
+          <div class="w-6 h-6 border-2 border-cta border-t-transparent rounded-full animate-spin"></div>
+        </div>
+
+        <!-- 错误 -->
+        <div
+          v-else-if="drawerError"
+          class="bg-red-50 text-red-600 text-sm px-3 py-2 rounded"
+        >
+          {{ drawerError }}
+          <button class="ml-2 underline" @click="openStockDetailDrawer(drawerTsCode)">重试</button>
+        </div>
+
+        <!-- 详情内容 -->
+        <div v-else-if="drawerStock">
+          <!-- 头部行情 + 评分 -->
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-2xl font-bold text-warmgray-900">{{ drawerStock.latest_price != null ? drawerStock.latest_price.toFixed(2) : '-' }}</span>
+                <span
+                  class="text-sm font-medium"
+                  :class="drawerStock.price_change_pct >= 0 ? 'text-profit' : 'text-loss'"
+                >
+                  {{ drawerStock.price_change_pct >= 0 ? '+' : '' }}{{ drawerStock.price_change_pct != null ? drawerStock.price_change_pct.toFixed(2) : '-' }}%
+                </span>
+                <span v-if="drawerStock.is_limit_up" class="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">涨停</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-xl font-bold" :class="getScoreColor(drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.total_score)">
+                {{ drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.total_score != null ? drawerStock.lstm_mab_score.total_score.toFixed(0) : '-' }}
+              </div>
+              <div class="text-xs font-medium" :class="getGradeClass(drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.grade)">
+                {{ drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.grade ? drawerStock.lstm_mab_score.grade : 'D' }}级
+              </div>
+            </div>
+          </div>
+
+          <!-- 因子评分 -->
+          <div class="bg-warmgray-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-warmgray-900 mb-2">因子评分</h4>
+            <div class="space-y-2">
+              <div
+                v-for="key in ['龙头地位', '技术形态', '资金流向', '情绪热度']"
+                :key="key"
+                class="flex items-center gap-3"
+              >
+                <span class="text-xs text-warmgray-600 w-14">{{ key }}</span>
+                <div class="flex-1 h-2 bg-warmgray-200 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full"
+                    :class="(drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) >= 20 ? 'bg-red-500' : (drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) >= 15 ? 'bg-orange-500' : 'bg-yellow-500'"
+                    :style="{ width: `${Math.min((drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) / 30 * 100, 100)}%` }"
+                  ></div>
+                </div>
+                <span class="text-xs font-medium text-warmgray-700 w-8 text-right">
+                  {{ drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] != null ? drawerStock.lstm_mab_score.factor_scores[key] : 0 }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 买点信号 -->
+          <div class="bg-warmgray-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-warmgray-900 mb-2">买点信号</h4>
+            <div v-if="drawerStock.buy_signal" class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-cta/10 text-cta text-xs rounded">{{ drawerStock.buy_signal.signal_type }}</span>
+                <span class="text-xs text-warmgray-500">{{ drawerStock.buy_signal.strength_score }}分 ({{ drawerStock.buy_signal.quality }})</span>
+              </div>
+            </div>
+            <div v-else class="text-xs text-warmgray-400">暂无买点信号</div>
+
+            <div class="mt-2 flex items-center gap-2 text-xs text-warmgray-600">
+              <span>板块支撑:</span>
+              <span class="font-medium text-warmgray-900">{{ drawerStock.sector_support && drawerStock.sector_support.name ? drawerStock.sector_support.name : '-' }}</span>
+              <span v-if="drawerStock.sector_support && drawerStock.sector_support.strength" class="text-warmgray-500">(强度: {{ drawerStock.sector_support.strength }})</span>
+            </div>
+          </div>
+
+          <!-- 交易计划 -->
+          <div class="bg-warmgray-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-warmgray-900 mb-2">交易计划</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-white rounded p-2">
+                <div class="text-warmgray-500">建议买入</div>
+                <div class="font-semibold text-warmgray-900">{{ drawerStock.trade_plan && drawerStock.trade_plan.entry_price != null ? drawerStock.trade_plan.entry_price.toFixed(2) : '-' }}</div>
+                <div class="text-warmgray-500">({{ drawerStock.trade_plan && drawerStock.trade_plan.entry_pct >= 0 ? '+' : '' }}{{ drawerStock.trade_plan && drawerStock.trade_plan.entry_pct != null ? drawerStock.trade_plan.entry_pct.toFixed(1) : '-' }}%)</div>
+              </div>
+              <div class="bg-white rounded p-2">
+                <div class="text-warmgray-500">止损价</div>
+                <div class="font-semibold text-loss">{{ drawerStock.trade_plan && drawerStock.trade_plan.stop_loss_price != null ? drawerStock.trade_plan.stop_loss_price.toFixed(2) : '-' }}</div>
+                <div class="text-warmgray-500">({{ drawerStock.trade_plan && drawerStock.trade_plan.stop_loss_pct != null ? drawerStock.trade_plan.stop_loss_pct.toFixed(0) : '-' }}%)</div>
+              </div>
+              <div class="bg-white rounded p-2">
+                <div class="text-warmgray-500">第一止盈</div>
+                <div class="font-semibold text-profit">{{ drawerStock.trade_plan && drawerStock.trade_plan.take_profit_1 != null ? drawerStock.trade_plan.take_profit_1.toFixed(2) : '-' }}</div>
+                <div class="text-warmgray-500">(+{{ drawerStock.trade_plan && drawerStock.trade_plan.take_profit_1_pct != null ? drawerStock.trade_plan.take_profit_1_pct : '-' }}%)</div>
+              </div>
+              <div class="bg-white rounded p-2">
+                <div class="text-warmgray-500">第二止盈</div>
+                <div class="font-semibold text-profit">{{ drawerStock.trade_plan && drawerStock.trade_plan.take_profit_2 != null ? drawerStock.trade_plan.take_profit_2.toFixed(2) : '-' }}</div>
+                <div class="text-warmgray-500">(+{{ drawerStock.trade_plan && drawerStock.trade_plan.take_profit_2_pct != null ? drawerStock.trade_plan.take_profit_2_pct : '-' }}%)</div>
+              </div>
+            </div>
+            <div class="mt-2 text-xs">
+              <span class="text-warmgray-500">建议仓位:</span>
+              <span class="font-semibold text-warmgray-900">{{ drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.recommendation && drawerStock.lstm_mab_score.recommendation.position_size != null ? drawerStock.lstm_mab_score.recommendation.position_size : 0 }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部按钮 -->
+      <div v-if="drawerStock && !drawerLoading && !drawerError" class="border-t border-border px-4 py-3 flex items-center gap-3">
+        <button
+          class="flex-1 px-3 py-2 text-sm font-medium text-white bg-cta hover:bg-cta-hover rounded-md transition-colors"
+          @click="importToHoldings"
+        >
+          加入持仓
+        </button>
+        <button
+          class="flex-1 px-3 py-2 text-sm font-medium text-warmgray-700 bg-warmgray-100 hover:bg-warmgray-200 rounded-md transition-colors"
+          @click="$router.push('/leader-tracking?code=' + drawerTsCode.split('.')[0])"
+        >
+          查看K线
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowPathIcon,
@@ -450,6 +630,13 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
+
+// 抽屉状态
+const drawerOpen = ref(false)
+const drawerTsCode = ref('')
+const drawerStock = ref(null)
+const drawerLoading = ref(false)
+const drawerError = ref(null)
 
 // 状态
 const loading = ref(false)
@@ -688,12 +875,48 @@ function viewSectorDetail(sector) {
   router.push(`/sector-detail/${sector.name}`)
 }
 
+async function openStockDetailDrawer(tsCode) {
+  drawerOpen.value = true
+  drawerTsCode.value = tsCode
+  drawerLoading.value = true
+  drawerError.value = null
+  drawerStock.value = null
+  try {
+    const res = await fetch(`/api/leader-tracking/stock-detail/${tsCode}`)
+    const data = await res.json()
+    if (!data.success) {
+      throw new Error(data.error || '获取详情失败')
+    }
+    drawerStock.value = data.data
+  } catch (e) {
+    drawerError.value = e.message || '请求失败'
+  } finally {
+    drawerLoading.value = false
+  }
+}
+
+function closeDrawer() {
+  drawerOpen.value = false
+  drawerTsCode.value = ''
+  drawerStock.value = null
+  drawerError.value = null
+}
+
 function importToHoldings() {
   // 实现一键导入持仓逻辑
   alert('已导入 ' + topPicks.value.length + ' 只股票到观察列表')
 }
 
+const onEscDrawer = (e) => {
+  if (e.key === 'Escape') closeDrawer()
+}
+
 onMounted(() => {
   refreshAllData()
+  window.addEventListener('keydown', onEscDrawer)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onEscDrawer)
 })
 </script>
