@@ -33,3 +33,15 @@ def test_stock_detail_model_unavailable(integration_client):
             assert "stop_loss_price" in data["data"]["trade_plan"]
             assert MockScorer.called
             assert MockSvc.called
+
+
+def test_pool_invalid_stage(integration_client):
+    response = integration_client.get("/api/leader-tracking/pool?stage=invalid")
+    assert response.status_code == 400
+    assert "confirmed / started" in response.json()["detail"]
+
+
+def test_pool_invalid_trade_date(integration_client):
+    response = integration_client.get("/api/leader-tracking/pool?trade_date=2026-13-01")
+    assert response.status_code == 400
+    assert "格式错误" in response.json()["detail"]
