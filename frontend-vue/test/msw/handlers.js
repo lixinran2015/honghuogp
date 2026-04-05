@@ -1,9 +1,17 @@
 import { rest } from 'msw'
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-
 export const leaderTrackingHandlers = [
-  rest.get(`${baseUrl}/api/leader-tracking/pool`, (req, res, ctx) => {
+  rest.get('/api/startup/sector-strength', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        sectors: [],
+        space_leaders_lead: [],
+      })
+    )
+  }),
+
+  rest.get('/api/leader-tracking/pool', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
@@ -28,7 +36,7 @@ export const leaderTrackingHandlers = [
     )
   }),
 
-  rest.get(`${baseUrl}/api/leader-tracking/stock-detail/:tsCode`, (req, res, ctx) => {
+  rest.get('/api/leader-tracking/stock-detail/:tsCode', (req, res, ctx) => {
     const { tsCode } = req.params
     return res(
       ctx.json({
@@ -54,10 +62,51 @@ export const leaderTrackingHandlers = [
       })
     )
   }),
+
+  rest.get('/api/leader-tracking/top-scored', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        model_available: true,
+        top_stocks: [],
+      })
+    )
+  }),
+
+  rest.get('/api/stock/kline-20', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        kline: [
+          { close: 10, ma20: 9.5, amount: 100000 },
+          { close: 11, ma20: 10, amount: 120000 },
+          { close: 12, ma20: 10.5, amount: 130000 },
+        ],
+      })
+    )
+  }),
+
+  rest.get('/api/stock/realtime-quotes', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        data: {},
+      })
+    )
+  }),
+
+  rest.get('/api/startup/leader-buy-backtest/summary/by-sector', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        summaries: [],
+      })
+    )
+  }),
 ]
 
 export const monitorHandlers = [
-  rest.get(`${baseUrl}/api/short-term/monitor/performance`, (req, res, ctx) => {
+  rest.get('/api/short-term/monitor/performance', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
