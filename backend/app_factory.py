@@ -9,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 from datetime import datetime
 from typing import Optional
+from contextlib import asynccontextmanager
 
 from backend.app_core.config_loader import config_loader, ServiceType
 from backend.common.service_registry import ServiceRegistry
@@ -62,11 +63,19 @@ def create_app(service_type: ServiceType = None) -> FastAPI:
     # 配置日志
     _setup_logging()
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info(f"🚀 {service_type.value} service starting...")
+        _initialize_services(service_type)
+        yield
+        logger.info(f"🛑 {service_type.value} service shutting down...")
+
     # 创建应用
     app = FastAPI(
         title=get_app_title(service_type),
         description=get_app_description(service_type),
-        version="2.0.0"
+        version="2.0.0",
+        lifespan=lifespan
     )
 
     # 添加中间件
@@ -74,16 +83,6 @@ def create_app(service_type: ServiceType = None) -> FastAPI:
 
     # 注册路由
     _register_routers(app, service_type)
-
-    # 启动时初始化服务
-    @app.on_event("startup")
-    async def startup_event():
-        logger.info(f"🚀 {service_type.value} service starting...")
-        _initialize_services(service_type)
-
-    @app.on_event("shutdown")
-    async def shutdown_event():
-        logger.info(f"🛑 {service_type.value} service shutting down...")
 
     return app
 
