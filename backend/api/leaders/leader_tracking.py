@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -17,6 +18,7 @@ from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 from backend.services.trading.monitor_stats_service import MonitorStatsService
 from backend.services.scoring import UnifiedShortTermScorer
+from backend.services.stock.trade_plan_utils import compute_trade_plan
 from data_warehouse.models import RawDailyPrice
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
@@ -782,7 +784,6 @@ def _build_stock_detail_response(
         "take_profit_2_pct": 0.0,
     }
     if latest_price > 0:
-        from backend.services.stock.trade_plan_utils import compute_trade_plan
         computed = compute_trade_plan(latest_price, stock_data)
         entry_price = computed.get("entry_price", latest_price)
         rec = score_result.get("recommendation", {})
@@ -838,7 +839,6 @@ async def get_stock_detail(
     """
     获取单只股票的龙头详情（含AI评分、买点、交易计划）
     """
-    import re
     if not re.match(r"^\d{6}\.(SH|SZ|BJ)$", ts_code):
         raise HTTPException(status_code=400, detail="ts_code 格式错误，应为 000001.SZ 格式")
 

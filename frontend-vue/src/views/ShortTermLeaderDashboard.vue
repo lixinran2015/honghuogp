@@ -877,6 +877,7 @@ function viewSectorDetail(sector) {
 
 async function openStockDetailDrawer(tsCode) {
   drawerOpen.value = true
+  document.body.style.overflow = 'hidden'
   drawerTsCode.value = tsCode
   drawerLoading.value = true
   drawerError.value = null
@@ -897,6 +898,7 @@ async function openStockDetailDrawer(tsCode) {
 
 function closeDrawer() {
   drawerOpen.value = false
+  document.body.style.overflow = ''
   drawerTsCode.value = ''
   drawerStock.value = null
   drawerError.value = null
