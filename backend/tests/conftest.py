@@ -63,6 +63,12 @@ def test_db_engine():
     db_mod._SHARED_ENGINE = None
     db_mod._SESSION_LOCAL = None
 
+    # 保存并清除 ServiceRegistry 缓存，防止集成测试复用真实数据库连接的服务实例
+    from backend.common.service_registry import ServiceRegistry
+    original_services = getattr(ServiceRegistry, '_services', {}).copy()
+    if hasattr(ServiceRegistry, '_services'):
+        ServiceRegistry._services.clear()
+
     engine = create_engine(test_url, pool_size=1, max_overflow=0)
 
     from data_warehouse.models.generated_models import Base
@@ -77,6 +83,11 @@ def test_db_engine():
     data_warehouse.config.DATABASE_URL = original_url
     db_mod._SHARED_ENGINE = None
     db_mod._SESSION_LOCAL = None
+
+    # 恢复 ServiceRegistry 缓存
+    if hasattr(ServiceRegistry, '_services'):
+        ServiceRegistry._services.clear()
+        ServiceRegistry._services.update(original_services)
 
 
 @pytest.fixture(scope="function")
