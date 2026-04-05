@@ -43,15 +43,17 @@ describe('ShortTermLeaderDashboard', () => {
     await nextTick()
 
     // 查找包含”平安银行”的可点击元素
-    const nameEl = wrapper.findAll('div').find((el) => el.text().includes('平安银行'))
+    const nameEl = wrapper.findAll('div').find((el) =>
+      el.text().includes('平安银行') && el.classes().includes('cursor-pointer')
+    )
+    expect(nameEl).toBeTruthy()
 
-    if (nameEl) {
-      await nameEl.trigger('click')
-      await flushPromises()
-      await nextTick()
-    }
+    await nameEl.trigger('click')
+    await flushPromises()
+    await nextTick()
 
     // 抽屉内容包含 MSW 返回的数据
-    expect(wrapper.text()).toContain('平安银行')
+    expect(wrapper.text()).toContain('龙头地位')
+    wrapper.unmount()
   })
 })
