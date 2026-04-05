@@ -36,12 +36,15 @@ def test_stock_detail_model_unavailable(integration_client):
 
 
 def test_pool_invalid_stage(integration_client):
+    """stage 参数无效时应返回 400"""
     response = integration_client.get("/api/leader-tracking/pool?stage=invalid")
     assert response.status_code == 400
     assert "confirmed / started" in response.json()["detail"]
 
 
 def test_pool_invalid_trade_date(integration_client):
+    """trade_date 格式无效时应返回 400"""
     response = integration_client.get("/api/leader-tracking/pool?trade_date=2026-13-01")
     assert response.status_code == 400
     assert "格式错误" in response.json()["detail"]
+
