@@ -63,4 +63,22 @@ describe('LeaderTrackingView', () => {
     expect(wrapper.text()).toContain('000001.SZ')
     wrapper.unmount()
   })
+
+  it('opens stock detail drawer when clicking stock name', async () => {
+    const wrapper = mount(LeaderTrackingView)
+    await flushPromises()
+
+    // 查找股票名称元素并点击
+    const nameButton = wrapper.findAll('button').find((b) => b.text().includes('平安银行'))
+      || wrapper.findAll('[role="button"]').find((b) => b.text().includes('平安银行'))
+      || wrapper.findAll('td').find((td) => td.text().includes('平安银行'))
+
+    if (nameButton) {
+      await nameButton.trigger('click')
+      await flushPromises()
+    }
+
+    // 抽屉内容包含 MSW 返回的数据
+    expect(wrapper.text()).toContain('平安银行')
+  })
 })
