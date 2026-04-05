@@ -17,6 +17,7 @@ from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 from backend.services.trading.monitor_stats_service import MonitorStatsService
 from backend.services.scoring import UnifiedShortTermScorer
+from data_warehouse.models import RawDailyPrice
 
 router = APIRouter(prefix="/api/leader-tracking", tags=["leader-tracking"])
 logger = logging.getLogger(__name__)
@@ -681,3 +682,234 @@ async def get_top_scored_leaders(
     if circuit_breaker_warning:
         response['circuit_breaker_warning'] = circuit_breaker_warning
     return response
+
+
+def _get_latest_daily_quote(ts_code: str, warehouse=None) -> Optional[Dict[str, Any]]:
+    """获取股票最新一条日行情数据"""
+    try:
+        from data_warehouse.db import SessionContext
+        with SessionContext(autocommit=False) as session:
+            row = (
+                session.query(RawDailyPrice)
+                .filter(RawDailyPrice.ts_code == ts_code)
+                .order_by(RawDailyPrice.trade_date.desc())
+                .first()
+            )
+            if not row:
+                return None
+            pre_close = float(row.pre_close or 0)
+            close = float(row.close or 0)
+            pct = round((close / pre_close - 1) * 100, 2) if pre_close > 0 else 0.0
+            return {
+                "close": close,
+                "pre_close": pre_close,
+                "pct_change": pct,
+                "trade_date": row.trade_date.isoformat() if row.trade_date else None,
+            }
+    except Exception as e:
+        logger.warning(f"获取最新行情失败 {ts_code}: {e}")
+        return None
+
+
+def _build_stock_detail_response(
+    ts_code: str,
+    stock_data: Dict[str, Any],
+    scorer: UnifiedShortTermScorer,
+    trade_date_str: Optional[str] = None,
+) -> Dict[str, Any]:
+    """为单只股票构建详情响应数据"""
+    # 1. 评分
+    score_result = scorer.score_stock(stock_data, trade_date=trade_date_str)
+    lstm_mab_score = {
+        "total_score": score_result["total_score"],
+        "grade": score_result["grade"],
+        "expected_return": score_result.get("expected_return"),
+        "confidence": score_result.get("confidence"),
+        "factor_scores": {
+            "龙头地位": score_result.get("breakdown", {}).get("leader_position", 0),
+            "技术形态": score_result.get("breakdown", {}).get("technical", 0),
+            "资金流向": score_result.get("breakdown", {}).get("money_flow", 0),
+            "情绪热度": score_result.get("breakdown", {}).get("sentiment", 0),
+        },
+        "factor_weights": score_result.get("factor_weights", {}),
+        "recommendation": score_result.get("recommendation", {}),
+    }
+    scored_stock = {
+        **stock_data,
+        "lstm_mab_score": lstm_mab_score,
+    }
+
+    # 2. 买点信号
+    buy_signal = None
+    try:
+        emotion_cycle = scorer.model.mab.current_emotion if scorer.model else None
+        buy_signals = get_buy_signals_for_pool(
+            [scored_stock],
+            trade_date_str=trade_date_str,
+            warehouse=scorer.warehouse,
+            emotion_cycle=emotion_cycle,
+        )
+        raw_signal = buy_signals.get(ts_code)
+        if raw_signal:
+            buy_signal = {
+                "signal_type": raw_signal.get("signal_type"),
+                "strength_score": raw_signal.get("strength_score"),
+                "quality": raw_signal.get("quality") or "中",
+            }
+    except Exception as e:
+        logger.warning(f"买点识别失败 {ts_code}: {e}")
+
+    # 3. 最新行情
+    quote = _get_latest_daily_quote(ts_code, scorer.warehouse)
+    latest_price = quote["close"] if quote else 0.0
+    price_change_pct = quote["pct_change"] if quote else 0.0
+    is_limit_up = price_change_pct >= 9.8
+
+    # 4. 交易计划
+    trade_plan = {
+        "entry_price": 0.0,
+        "entry_pct": 0.0,
+        "stop_loss_price": 0.0,
+        "stop_loss_pct": 0.0,
+        "take_profit_1": 0.0,
+        "take_profit_1_pct": 0.0,
+        "take_profit_2": 0.0,
+        "take_profit_2_pct": 0.0,
+    }
+    if latest_price > 0:
+        from backend.services.stock.trade_plan_utils import compute_trade_plan
+        computed = compute_trade_plan(latest_price, stock_data)
+        entry_price = computed.get("entry_price", latest_price)
+        rec = score_result.get("recommendation", {})
+        tp1_pct = rec.get("take_profit_1_pct", 10)
+        tp2_pct = rec.get("take_profit_2_pct", 15)
+        sl_pct = rec.get("stop_loss_pct", -3)
+        trade_plan = {
+            "entry_price": round(entry_price, 2),
+            "entry_pct": round((entry_price / latest_price - 1) * 100, 1) if latest_price > 0 else 0.0,
+            "stop_loss_price": round(entry_price * (1 + sl_pct / 100), 2),
+            "stop_loss_pct": sl_pct,
+            "take_profit_1": round(entry_price * (1 + tp1_pct / 100), 2),
+            "take_profit_1_pct": tp1_pct,
+            "take_profit_2": round(entry_price * (1 + tp2_pct / 100), 2),
+            "take_profit_2_pct": tp2_pct,
+        }
+
+    # 5. 板块支撑
+    sectors = stock_data.get("sectors", [])
+    sector_support = {"name": sectors[0] if sectors else "-", "strength": 0}
+    if sectors:
+        try:
+            from data_warehouse.db import SessionContext
+            with SessionContext(autocommit=False) as session:
+                from backend.api.sectors.hot_sectors import get_sector_heat_snapshot
+                heat_data = get_sector_heat_snapshot(session=session)
+                if heat_data and heat_data.get("success"):
+                    for item in heat_data.get("sectors", []):
+                        if item.get("name") == sectors[0]:
+                            sector_support["strength"] = item.get("heat", 0)
+                            break
+        except Exception as e:
+            logger.warning(f"获取板块强度失败 {ts_code}: {e}")
+
+    return {
+        "ts_code": ts_code,
+        "name": stock_data.get("name", ts_code),
+        "latest_price": latest_price,
+        "price_change_pct": price_change_pct,
+        "is_limit_up": is_limit_up,
+        "lstm_mab_score": lstm_mab_score,
+        "buy_signal": buy_signal,
+        "sector_support": sector_support,
+        "trade_plan": trade_plan,
+    }
+
+
+@router.get("/stock-detail/{ts_code}")
+async def get_stock_detail(
+    ts_code: str,
+    trade_date: Optional[str] = Query(None, description="交易日，YYYY-MM-DD；不传则取最新交易日"),
+) -> dict:
+    """
+    获取单只股票的龙头详情（含AI评分、买点、交易计划）
+    """
+    td = None
+    if trade_date:
+        try:
+            td = date.fromisoformat(trade_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="trade_date 格式错误，应为 YYYY-MM-DD")
+
+    # 获取当日龙头池
+    svc = LeaderTrackingPoolService()
+    result = svc.get_pool(
+        trade_date=td,
+        min_score=60,
+        stage_filter="confirmed",
+        stable_window_id='rolling_30d_v2',
+        bootstrap_days=180,
+        do_bootstrap=True,
+        force_sync=False,
+        catch_up_window_trading_days=30,
+        catch_up_max_syncs=30,
+        replay_sync_days=0,
+    )
+
+    pool = result.get('pool') or []
+    stock_data = next((s for s in pool if s.get('ts_code') == ts_code), None)
+    td_str = result.get('trade_date')
+
+    # 若不在池中，尝试从雷达补充
+    if stock_data is None:
+        from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
+        analyzer = StartupSectorAnalyzer()
+        radar_result = analyzer.analyze(end_date=td)
+        for item in radar_result.get("space_leaders_lead", []) or []:
+            for s in item.get("stocks", []) or []:
+                if s.get("ts_code") == ts_code:
+                    stock_data = {
+                        "ts_code": ts_code,
+                        "name": s.get("name") or ts_code,
+                        "sectors": [item.get("sector_name")] if item.get("sector_name") else [],
+                        "is_space": True,
+                        "is_new": False,
+                        "continuous_limit": s.get("continuous_limit"),
+                    }
+                    break
+            if stock_data:
+                break
+        if not stock_data:
+            for sec in radar_result.get("sectors", []) or []:
+                for c in sec.get("chain", []) or []:
+                    if c.get("ts_code") == ts_code:
+                        stock_data = {
+                            "ts_code": ts_code,
+                            "name": c.get("name") or ts_code,
+                            "sectors": [sec.get("sector_name")] if sec.get("sector_name") else [],
+                            "is_space": False,
+                            "is_new": bool(c.get("is_new_leader")),
+                            "continuous_limit": c.get("continuous_limit"),
+                        }
+                        break
+                if stock_data:
+                    break
+
+    if not stock_data:
+        raise HTTPException(status_code=404, detail=f"未找到股票 {ts_code} 的龙头跟踪数据")
+
+    scorer = UnifiedShortTermScorer(_get_warehouse())
+
+    if scorer.model is None:
+        return {
+            "success": True,
+            "warning": "LSTM-MAB 模型未训练或加载失败，评分仅供参考",
+            "model_available": False,
+            "data": _build_stock_detail_response(ts_code, stock_data, scorer, td_str),
+        }
+
+    detail = _build_stock_detail_response(ts_code, stock_data, scorer, td_str)
+    return {
+        "success": True,
+        "model_available": True,
+        "data": detail,
+    }
