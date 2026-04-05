@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import LeaderTrackingView from '../../src/views/LeaderTrackingView.vue'
@@ -18,7 +18,11 @@ vi.mock('echarts', () => ({
   }),
 }))
 
-beforeAll(() => {
+let originalLocalStorage
+let consoleSilencer
+
+beforeEach(() => {
+  originalLocalStorage = window.localStorage
   Object.defineProperty(window, 'localStorage', {
     value: {
       getItem: vi.fn(),
@@ -27,6 +31,18 @@ beforeAll(() => {
     },
     writable: true,
   })
+
+  consoleSilencer = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  Object.defineProperty(window, 'localStorage', {
+    value: originalLocalStorage,
+    writable: true,
+  })
+
+  vi.restoreAllMocks()
 })
 
 describe('LeaderTrackingView', () => {

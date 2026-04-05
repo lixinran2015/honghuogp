@@ -103,6 +103,14 @@ export const leaderTrackingHandlers = [
       })
     )
   }),
+
+  rest.post('/api/watchlist', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+      })
+    )
+  }),
 ]
 
 export const monitorHandlers = [
