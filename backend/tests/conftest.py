@@ -84,10 +84,13 @@ def test_db_engine():
     db_mod._SHARED_ENGINE = None
     db_mod._SESSION_LOCAL = None
 
-    # 恢复 ServiceRegistry 缓存
+    # 恢复 ServiceRegistry 缓存（但重置 instance 强制重新初始化）
     if hasattr(ServiceRegistry, '_services'):
         ServiceRegistry._services.clear()
-        ServiceRegistry._services.update(original_services)
+        for name, info in original_services.items():
+            restored = dict(info)
+            restored['instance'] = None
+            ServiceRegistry._services[name] = restored
 
 
 @pytest.fixture(scope="function")
