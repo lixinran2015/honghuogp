@@ -19,7 +19,6 @@ vi.mock('echarts', () => ({
 }))
 
 let originalLocalStorage
-let consoleSilencer
 
 beforeEach(() => {
   originalLocalStorage = window.localStorage
@@ -32,7 +31,7 @@ beforeEach(() => {
     writable: true,
   })
 
-  consoleSilencer = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
