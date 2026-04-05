@@ -66,9 +66,19 @@ class TestHoldingsService:
         # Arrange
         service = HoldingsService(mock_warehouse)
 
-        # 模拟持仓已满
+        # 模拟持仓已满（包含规则选仓所需最小字段）
         mock_holdings = [
-            {"symbol": f"00000{i}", "is_leader": i == 0}
+            {
+                "id": i + 1,
+                "symbol": f"00000{i}",
+                "name": f"股票{i}",
+                "is_leader": i == 0,
+                "holding_days": i + 1,
+                "below_ma5": True,
+                "profit_rate": -float(i + 1),
+                "chase_risk_score": i * 10,
+                "change_pct": 0.0,
+            }
             for i in range(POOL_MAX_SIZE)
         ]
 
@@ -76,8 +86,9 @@ class TestHoldingsService:
         suggestion = service._compute_pool_full_suggestion(None, mock_holdings, user_id=1)
 
         # Assert
-        assert "is_full" in suggestion
-        assert suggestion["is_full"] is True
+        assert suggestion is not None
+        assert "symbol" in suggestion
+        assert "reason" in suggestion
 
 
 class TestHoldingsUtils:

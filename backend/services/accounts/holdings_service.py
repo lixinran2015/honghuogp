@@ -149,6 +149,8 @@ class HoldingsService:
         bypass_trading_rules: bool = False,
     ) -> Dict[str, Any]:
         """新增持仓或加仓，返回创建/更新后的持仓摘要"""
+        if not symbol or not name:
+            raise HoldingsError("股票代码和名称不能为空", "bad_request")
         from data_warehouse.models import FactUserHolding
         from sqlalchemy import or_
         from backend.services.accounts.trading_rules_checker import (
