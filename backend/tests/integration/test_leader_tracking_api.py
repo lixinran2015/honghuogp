@@ -27,5 +27,9 @@ def test_stock_detail_model_unavailable(integration_client):
             assert data["success"] is True
             assert data["model_available"] is False
             assert data["data"]["ts_code"] == "000001.SZ"
-            assert "lstm_mab_score" in data["data"]
-            assert "trade_plan" in data["data"]
+            assert isinstance(data["data"]["lstm_mab_score"], dict)
+            assert isinstance(data["data"]["trade_plan"], dict)
+            assert "entry_price" in data["data"]["trade_plan"]
+            assert "stop_loss_price" in data["data"]["trade_plan"]
+            assert MockScorer.called
+            assert MockSvc.called
