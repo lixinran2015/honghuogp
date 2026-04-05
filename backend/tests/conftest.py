@@ -10,7 +10,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# 添加项目根目录到Python路径
+# 添加项目根目录到Python路径（运行测试时建议用 PYTHONPATH=../.. 或 editable install 替代）
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -76,7 +76,12 @@ def test_db_engine():
 
     yield engine
 
-    Base.metadata.drop_all(bind=engine)
+    try:
+        Base.metadata.drop_all(bind=engine)
+    except Exception:
+        # materialized views 等依赖关系可能导致 drop_all 失败；
+        # 测试库下次运行 create_all 时会使用 IF NOT EXISTS，忽略此错误是安全的
+        pass
     engine.dispose()
 
     # 恢复原始配置

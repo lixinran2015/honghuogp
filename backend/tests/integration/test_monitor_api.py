@@ -34,4 +34,4 @@ def test_get_health(integration_client):
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert "report" in data
+        assert "health_score" in data

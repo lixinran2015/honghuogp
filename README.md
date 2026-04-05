@@ -123,6 +123,45 @@ npm run dev
 
 ---
 
+## 运行测试
+
+### 前端测试（Vitest + jsdom + MSW）
+
+```bash
+cd frontend-vue
+npm run test          # 单次运行
+npm run test:watch    # 监听模式
+```
+
+### 后端测试（pytest）
+
+1. **创建测试数据库并同步 schema**
+
+```bash
+# 先确保 PostgreSQL 已启动并已创建测试库
+# 由于 materialized views / sequences 等复杂对象，推荐从主库克隆 schema 到测试库
+pg_dump -s -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME | psql -h $DB_HOST -p $DB_PORT -U $DB_USER quantitative_trading_test
+```
+
+2. **执行测试**
+
+```bash
+cd backend
+
+# 纯单元测试（无需数据库）
+pytest -m unit
+
+# 集成测试（需要 PostgreSQL test DB）
+pytest -m integration
+
+# 全部测试
+pytest
+```
+
+> **注意**：集成测试依赖 `.env` 中的数据库连接变量，运行前请先 `source .env` 或导出相关环境变量。
+
+---
+
 ## 核心 API 速查
 
 | 端点 | 说明 |
