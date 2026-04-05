@@ -51,25 +51,29 @@ def test_pool_invalid_trade_date(integration_client):
 
 def test_top_scored_model_unavailable(integration_client):
     """模型不可用时 top-scored 应返回未排序数据"""
-    with patch("backend.api.leaders.leader_tracking.UnifiedShortTermScorer") as MockScorer:
+    with (
+        patch("backend.api.leaders.leader_tracking.UnifiedShortTermScorer") as MockScorer,
+        patch("backend.api.leaders.leader_tracking.LeaderTrackingPoolService") as MockSvc,
+    ):
         scorer = MagicMock()
         scorer.model = None
+        scorer.warehouse = None
         MockScorer.return_value = scorer
 
-        with patch("backend.api.leaders.leader_tracking.LeaderTrackingPoolService") as MockSvc:
-            svc = MagicMock()
-            svc.get_pool.return_value = {
-                "success": True,
-                "pool": [{"ts_code": "000001.SZ", "name": "平安银行"}],
-                "trade_date": "2026-04-05",
-            }
-            MockSvc.return_value = svc
+        svc = MagicMock()
+        svc.get_pool.return_value = {
+            "success": True,
+            "pool": [{"ts_code": "000001.SZ", "name": "平安银行"}],
+            "trade_date": "2026-04-05",
+        }
+        MockSvc.return_value = svc
 
-            response = integration_client.get("/api/leader-tracking/top-scored")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["model_available"] is False
-            assert data["top_stocks"][0]["ts_code"] == "000001.SZ"
-            assert MockScorer.called
-            assert MockSvc.called
+        response = integration_client.get("/api/leader-tracking/top-scored")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["model_available"] is False
+        assert data["top_stocks"][0]["ts_code"] == "000001.SZ"
+        assert MockScorer.called
+        assert MockSvc.called
 
