@@ -763,7 +763,12 @@ def _build_stock_detail_response(
     quote = _get_latest_daily_quote(ts_code, scorer.warehouse)
     latest_price = quote["close"] if quote else 0.0
     price_change_pct = quote["pct_change"] if quote else 0.0
-    is_limit_up = price_change_pct >= 9.8
+    def _is_limit_up(ts_code: str, pct: float) -> bool:
+        prefix = ts_code.split('.')[0]
+        if prefix.startswith(('300', '301', '688')):
+            return pct >= 19.8
+        return pct >= 9.8
+    is_limit_up = _is_limit_up(ts_code, price_change_pct)
 
     # 4. 交易计划
     trade_plan = {
@@ -833,6 +838,10 @@ async def get_stock_detail(
     """
     获取单只股票的龙头详情（含AI评分、买点、交易计划）
     """
+    import re
+    if not re.match(r"^\d{6}\.(SH|SZ|BJ)$", ts_code):
+        raise HTTPException(status_code=400, detail="ts_code 格式错误，应为 000001.SZ 格式")
+
     td = None
     if trade_date:
         try:

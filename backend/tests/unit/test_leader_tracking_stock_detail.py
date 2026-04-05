@@ -102,3 +102,11 @@ def test_stock_detail_not_found(client):
 
             response = client.get("/api/leader-tracking/stock-detail/999999.SZ")
             assert response.status_code == 404
+
+
+def test_stock_detail_invalid_ts_code(client):
+    """非法 ts_code 格式应返回 400"""
+    response = client.get("/api/leader-tracking/stock-detail/invalid")
+    assert response.status_code == 400
+    data = response.json()
+    assert "格式错误" in data.get("detail", "")

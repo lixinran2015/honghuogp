@@ -533,12 +533,12 @@
                 <div class="flex-1 h-2 bg-warmgray-200 rounded-full overflow-hidden">
                   <div
                     class="h-full rounded-full"
-                    :class="(drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) >= 20 ? 'bg-red-500' : (drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) >= 15 ? 'bg-orange-500' : 'bg-yellow-500'"
-                    :style="{ width: `${Math.min((drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] || 0) / 30 * 100, 100)}%` }"
+                    :class="getFactorScore(key) >= 20 ? 'bg-red-500' : getFactorScore(key) >= 15 ? 'bg-orange-500' : 'bg-yellow-500'"
+                    :style="{ width: `${Math.min(getFactorScore(key) / 30 * 100, 100)}%` }"
                   ></div>
                 </div>
                 <span class="text-xs font-medium text-warmgray-700 w-8 text-right">
-                  {{ drawerStock.lstm_mab_score && drawerStock.lstm_mab_score.factor_scores && drawerStock.lstm_mab_score.factor_scores[key] != null ? drawerStock.lstm_mab_score.factor_scores[key] : 0 }}
+                  {{ getFactorScore(key) }}
                 </span>
               </div>
             </div>
@@ -599,7 +599,7 @@
       <div v-if="drawerStock && !drawerLoading && !drawerError" class="border-t border-border px-4 py-3 flex items-center gap-3">
         <button
           class="flex-1 px-3 py-2 text-sm font-medium text-white bg-cta hover:bg-cta-hover rounded-md transition-colors"
-          @click="importToHoldings"
+          @click="addCurrentToHoldings"
         >
           加入持仓
         </button>
@@ -902,9 +902,20 @@ function closeDrawer() {
   drawerError.value = null
 }
 
+function addCurrentToHoldings() {
+  const stock = drawerStock.value
+  if (!stock) return
+  // TODO: 替换为真实持仓追加 API
+  alert(`已将 ${stock.name || stock.ts_code} 加入持仓观察列表`)
+}
+
 function importToHoldings() {
   // 实现一键导入持仓逻辑
   alert('已导入 ' + topPicks.value.length + ' 只股票到观察列表')
+}
+
+function getFactorScore(key) {
+  return drawerStock.value?.lstm_mab_score?.factor_scores?.[key] ?? 0
 }
 
 const onEscDrawer = (e) => {
