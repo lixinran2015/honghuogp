@@ -68,7 +68,18 @@ export const leaderTrackingHandlers = [
       ctx.json({
         success: true,
         model_available: true,
-        top_stocks: [],
+        leaders: [
+          {
+            ts_code: '000001.SZ',
+            name: '平安银行',
+            lstm_mab_score: {
+              total_score: 92,
+              grade: 'S',
+              recommendation: { position_size: 30 },
+            },
+            buy_signal: { signal_type: '首板放量' },
+          },
+        ],
       })
     )
   }),
@@ -125,4 +136,74 @@ export const monitorHandlers = [
   }),
 ]
 
-export const handlers = [...leaderTrackingHandlers, ...monitorHandlers]
+export const dashboardHandlers = [
+  rest.get('/api/short-term/dashboard/market-brief', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        data: {
+          limit_up_count: 50,
+          limit_down_count: 2,
+          bomb_rate: 15,
+          max_continuous: 5,
+          emotion_cycle: '高涨期',
+          premium_yesterday: 2.5,
+          market_status: '正常',
+        },
+      })
+    )
+  }),
+
+  rest.get('/api/short-term/dashboard/limit-up-ladder', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        ladder: {},
+      })
+    )
+  }),
+
+  rest.get('/api/short-term/dashboard/broken-board-ladder', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        ladder: {},
+      })
+    )
+  }),
+
+  rest.get('/api/holdings', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        data: [],
+      })
+    )
+  }),
+
+  rest.get('/api/hot-sectors/heat-snapshot', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        sectors: [
+          { name: '机器人', heat: 28.5 },
+          { name: 'AI算力', heat: 25.2 },
+        ],
+      })
+    )
+  }),
+
+  rest.get('/api/short-term/monitor/circuit-breaker', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        triggered: false,
+        health_score: 85,
+        critical_count: 0,
+      })
+    )
+  }),
+
+]
+
+export const handlers = [...leaderTrackingHandlers, ...monitorHandlers, ...dashboardHandlers]
