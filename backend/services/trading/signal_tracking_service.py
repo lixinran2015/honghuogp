@@ -39,7 +39,7 @@ class SignalTrackingService:
             trade_date=trade_date,
             min_score=60,
             stage_filter='confirmed',
-            stable_window_id='rolling_30d_v2',
+            stable_window_id='current_rolling_30d',
             do_bootstrap=False,
             force_sync=False,
             catch_up_window_trading_days=0,
