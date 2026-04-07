@@ -413,6 +413,7 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'sector_leaders_update': 'sector_leaders_update',
                 'limit_up_emotion_update': 'limit_up_emotion_update',
                 'break_board_detect': 'break_board_detection',
+                'break_board_detection': 'break_board_detection',  # 兼容历史误存数据
                 'break_board_price_monitor': 'break_board_price_monitor',
             }
             
