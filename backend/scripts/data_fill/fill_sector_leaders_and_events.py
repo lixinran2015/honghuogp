@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def fill_sector_leaders(window_id='current_rolling_30d'):
+def fill_sector_leaders(window_id='rolling_30d_v2'):
     """填充板块龙头数据"""
     logger.info("=" * 80)
     logger.info("填充板块龙头数据")
@@ -128,7 +128,7 @@ def fill_sector_leaders(window_id='current_rolling_30d'):
         session.close()
 
 
-def fill_sector_events(window_id='current_rolling_30d'):
+def fill_sector_events(window_id='rolling_30d_v2'):
     """填充板块事件数据"""
     logger.info("=" * 80)
     logger.info("填充板块事件数据")

@@ -287,7 +287,7 @@ def _generate_sector_strategy(heat_score: float, leader: Optional[Dict]) -> str:
 @router.get("/heat-snapshot")
 async def get_sector_heat_snapshot(
     limit: int = 20,
-    window_id: str = "current_rolling_30d"
+    window_id: str = "rolling_30d_v2"
 ) -> Dict:
     """
     获取板块热度快照（用于短线龙头仪表盘）

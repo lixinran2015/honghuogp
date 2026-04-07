@@ -31,7 +31,7 @@ from data_warehouse.service.warehouse_service import WarehouseService
 logger = logging.getLogger(__name__)
 
 # 龙头快照查询顺序：优先 4+2 规则 v2，无数据时回退到当前滚动窗口
-SECTOR_LEADER_WINDOW_IDS = ["rolling_30d_v2", "current_rolling_30d"]
+SECTOR_LEADER_WINDOW_IDS = ["rolling_30d_v2"]
 
 # 申万一级行业 -> 子行业名（fact_stock_sector 可能存二级）
 INDUSTRY_TO_SUB: Dict[str, List[str]] = {
@@ -313,11 +313,12 @@ class StartupSectorAnalyzer:
       # 4. 从板块龙头快照中获取每只股票的「接力角色」信息（按板块维度，优先 rolling_30d_v2）
       #    sector_key -> {ts_code -> {leader_type, continuous_limit, period_return_pct}}
       def _row_to_meta(row) -> Dict:
-        """snapshot 行 (ts_code, leader_type, continuous_limit, period_return_pct) 转前端用 meta"""
+        """snapshot 行 (ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d) 转前端用 meta"""
         return {
           "leader_type": row[1],
           "continuous_limit": row[2] or 0,
           "period_return_pct": float(row[3]) if row[3] is not None else None,
+          "change_pct_5d": float(row[4]) if len(row) > 4 and row[4] is not None else None,
         }
       leader_meta_by_sector: Dict[str, Dict[str, Dict]] = defaultdict(dict)
       for (sector_type, sector_name), code_set in distinct_stocks.items():
@@ -340,7 +341,7 @@ class StartupSectorAnalyzer:
               leader_rows = session.execute(
                 text(
                   """
-                  SELECT ts_code, leader_type, continuous_limit, period_return_pct
+                  SELECT ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d
                   FROM fact_sector_leader_snapshot
                   WHERE window_id = :wid AND sector_code = :sid AND ts_code = ANY(:codes)
                   """
@@ -367,7 +368,7 @@ class StartupSectorAnalyzer:
                   row = session.execute(
                     text(
                       """
-                      SELECT ts_code, leader_type, continuous_limit, period_return_pct
+                      SELECT ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d
                       FROM fact_sector_leader_snapshot
                       WHERE window_id = :wid AND sector_code = :sid AND ts_code = :tc
                       """
@@ -386,7 +387,7 @@ class StartupSectorAnalyzer:
                 try:
                   row = session.execute(
                     text(
-                      "SELECT ts_code, leader_type, continuous_limit, period_return_pct "
+                      "SELECT ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d "
                       "FROM fact_sector_leader_snapshot WHERE window_id = :wid AND ts_code = :tc LIMIT 1"
                     ),
                     {"wid": window_id, "tc": tc},
@@ -405,7 +406,7 @@ class StartupSectorAnalyzer:
                 row = session.execute(
                   text(
                     """
-                    SELECT ts_code, leader_type, continuous_limit, period_return_pct
+                    SELECT ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d
                     FROM fact_sector_leader_snapshot
                     WHERE window_id = :wid AND ts_code = :tc
                     LIMIT 1
@@ -526,9 +527,16 @@ class StartupSectorAnalyzer:
       sector_chains: Dict[str, List[Dict]] = defaultdict(list)
 
       def _role_from_meta(meta: Dict) -> Tuple[str, int]:
-        """根据 leader_type + 连板高度，粗略映射为接力角色 + 优先级（数值大者优先）。"""
+        """根据 leader_type + 连板高度，粗略映射为接力角色 + 优先级（数值大者优先）。
+        注意：近期走弱（5日涨幅 <= 0）的股票会被降级为"相对强势"，不再显示为空间龙头。"""
         ltype = (meta.get("leader_type") or "").lower()
         cl = int(meta.get("continuous_limit") or 0)
+        # 检查近期强弱
+        try:
+          change_pct_5d = float(meta.get("change_pct_5d")) if meta.get("change_pct_5d") is not None else None
+        except (TypeError, ValueError):
+          change_pct_5d = None
+        is_weak = change_pct_5d is None or change_pct_5d <= 0
         # 连板高度标签：1=首板，2=二板，>=3=高标
         if cl >= 3:
           board_label = f"{cl}板"
@@ -540,13 +548,14 @@ class StartupSectorAnalyzer:
           board_label = ""
 
         # 接力角色 + 优先级
-        if ltype == "absolute_leader":
+        # 注意：如果近期走弱，absolute_leader 和 catch_up 会被降级
+        if ltype == "absolute_leader" and not is_weak:
           role = "空间龙头"
           pri = 400 + cl
-        elif ltype in ("catch_up",):
+        elif ltype in ("catch_up",) and not is_weak:
           role = "补涨龙"
           pri = 300 + cl
-        elif ltype in ("rel_strength", "resilient"):
+        elif ltype in ("absolute_leader", "catch_up", "rel_strength", "resilient"):
           role = "相对强势"
           pri = 200 + cl
         elif ltype == "follower":
@@ -709,7 +718,7 @@ class StartupSectorAnalyzer:
           fill_all_rows = session.execute(
             text(
               """
-              SELECT sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct
+              SELECT sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct, change_pct_5d
               FROM fact_sector_leader_snapshot
               WHERE window_id = :wid AND leader_type = 'absolute_leader'
               """
@@ -719,7 +728,7 @@ class StartupSectorAnalyzer:
           # 先的去重/过滤：同板块只保留连板最高的那只，且只取无候选票的板块；
           # 再按连板数排序，限制新增板块数，避免输出过度膨胀。
           candidate_sectors: Dict[str, Dict] = {}
-          for sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct in fill_all_rows:
+          for sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct, change_pct_5d in fill_all_rows:
             if sector_code not in sector_id_to_name:
               continue
             sector_type, sector_name = sector_id_to_name[sector_code]
@@ -729,6 +738,13 @@ class StartupSectorAnalyzer:
             cl = int(continuous_limit or 0)
             # 只保留连板 >= 2 的高标（过滤大量首板干扰）
             if cl < 2:
+              continue
+            # 过滤近期走弱的股票（5日涨幅 <= 0 或空值）
+            try:
+              ret_5d = float(change_pct_5d) if change_pct_5d is not None else None
+            except (TypeError, ValueError):
+              ret_5d = None
+            if ret_5d is None or ret_5d <= 0:
               continue
             if sector_key not in candidate_sectors or cl > candidate_sectors[sector_key]["cl"]:
               candidate_sectors[sector_key] = {

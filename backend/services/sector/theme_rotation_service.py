@@ -21,7 +21,7 @@ from sqlalchemy.sql import bindparam
 logger = logging.getLogger(__name__)
 
 # 板块龙头快照窗口 ID（与 candidates/industry_leaders 一致）
-SECTOR_LEADER_WINDOW_ID = "current_rolling_30d"
+SECTOR_LEADER_WINDOW_ID = "rolling_30d_v2"
 
 # 项目根目录
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent

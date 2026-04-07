@@ -429,13 +429,13 @@ class MarketEnvironmentAnalyzer:
             logger.warning(f"从 fact_limit_up_daily 获取最高连板数失败: {e}")
 
         # 2. 从 fact_sector_leader_snapshot 获取
-        # 注意：window_id 是字符串如 'current_rolling_30d'，不是日期
+        # 注意：window_id 是字符串如 'rolling_30d_v2'，不是日期
         try:
             result = session.execute(
                 text("""
                     SELECT MAX(continuous_limit) as max_limit
                     FROM fact_sector_leader_snapshot
-                    WHERE window_id = 'current_rolling_30d'
+                    WHERE window_id = 'rolling_30d_v2'
                 """),
             )
             row = result.fetchone()

@@ -94,7 +94,8 @@ async def get_startup_sector_strength(
       )
 
     analyzer = StartupSectorAnalyzer(warehouse)
-    leader_window_ids = ["current_rolling_30d"]
+    # 优先使用新版 4+2 规则的 rolling_30d_v2，数据更准确（考虑启动时序、近期强弱）
+    leader_window_ids = ["rolling_30d_v2"]
     result = analyzer.analyze(
       start_date=start_dt,
       end_date=end_dt,

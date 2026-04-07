@@ -430,7 +430,7 @@ class StockRecommendationService:
                 SELECT ts_code, stock_name, leader_type, leader_rank,
                        sector_code, continuous_limit, period_return_pct
                 FROM fact_sector_leader_snapshot
-                WHERE window_id = 'current_rolling_30d'
+                WHERE window_id = 'rolling_30d_v2'
                   AND leader_type IN ('absolute_leader', 'catch_up', 'rel_strength', 'resilient')
                   AND ts_code = ANY(:codes)
             """), {'codes': ts_codes})
@@ -727,7 +727,7 @@ class StockRecommendationService:
                                     WHEN leader_type IN ('catch_up', 'resilient') THEN 2
                                     WHEN leader_type = 'follower' THEN 1 ELSE 0 END) as best_role
             FROM fact_sector_leader_snapshot
-            WHERE window_id = 'current_rolling_30d'
+            WHERE window_id = 'rolling_30d_v2'
               AND ts_code IN :codes
             GROUP BY ts_code
         """).bindparams(bindparam("codes", expanding=True))

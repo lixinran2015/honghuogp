@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def update_hotspot_clusters(window_id: str = 'current_rolling_30d'):
+def update_hotspot_clusters(window_id: str = 'rolling_30d_v2'):
     """
     更新热点簇数据
     

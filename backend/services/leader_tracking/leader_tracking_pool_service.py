@@ -410,7 +410,7 @@ class LeaderTrackingPoolService:
     trade_date: Optional[date] = None,
     min_score: int = 60,
     stage_filter: str = "confirmed",
-    stable_window_id: str = "current_rolling_30d",
+    stable_window_id: str = "rolling_30d_v2",
     bootstrap_days: int = 180,
     do_bootstrap: bool = True,
     force_sync: bool = False,

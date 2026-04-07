@@ -48,7 +48,7 @@ def check_alternative_core_path(
         # 2. 绝对龙头
         leader_row = session.execute(text("""
             SELECT 1 FROM fact_sector_leader_snapshot
-            WHERE ts_code = :code AND window_id = 'current_rolling_30d'
+            WHERE ts_code = :code AND window_id = 'rolling_30d_v2'
             AND leader_type IN ('absolute_leader', 'rel_strength')
         """), {'code': ts_code}).fetchone()
         if not leader_row:

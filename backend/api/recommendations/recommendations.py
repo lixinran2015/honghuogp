@@ -935,7 +935,7 @@ async def get_recommendations_short(
                     # 构建板块热度映射和龙头映射
                     sector_map = {}
                     leaders_map = {}  # {sector_code: {stock_code: role}}
-                    window_id = 'current_rolling_30d'
+                    window_id = 'rolling_30d_v2'
                     
                     for stock in candidates:
                         sector_code = filter_service._get_stock_sector_code(stock.code)

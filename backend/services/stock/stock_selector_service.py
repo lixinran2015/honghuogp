@@ -237,7 +237,7 @@ def run_stock_selector_query(
                     r[0] for r in
                     session.query(FactSectorLeaderSnapshot.ts_code)
                     .filter(
-                        FactSectorLeaderSnapshot.window_id == "current_rolling_30d",
+                        FactSectorLeaderSnapshot.window_id == "rolling_30d_v2",
                         FactSectorLeaderSnapshot.leader_type == role_value,
                     )
                     .distinct()
@@ -549,7 +549,7 @@ def _enrich_leader_and_pe(session, data: List[dict], latest_dt: Any) -> None:
             FactSectorLeaderSnapshot.leader_type,
             FactSectorLeaderSnapshot.sector_code,
         ).filter(
-            FactSectorLeaderSnapshot.window_id == "current_rolling_30d",
+            FactSectorLeaderSnapshot.window_id == "rolling_30d_v2",
             FactSectorLeaderSnapshot.ts_code.in_(ts_codes_data),
             FactSectorLeaderSnapshot.leader_type.in_(list(SECTOR_ROLE_DISPLAY.keys())),
         ).all()

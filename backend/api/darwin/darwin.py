@@ -449,7 +449,7 @@ async def get_darwin_stocks(
                 
                 # 优化：批量获取板块热度（一次查询所有板块）
                 quick_sector_map = {}
-                window_id = 'current_rolling_30d'
+                window_id = 'rolling_30d_v2'
                 # 先收集所有需要的板块代码
                 sector_codes_needed = set()
                 stock_sector_mapping = {}
@@ -603,7 +603,7 @@ async def get_darwin_stocks(
                 
                 # 构建板块热度映射（批量获取）
                 sector_map = {}
-                window_id = 'current_rolling_30d'
+                window_id = 'rolling_30d_v2'
                 sector_codes_found = set()
                 
                 # 先收集所有板块代码

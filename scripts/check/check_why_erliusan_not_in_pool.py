@@ -72,12 +72,12 @@ def main():
         text("""
         SELECT ts_code, stock_name, leader_type, leader_rank, sector_code
         FROM fact_sector_leader_snapshot
-        WHERE window_id = 'current_rolling_30d' AND ts_code = :code
+        WHERE window_id = 'rolling_30d_v2' AND ts_code = :code
         """),
         {"code": TS_CODE},
     ).fetchone()
     if not leader_row:
-        print(f"   ⚠ 未在 current_rolling_30d 快照中找到 {TS_CODE}")
+        print(f"   ⚠ 未在 rolling_30d_v2 快照中找到 {TS_CODE}")
         print("   → 刷新推荐逻辑中「不在 snapshot 的股票」不会被当作跟风排除，会进入评分")
     else:
         leader_type = leader_row[2]

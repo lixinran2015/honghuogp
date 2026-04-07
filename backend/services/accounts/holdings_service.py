@@ -1052,7 +1052,7 @@ class HoldingsService:
             from sqlalchemy import text
             from sqlalchemy.sql import bindparam
 
-            WINDOW = "current_rolling_30d"
+            WINDOW = "rolling_30d_v2"
             ROLE_MAP = {
                 "absolute_leader": "绝对龙头", "catch_up": "补涨", "follower": "跟风",
                 "rel_strength": "相对抗跌", "resilient": "抗跌"

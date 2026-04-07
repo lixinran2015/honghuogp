@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def update_sector_leaders(window_id: str = 'current_rolling_30d', task_type: str = 'scheduled'):
+def update_sector_leaders(window_id: str = 'rolling_30d_v2', task_type: str = 'scheduled'):
     """
     更新板块龙头数据
     

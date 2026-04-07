@@ -162,7 +162,7 @@ def _get_sentiment_factor(stock_data: Dict[str, Any], trade_date: Optional[str],
             max_heat = 0.0
             for sector in sectors:
                 rec = session.query(FactSectorHeatSnapshot).filter(
-                    FactSectorHeatSnapshot.window_id == 'current_rolling_30d',
+                    FactSectorHeatSnapshot.window_id == 'rolling_30d_v2',
                     FactSectorHeatSnapshot.sector_name == sector,
                 ).first()
                 if rec and rec.heat_score is not None:
@@ -410,7 +410,7 @@ async def get_leader_tracking_pool(
     ),
     min_score: int = Query(60, description="启动得分阈值"),
     stage: str = Query("confirmed", description="阶段过滤：confirmed / started"),
-    stable_window_id: str = Query("current_rolling_30d", description="快照窗口：用于判断空间/刚启动角色的稳定性"),
+    stable_window_id: str = Query("rolling_30d_v2", description="快照窗口：用于判断空间/刚启动角色的稳定性"),
     bootstrap_days: int = Query(180, description="池为空时的历史补齐天数（只用于首次初始化）"),
     do_bootstrap: bool = Query(True, description="是否在池为空时自动 bootstrap"),
     force_sync: bool = Query(False, description="是否强制重新同步当天（会跳过 sync log）"),
@@ -510,7 +510,7 @@ async def get_leader_tracking_recent_days(
     trading_days: int = Query(10, ge=1, le=60, description="向前取几个交易日（含 end_date）"),
     min_score: int = Query(60, description="启动得分阈值"),
     stage: str = Query("confirmed", description="阶段过滤：confirmed / started"),
-    stable_window_id: str = Query("current_rolling_30d", description="龙头快照窗口"),
+    stable_window_id: str = Query("rolling_30d_v2", description="龙头快照窗口"),
     include_status: bool = Query(True, description="是否计算当日强势/震荡/退潮风险（与龙头跟踪页一致）"),
 ) -> dict:
     if stage not in ("confirmed", "started"):
@@ -569,7 +569,7 @@ async def get_top_scored_leaders(
         trade_date=td,
         min_score=min_score,
         stage_filter=stage,
-        stable_window_id='current_rolling_30d',
+        stable_window_id='rolling_30d_v2',
         bootstrap_days=180,
         do_bootstrap=True,
         force_sync=False,
@@ -855,7 +855,7 @@ async def get_stock_detail(
         trade_date=td,
         min_score=60,
         stage_filter="confirmed",
-        stable_window_id='current_rolling_30d',
+        stable_window_id='rolling_30d_v2',
         bootstrap_days=180,
         do_bootstrap=True,
         force_sync=False,

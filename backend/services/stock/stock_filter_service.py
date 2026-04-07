@@ -442,13 +442,13 @@ class StockFilterService:
             logger.debug(f"获取股票 {stock_code} 的板块代码失败: {e}")
             return None
     
-    def _get_sector_heat_snapshot(self, sector_code: str, window_id: str = 'current_rolling_30d'):
+    def _get_sector_heat_snapshot(self, sector_code: str, window_id: str = 'rolling_30d_v2'):
         """
         获取板块热度快照
         
         Args:
             sector_code: 板块代码
-            window_id: 时间窗口ID，默认'current_rolling_30d'
+            window_id: 时间窗口ID，默认'rolling_30d_v2'
         
         Returns:
             FactSectorHeatSnapshot对象或None
@@ -471,13 +471,13 @@ class StockFilterService:
             logger.debug(f"获取板块 {sector_code} 的热度快照失败: {e}")
             return None
     
-    def _get_sector_heat_batch(self, sector_codes: list, window_id: str = 'current_rolling_30d') -> dict:
+    def _get_sector_heat_batch(self, sector_codes: list, window_id: str = 'rolling_30d_v2') -> dict:
         """
         批量获取多个板块的热度快照
         
         Args:
             sector_codes: 板块代码列表
-            window_id: 时间窗口ID，默认'current_rolling_30d'
+            window_id: 时间窗口ID，默认'rolling_30d_v2'
         
         Returns:
             dict: {sector_code: FactSectorHeatSnapshot} 映射
@@ -505,14 +505,14 @@ class StockFilterService:
             logger.warning(f"批量获取板块热度失败: {e}")
             return result
     
-    def _get_stock_leader_role(self, stock_code: str, sector_code: str, window_id: str = 'current_rolling_30d') -> Optional[str]:
+    def _get_stock_leader_role(self, stock_code: str, sector_code: str, window_id: str = 'rolling_30d_v2') -> Optional[str]:
         """
         获取股票在板块中的龙头角色
         
         Args:
             stock_code: 股票代码（ts_code格式）
             sector_code: 板块代码
-            window_id: 时间窗口ID，默认'current_rolling_30d'
+            window_id: 时间窗口ID，默认'rolling_30d_v2'
         
         Returns:
             Optional[str]: 龙头角色（'leader'/'sub_leader'/'follow'），如果获取失败返回None

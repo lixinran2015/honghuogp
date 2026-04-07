@@ -600,7 +600,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
             baseline_end = start_date - timedelta(days=1)
             
             window = session.query(DimHotspotWindow).filter(
-                DimHotspotWindow.id == 'current_rolling_30d'
+                DimHotspotWindow.id == 'rolling_30d_v2'
             ).first()
             
             if window:
@@ -609,7 +609,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
                 window.updated_at = datetime.now()
             else:
                 window = DimHotspotWindow(
-                    id='current_rolling_30d',
+                    id='rolling_30d_v2',
                     window_type='rolling_30d',
                     label='最近30天（当前）',
                     start_date=start_date,
@@ -662,7 +662,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
             # 7. 保存到数据库（行业级别数据）
             for i, data in enumerate(sectors_data):
                 snapshot = session.query(FactSectorHeatSnapshot).filter(
-                    FactSectorHeatSnapshot.window_id == 'current_rolling_30d',
+                    FactSectorHeatSnapshot.window_id == 'rolling_30d_v2',
                     FactSectorHeatSnapshot.sector_code == data['sector_code']
                 ).first()
                 
@@ -718,7 +718,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
                                 clean_data[k] = v
                     
                     snapshot = FactSectorHeatSnapshot(
-                        window_id='current_rolling_30d',
+                        window_id='rolling_30d_v2',
                         sector_code=data['sector_code'],
                         sector_name=data['sector_name'],
                         short_heat_score=float(short_scores[i]),
@@ -739,7 +739,7 @@ def update_sector_heat_snapshot(task_type: str = 'scheduled'):
             
             # 7. 验证
             count = session.query(FactSectorHeatSnapshot).filter(
-                FactSectorHeatSnapshot.window_id == 'current_rolling_30d'
+                FactSectorHeatSnapshot.window_id == 'rolling_30d_v2'
             ).count()
             logger.info(f"✅ 验证：数据库中共有 {count} 个板块快照")
             

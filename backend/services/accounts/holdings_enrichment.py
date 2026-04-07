@@ -57,7 +57,7 @@ def _do_enrich_sector_leader(
     """实际执行板块龙头角色补充"""
     from data_warehouse.models import FactSectorLeaderSnapshot
 
-    WINDOW = "current_rolling_30d"
+    WINDOW = "rolling_30d_v2"
     ROLE_MAP = {
         "absolute_leader": "绝对龙头",
         "catch_up": "补涨",
@@ -150,7 +150,7 @@ def _find_sector_leaders(
 
     try:
         abs_snapshots = session.query(FactSectorLeaderSnapshot).filter(
-            FactSectorLeaderSnapshot.window_id == "current_rolling_30d",
+            FactSectorLeaderSnapshot.window_id == "rolling_30d_v2",
             FactSectorLeaderSnapshot.sector_code.in_(list(sector_codes)),
             FactSectorLeaderSnapshot.leader_type == "absolute_leader",
         ).all()

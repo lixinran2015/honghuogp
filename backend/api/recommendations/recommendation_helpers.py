@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class RecommendationConfig:
     """推荐配置常量"""
     CANDIDATE_MULTIPLIER = 2  # 候选数量倍数（用于精炼）
-    DEFAULT_WINDOW_ID = 'current_rolling_30d'  # 默认窗口ID
+    DEFAULT_WINDOW_ID = 'rolling_30d_v2'  # 默认窗口ID
     DEFAULT_KLINE_DAYS = 120  # 默认K线天数
     DEFAULT_MAX_CODES = 50  # 默认最大股票数量
     FALLBACK_KLINE_DAYS = 60  # 降级方案K线天数

@@ -79,12 +79,12 @@ def main():
     print()
 
     # 2. 龙头快照（当前窗口）：是否被当作跟风排除
-    print("【2】龙头快照 fact_sector_leader_snapshot（window_id=current_rolling_30d）")
+    print("【2】龙头快照 fact_sector_leader_snapshot（window_id=rolling_30d_v2）")
     leader_row = session.execute(
         text("""
         SELECT ts_code, stock_name, leader_type, leader_rank, sector_code
         FROM fact_sector_leader_snapshot
-        WHERE window_id = 'current_rolling_30d' AND ts_code = :code
+        WHERE window_id = 'rolling_30d_v2' AND ts_code = :code
         """),
         {"code": TS_CODE},
     ).fetchone()

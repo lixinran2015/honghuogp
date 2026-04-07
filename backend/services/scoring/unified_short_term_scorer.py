@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from backend.services.lstm_mab import LSTMMABModel, get_evolution_service
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
 from backend.services.leader_tracking import detect_emotion_cycle
+from backend.services.leader_tracking.leader_retreat_at_date import compute_retreat_stats_at_end_date
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,7 @@ class UnifiedShortTermScorer:
                     rec = (
                         session.query(FactSectorHeatSnapshot)
                         .filter(
-                            FactSectorHeatSnapshot.window_id == "current_rolling_30d",
+                            FactSectorHeatSnapshot.window_id == "rolling_30d_v2",
                             FactSectorHeatSnapshot.sector_name == sector,
                         )
                         .first()
@@ -359,6 +360,7 @@ class UnifiedShortTermScorer:
     ) -> List[Dict[str, Any]]:
         """
         对股票池进行批量评分，并统一附加买点信号。
+        注意：有退潮风险的股票会被过滤，不参与评分。
 
         Returns:
             评分后的股票字典列表（已按 total_score 降序）。
@@ -372,8 +374,40 @@ class UnifiedShortTermScorer:
         if emotion_cycle:
             self.model.update_emotion_cycle(emotion_cycle)
 
+        # 过滤有退潮风险的股票
+        filtered_pool = []
+        if self.warehouse is not None and trade_date:
+            try:
+                session = self.warehouse.warehouse_service.get_session()
+                try:
+                    td = date.fromisoformat(trade_date) if isinstance(trade_date, str) else trade_date
+                    for stock in pool:
+                        ts_code = stock.get("ts_code")
+                        if not ts_code:
+                            continue
+                        # 计算退潮状态
+                        stats = compute_retreat_stats_at_end_date(session, ts_code, td)
+                        if stats and stats.get("retreat_label") == "退潮风险":
+                            logger.info(f"AI评分：跳过退潮风险股票 {ts_code}")
+                            continue
+                        # 将stats添加到stock中，避免重复计算
+                        if stats:
+                            stock["stats"] = stats
+                        filtered_pool.append(stock)
+                finally:
+                    session.close()
+            except Exception as e:
+                logger.warning(f"过滤退潮风险股票失败: {e}")
+                filtered_pool = pool
+        else:
+            filtered_pool = pool
+
+        if not filtered_pool:
+            logger.info("AI评分：过滤后没有符合条件的股票")
+            return []
+
         scored = []
-        for stock in pool:
+        for stock in filtered_pool:
             try:
                 score_result = self.score_stock(stock, trade_date)
                 merged = {

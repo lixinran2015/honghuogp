@@ -158,7 +158,7 @@ async def list_industry_leaders(
                     from data_warehouse.models import FactSectorLeaderSnapshot
                     ts_codes = list({l['ts_code'] for l in leaders})
                     snapshots = session.query(FactSectorLeaderSnapshot).filter(
-                        FactSectorLeaderSnapshot.window_id == 'current_rolling_30d',
+                        FactSectorLeaderSnapshot.window_id == 'rolling_30d_v2',
                         FactSectorLeaderSnapshot.ts_code.in_(ts_codes)
                     ).all()
                     # (ts_code, sector_code) -> 显示名
@@ -226,7 +226,7 @@ async def list_absolute_leaders(
     """
     查询当前滚动窗口内的「绝对龙头」股票列表。
 
-    数据源：fact_sector_leader_snapshot(window_id = current_rolling_30d, leader_type = absolute_leader)
+    数据源：fact_sector_leader_snapshot(window_id = rolling_30d_v2, leader_type = absolute_leader)
     同一只股票如有多条记录，按 updated_at 取最新一条，并返回标记时间 marked_at。
     """
     try:
@@ -235,7 +235,7 @@ async def list_absolute_leaders(
 
         try:
             base_conditions = [
-                "fsls.window_id = 'current_rolling_30d'",
+                "fsls.window_id = 'rolling_30d_v2'",
                 "fsls.leader_type = 'absolute_leader'",
             ]
             params: Dict[str, object] = {}

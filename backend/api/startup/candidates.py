@@ -19,7 +19,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # 板块龙头快照窗口 ID
-SECTOR_LEADER_WINDOW_ID = "current_rolling_30d"
+SECTOR_LEADER_WINDOW_ID = "rolling_30d_v2"
 # 板块角色展示顺序（优先取前者）
 SECTOR_LEADER_ROLE_ORDER = ("绝对龙头", "补涨", "相对抗跌", "抗跌", "跟风")
 SECTOR_LEADER_ROLE_MAP = {

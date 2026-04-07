@@ -5,7 +5,7 @@
 
 用途：
 - 离线生成 window_id = rolling_30d_v2 等窗口下的 fact_sector_leader_snapshot 数据
-- 用于和盘面肉眼对比、调参，不会影响现有 current_rolling_30d 逻辑
+- 用于和盘面肉眼对比、调参，不会影响现有 rolling_30d_v2 逻辑
 
 使用示例（Windows PowerShell）：
 
