@@ -58,10 +58,18 @@ def get_buy_signals_for_pool(
                 # 找到对应的 ts_code
                 for tc in ts_codes:
                     if tc.startswith(code):
+                        volume = row.get("volume")
+                        avg_volume_5 = row.get("avgVolume5")
+                        if row.get("volume_ratio"):
+                            vr = float(row.get("volume_ratio"))
+                        elif volume and avg_volume_5:
+                            vr = float(volume) / float(avg_volume_5)
+                        else:
+                            vr = 1.0
                         daily_map[tc] = {
                             "change_pct": float(row.get("change_pct", 0) or 0),
                             "turnover_rate": float(row.get("turnover_rate", 0) or 0),
-                            "volume_ratio": float(row.get("volume_ratio", 1.0) or 1.0),
+                            "volume_ratio": vr,
                             "is_today_limit_up": bool(row.get("is_today_limit_up", False)),
                         }
                         break

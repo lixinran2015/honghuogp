@@ -50,7 +50,8 @@ def main():
     if args.trade_date:
         trade_date = date.fromisoformat(args.trade_date)
     else:
-        td = get_latest_trade_date()
+        from data_warehouse.service.warehouse_service import WarehouseService
+        td = get_latest_trade_date(WarehouseService())
         trade_date = td if td else date.today()
 
     logger.info(f"开始更新信号跟踪表，交易日: {trade_date}")
