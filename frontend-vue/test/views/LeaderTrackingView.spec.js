@@ -56,7 +56,6 @@ describe('LeaderTrackingView', () => {
 
   it('displays leader rows after fetch', async () => {
     const wrapper = mount(LeaderTrackingView)
-    // 组件 onMounted 会自动调用 fetchData，MSW  intercepts
     await flushPromises()
     await nextTick()
     expect(wrapper.text()).toContain('平安银行')
@@ -64,4 +63,40 @@ describe('LeaderTrackingView', () => {
     wrapper.unmount()
   })
 
+  it('selects a stock row and opens the detail drawer', async () => {
+    const wrapper = mount(LeaderTrackingView)
+    await flushPromises()
+    await nextTick()
+
+    // 1. Click the row containing 平安银行
+    const buttons = wrapper.findAll('button')
+    const row = buttons.find(b => b.text().includes('平安银行'))
+    expect(row).toBeTruthy()
+    await row.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    // 2. Assert internal state updated
+    expect(wrapper.vm.selectedTsCode).toBe('000001.SZ')
+    expect(wrapper.vm.selectedName).toBe('平安银行')
+
+    // 3. Assert the row gets the selected highlight class
+    expect(row.classes()).toContain('bg-indigo-50')
+    expect(row.classes()).toContain('border-indigo-200')
+
+    // 4. Assert drawer opened and data loaded (MSW returns 12.5 as latest_price)
+    expect(wrapper.vm.drawerOpen).toBe(true)
+    expect(wrapper.vm.drawerStock).not.toBeNull()
+    expect(wrapper.vm.drawerStock.latest_price).toBe(12.5)
+
+    // 5. Assert drawer content rendered in Teleport body
+    expect(document.body.textContent).toContain('平安银行')
+    expect(document.body.textContent).toContain('12.50')
+    expect(document.body.textContent).toContain('首板放量')
+    expect(document.body.textContent).toContain('银行')
+    expect(document.body.textContent).toContain('12.00')
+    expect(document.body.textContent).toContain('止损价')
+
+    wrapper.unmount()
+  })
 })

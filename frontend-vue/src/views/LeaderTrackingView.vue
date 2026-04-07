@@ -658,6 +658,75 @@
       </div>
     </div>
   </div>
+
+  <!-- 股票详情抽屉 -->
+  <Teleport to="body">
+    <div v-if="drawerOpen" class="fixed inset-0 z-[60]">
+      <!-- 遮罩 -->
+      <div
+        class="absolute inset-0 bg-black/40 transition-opacity"
+        @click="closeDrawer"
+      />
+      <!-- 抽屉面板 -->
+      <div
+        class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out flex flex-col"
+        :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
+      >
+        <div class="flex items-center justify-between px-4 py-3 border-b border-warmgray-200">
+          <h3 class="text-base font-semibold text-warmgray-900">
+            {{ drawerStock?.name || selectedName || '股票详情' }}
+          </h3>
+          <button
+            type="button"
+            class="text-warmgray-500 hover:text-warmgray-900"
+            @click="closeDrawer"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          <div v-if="drawerLoading" class="text-sm text-warmgray-500">加载中...</div>
+          <div v-else-if="drawerError" class="text-sm text-loss">{{ drawerError }}</div>
+          <div v-else-if="drawerStock" class="space-y-4" data-testid="drawer-content">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-2xl font-bold text-warmgray-900">{{ drawerStock.latest_price != null ? drawerStock.latest_price.toFixed(2) : '-' }}</div>
+                <div class="text-sm" :class="drawerStock.price_change_pct >= 0 ? 'text-profit' : 'text-loss'">
+                  {{ drawerStock.price_change_pct >= 0 ? '+' : '' }}{{ drawerStock.price_change_pct != null ? drawerStock.price_change_pct.toFixed(2) : '-' }}%
+                </div>
+              </div>
+              <div v-if="drawerStock.lstm_mab_score" class="text-right">
+                <div class="text-xl font-bold">{{ drawerStock.lstm_mab_score.total_score != null ? drawerStock.lstm_mab_score.total_score.toFixed(0) : '-' }}</div>
+                <div class="text-xs">{{ drawerStock.lstm_mab_score.grade || 'D' }}级</div>
+              </div>
+            </div>
+            <div v-if="drawerStock.buy_signal" class="bg-warmgray-50 rounded-lg p-3 space-y-1">
+              <div class="text-xs text-warmgray-500">买点信号</div>
+              <div class="text-sm font-medium text-cta">{{ drawerStock.buy_signal.signal_type }}</div>
+            </div>
+            <div v-if="drawerStock.sector_support" class="flex justify-between text-sm">
+              <span class="text-warmgray-500">板块支持</span>
+              <span class="font-medium">{{ drawerStock.sector_support.name }} (强度 {{ drawerStock.sector_support.strength }})</span>
+            </div>
+            <div v-if="drawerStock.trade_plan" class="bg-warmgray-50 rounded-lg p-3 space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-warmgray-500">建仓价</span>
+                <span class="font-medium">{{ drawerStock.trade_plan.entry_price != null ? drawerStock.trade_plan.entry_price.toFixed(2) : '-' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-warmgray-500">止损价</span>
+                <span class="font-medium text-loss">{{ drawerStock.trade_plan.stop_loss_price != null ? drawerStock.trade_plan.stop_loss_price.toFixed(2) : '-' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-warmgray-500">止盈1</span>
+                <span class="font-medium text-profit">{{ drawerStock.trade_plan.take_profit_1 != null ? drawerStock.trade_plan.take_profit_1.toFixed(2) : '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -1779,9 +1848,41 @@ const fetchAllStockScores = async () => {
   }
 }
 
+const drawerOpen = ref(false)
+const drawerStock = ref(null)
+const drawerLoading = ref(false)
+const drawerError = ref('')
+
+const openStockDetailDrawer = async (tsCode) => {
+  drawerOpen.value = true
+  drawerLoading.value = true
+  drawerError.value = ''
+  drawerStock.value = null
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/stock-detail/${tsCode}`)
+    const data = res.data || {}
+    if (!data.success) {
+      drawerError.value = data.message || '获取详情失败'
+      return
+    }
+    drawerStock.value = data.data
+  } catch (e) {
+    drawerError.value = '网络错误，请稍后重试'
+  } finally {
+    drawerLoading.value = false
+  }
+}
+
+const closeDrawer = () => {
+  drawerOpen.value = false
+  drawerStock.value = null
+  drawerError.value = ''
+}
+
 const selectStock = (tsCode, name) => {
   selectedTsCode.value = tsCode
   selectedName.value = name || tsCode
+  openStockDetailDrawer(tsCode)
 }
 
 watch(
