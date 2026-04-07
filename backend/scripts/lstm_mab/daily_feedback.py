@@ -351,6 +351,13 @@ class DailyFeedbackLoop:
                 correlation = None
                 rmse = None
 
+            def _to_float(val):
+                if val is None:
+                    return None
+                if hasattr(val, 'item'):
+                    val = val.item()
+                return float(val) if val == val else None  # NaN check
+
             query = text("""
                 INSERT INTO lstm_mab_performance
                 (date, total_predictions, avg_actual_return, hit_rate,
@@ -366,11 +373,11 @@ class DailyFeedbackLoop:
 
             session.execute(query, {
                 'date': date.today(),
-                'total': total,
-                'avg_return': avg_actual,
-                'hit_rate': hit_rate,
-                'corr': correlation,
-                'rmse': rmse
+                'total': int(total),
+                'avg_return': _to_float(avg_actual),
+                'hit_rate': _to_float(hit_rate),
+                'corr': _to_float(correlation),
+                'rmse': _to_float(rmse)
             })
             session.commit()
 
