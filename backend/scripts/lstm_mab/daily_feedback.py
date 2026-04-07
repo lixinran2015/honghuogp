@@ -352,11 +352,22 @@ class DailyFeedbackLoop:
                 )
                 hit_rate = feedback_df['direction_match'].mean()
 
-                # 相关系数
-                correlation = feedback_df['expected_return'].corr(feedback_df['actual_return'])
+                # 相关系数（避免标准差为0时的divide警告）
+                try:
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        correlation = feedback_df['expected_return'].corr(feedback_df['actual_return'])
+                    if pd.isna(correlation):
+                        correlation = None
+                except Exception:
+                    correlation = None
 
                 # RMSE
-                rmse = np.sqrt(((feedback_df['expected_return'] - feedback_df['actual_return']) ** 2).mean())
+                try:
+                    rmse = float(np.sqrt(((feedback_df['expected_return'] - feedback_df['actual_return']) ** 2).mean()))
+                    if pd.isna(rmse):
+                        rmse = None
+                except Exception:
+                    rmse = None
             else:
                 hit_rate = None
                 correlation = None
@@ -392,7 +403,8 @@ class DailyFeedbackLoop:
             })
             session.commit()
 
-            logger.info(f"📈 性能指标: 平均收益={avg_actual:.4f}, 命中率={hit_rate:.2% if hit_rate else 'N/A'}")
+            hit_rate_str = f"{hit_rate:.2%}" if hit_rate is not None else 'N/A'
+            logger.info(f"📈 性能指标: 平均收益={avg_actual:.4f}, 命中率={hit_rate_str}")
 
         except Exception as e:
             logger.error(f"❌ 更新性能指标失败: {e}")
