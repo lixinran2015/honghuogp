@@ -381,6 +381,7 @@
               :class="selectedTsCode === row.ts_code
                 ? 'bg-indigo-50 border border-indigo-200'
                 : 'hover:bg-warmgray-50 border border-transparent'"
+              :data-testid="'leader-row-' + row.ts_code"
               @click="selectStock(row.ts_code, row.name)"
             >
               <div class="text-center text-2xs text-warmgray-500 uppercase font-mono text-[11px]">
@@ -669,8 +670,7 @@
       />
       <!-- 抽屉面板 -->
       <div
-        class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out flex flex-col"
-        :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
+        class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out flex flex-col translate-x-0"
       >
         <div class="flex items-center justify-between px-4 py-3 border-b border-warmgray-200">
           <h3 class="text-base font-semibold text-warmgray-900">

@@ -37,6 +37,8 @@ frontend-vue/node_modules/
 *.xlsx
 logs/
 *.log
+data/user_trading_state.json
+.DS_Store
 
 # 模型文件（大文件，不提交到git）
 backend/models/lstm_mab/*.pkl

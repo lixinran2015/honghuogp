@@ -1,4 +1,5 @@
 import pytest
+import pandas as pd
 from unittest.mock import MagicMock, patch
 
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
@@ -29,8 +30,6 @@ def test_valid_pool_returns_signals():
     pool = [{"ts_code": "000001.SZ", "continuous_limit": 1, "is_space": True}]
     trade_date_str = "2026-04-05"
     emotion_cycle = "高涨期"
-
-    import pandas as pd
 
     df = pd.DataFrame(
         [

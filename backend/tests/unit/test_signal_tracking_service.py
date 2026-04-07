@@ -1,4 +1,5 @@
 import pytest
+import pandas as pd
 from unittest.mock import MagicMock, patch
 from datetime import date
 
@@ -73,7 +74,6 @@ def test_generate_signals_inserts_new_records(mock_signals, mock_detect, MockPoo
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame({"code": ["000001"], "close": [12.5]})
     mock_wh.load_stocks_data.return_value = df
     MockWH.return_value = mock_wh
@@ -116,7 +116,6 @@ def test_generate_signals_skips_duplicates(mock_signals, mock_detect, MockPoolSv
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame({"code": ["000001"], "close": [12.5]})
     mock_wh.load_stocks_data.return_value = df
     MockWH.return_value = mock_wh
@@ -142,18 +141,30 @@ def test_generate_signals_skips_duplicates(mock_signals, mock_detect, MockPoolSv
 
 @patch("backend.services.trading.signal_tracking_service.PostgresWarehouse")
 @patch("backend.services.trading.signal_tracking_service.WarehouseService")
-def test_generate_signals_db_rollback(MockWS, MockWH):
+@patch("backend.services.trading.signal_tracking_service.LeaderTrackingPoolService")
+@patch("backend.services.trading.signal_tracking_service.detect_emotion_cycle")
+@patch("backend.services.trading.signal_tracking_service.get_buy_signals_for_pool")
+def test_generate_signals_db_rollback(mock_signals, mock_detect, MockPoolSvc, MockWS, MockWH):
     mock_ws = MagicMock()
     session = _mock_session()
     session.commit.side_effect = RuntimeError("db down")
     mock_ws.get_session.return_value = session
     MockWS.return_value = mock_ws
 
+    mock_pool_svc = MagicMock()
+    mock_pool_svc.get_pool.return_value = {
+        "success": True,
+        "pool": [{"ts_code": "000001.SZ", "name": "平安银行"}],
+        "trade_date": "2026-04-05",
+    }
+    MockPoolSvc.return_value = mock_pool_svc
+
+    mock_signals.return_value = {"000001.SZ": {"signal_type": "首板放量"}}
+
     svc = SignalTrackingService()
-    with patch.object(svc, "warehouse") as mock_wh:
-        mock_wh.load_stocks_data.return_value = None
-        with patch.object(svc, "generate_signals", side_effect=None) as _:
-            pass
+    result = svc.generate_signals(date(2026, 4, 5))
+    session.rollback.assert_called_once()
+    session.close.assert_called_once()
 
 
 @patch("backend.services.trading.signal_tracking_service.PostgresWarehouse")
@@ -205,7 +216,6 @@ def test_record_actual_trade_db_error(MockWS, MockWH):
 @patch("backend.services.trading.signal_tracking_service.WarehouseService")
 def test_get_close_prices_success(MockWS, MockWH):
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame([
         {"code": "000001", "close": 12.5},
         {"code": "000002", "close": 15.0},
@@ -262,7 +272,6 @@ def test_update_open_signals_stop_loss(MockWS, MockWH):
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame([
         {"ts_code": "000001.SZ", "trade_date": "2026-04-02", "high": 10.2, "low": 9.5, "close": 9.6},
     ])
@@ -294,7 +303,6 @@ def test_update_open_signals_take_profit(MockWS, MockWH):
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame([
         {"ts_code": "000001.SZ", "trade_date": "2026-04-02", "high": 11.5, "low": 10.8, "close": 10.9},
         {"ts_code": "000001.SZ", "trade_date": "2026-04-03", "high": 11.2, "low": 10.5, "close": 10.6},
@@ -325,7 +333,6 @@ def test_update_open_signals_time_exit_3d(MockWS, MockWH):
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame([
         {"ts_code": "000001.SZ", "trade_date": "2026-04-02", "high": 10.2, "low": 9.8, "close": 10.1},
         {"ts_code": "000001.SZ", "trade_date": "2026-04-03", "high": 10.3, "low": 10.0, "close": 10.2},
@@ -358,7 +365,6 @@ def test_update_open_signals_no_exit_within_2_days(MockWS, MockWH):
     MockWS.return_value = mock_ws
 
     mock_wh = MagicMock()
-    import pandas as pd
     df = pd.DataFrame([
         {"ts_code": "000001.SZ", "trade_date": "2026-04-02", "high": 10.2, "low": 9.8, "close": 10.1},
         {"ts_code": "000001.SZ", "trade_date": "2026-04-03", "high": 10.3, "low": 10.0, "close": 10.2},

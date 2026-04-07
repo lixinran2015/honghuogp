@@ -1,5 +1,6 @@
 import os
 import pytest
+import pandas as pd
 from collections import namedtuple
 from unittest.mock import MagicMock, patch
 
@@ -150,7 +151,6 @@ def test_get_price_history_empty_df():
 
 
 def test_get_price_history_missing_columns():
-    import pandas as pd
 
     mock_wh = MagicMock()
     df = pd.DataFrame({"open": [1], "high": [2], "low": [0.5], "close": [1.5]})
@@ -160,7 +160,6 @@ def test_get_price_history_missing_columns():
 
 
 def test_get_price_history_success():
-    import pandas as pd
 
     mock_wh = MagicMock()
     df = pd.DataFrame({

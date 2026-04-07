@@ -41,6 +41,7 @@ afterEach(() => {
     writable: true,
   })
 
+  document.body.innerHTML = ''
   vi.restoreAllMocks()
 })
 
@@ -69,9 +70,8 @@ describe('LeaderTrackingView', () => {
     await nextTick()
 
     // 1. Click the row containing 平安银行
-    const buttons = wrapper.findAll('button')
-    const row = buttons.find(b => b.text().includes('平安银行'))
-    expect(row).toBeTruthy()
+    const row = wrapper.find('[data-testid="leader-row-000001.SZ"]')
+    expect(row.exists()).toBe(true)
     await row.trigger('click')
     await flushPromises()
     await nextTick()
