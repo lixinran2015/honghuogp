@@ -208,18 +208,29 @@ class DailyFeedbackLoop:
                 pred_date = row['prediction_date']
                 target_date = pred_date + timedelta(days=holding_days)
 
-                # 查找买入价
-                buy_price = price_dict.get((ts_code, pred_date))
+                # 查找买入价（prediction_date 或之后最近的交易日）
+                buy_price = None
+                buy_date = None
+                for offset in range(5):  # 向后查找最多5天
+                    check_date = pred_date + timedelta(days=offset)
+                    buy_price = price_dict.get((ts_code, check_date))
+                    if buy_price is not None:
+                        buy_date = check_date
+                        break
+
                 if buy_price is None:
                     missing_count += 1
                     if missing_count <= 5:  # 只记录前5个警告
-                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {pred_date} 的价格数据")
+                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {pred_date} 附近的价格数据")
                     continue
+
+                # 如果买入日延后，卖出目标日也相应顺延
+                adjusted_target_date = buy_date + timedelta(days=holding_days)
 
                 # 查找卖出价（找到目标日期或之前最近的交易日）
                 sell_price = None
                 for offset in range(5):  # 向后查找最多5天
-                    check_date = target_date - timedelta(days=offset)
+                    check_date = adjusted_target_date - timedelta(days=offset)
                     sell_price = price_dict.get((ts_code, check_date))
                     if sell_price is not None:
                         break
@@ -227,7 +238,7 @@ class DailyFeedbackLoop:
                 if sell_price is None:
                     missing_count += 1
                     if missing_count <= 5:
-                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {target_date} 附近的价格数据")
+                        logger.warning(f"⚠️ 未找到 {ts_code} 在 {adjusted_target_date} 附近的价格数据")
                     continue
 
                 # 计算收益率
