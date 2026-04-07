@@ -411,10 +411,13 @@ class DailyFeedbackLoop:
         finally:
             session.close()
 
-    def process_signal_tracking_feedback(self, dry_run: bool = False):
+    def process_signal_tracking_feedback(self, dry_run: bool = False) -> Optional[pd.DataFrame]:
         """
         从 short_term_signal_tracking 读取已平仓信号，生成 feedback。
         用于将实际买卖点策略的执行结果回传到模型进化系统。
+
+        Returns:
+            信号跟踪反馈 DataFrame，如果没有新反馈则返回 None
         """
         session = self.ws.get_session()
         try:
@@ -432,7 +435,7 @@ class DailyFeedbackLoop:
             rows = session.execute(query).fetchall()
             if not rows:
                 logger.info("📭 没有来自信号跟踪表的新反馈")
-                return
+                return None
 
             feedback_df = pd.DataFrame(rows, columns=[
                 'prediction_id', 'ts_code', 'prediction_date',
@@ -443,11 +446,13 @@ class DailyFeedbackLoop:
 
             if not dry_run:
                 self.save_feedback_to_db(feedback_df)
-                self.update_performance_metrics(feedback_df)
                 logger.info("✅ 信号跟踪表反馈已保存")
+
+            return feedback_df
 
         except Exception as e:
             logger.error(f"❌ 处理信号跟踪反馈失败: {e}", exc_info=True)
+            return None
         finally:
             session.close()
 
@@ -498,10 +503,17 @@ class DailyFeedbackLoop:
         # 4. 保存反馈到数据库
         if not dry_run:
             self.save_feedback_to_db(feedback)
-            self.update_performance_metrics(feedback)
 
         # 5. 处理信号跟踪表反馈
-        self.process_signal_tracking_feedback(dry_run=dry_run)
+        signal_feedback = self.process_signal_tracking_feedback(dry_run=dry_run)
+
+        # 6. 合并并统一更新性能指标
+        if not dry_run:
+            combined_feedback = feedback
+            if signal_feedback is not None and not signal_feedback.empty:
+                combined_feedback = pd.concat([feedback, signal_feedback], ignore_index=True)
+            if not combined_feedback.empty:
+                self.update_performance_metrics(combined_feedback)
 
         logger.info("=" * 60)
         logger.info("✅ 每日反馈循环完成")
@@ -550,14 +562,18 @@ class DailyFeedbackLoop:
 
         # 4. 异步保存反馈到数据库
         if not dry_run:
-            await asyncio.gather(
-                self.save_feedback_to_db_async(feedback),
-                self.update_performance_metrics_async(feedback),
-                return_exceptions=True
-            )
+            await self.save_feedback_to_db_async(feedback)
 
         # 5. 异步处理信号跟踪表反馈
-        await self.process_signal_tracking_feedback_async(dry_run=dry_run)
+        signal_feedback = await self.process_signal_tracking_feedback_async(dry_run=dry_run)
+
+        # 6. 合并并统一更新性能指标
+        if not dry_run:
+            combined_feedback = feedback
+            if signal_feedback is not None and not signal_feedback.empty:
+                combined_feedback = pd.concat([feedback, signal_feedback], ignore_index=True)
+            if not combined_feedback.empty:
+                await self.update_performance_metrics_async(combined_feedback)
 
         logger.info("=" * 60)
         logger.info("✅ 每日反馈循环完成 (异步模式)")
