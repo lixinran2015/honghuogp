@@ -166,6 +166,11 @@ class LSTMMABModel:
             for name in self.factor_names
         )
 
+        # 加入 LSTM 预期收益附加分（-15 到 +15）
+        lstm_bonus = np.clip(expected_return * 300, -15, 15)
+        total_score = total_score + lstm_bonus
+        total_score = np.clip(total_score, 0, 100)
+
         # 4. 确定等级
         grade = self._get_grade(total_score)
 

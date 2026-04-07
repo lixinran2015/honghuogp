@@ -138,7 +138,7 @@
                 <th class="px-4 py-2 text-left text-warmgray-600">情绪周期</th>
                 <th class="px-4 py-2 text-right text-warmgray-600">预测数</th>
                 <th class="px-4 py-2 text-right text-warmgray-600">平均收益</th>
-                <th class="px-4 py-2 text-right text-warmgray-600">准确度</th>
+                <th class="px-4 py-2 text-right text-warmgray-600">命中率</th>
               </tr>
             </thead>
             <tbody>
@@ -153,7 +153,7 @@
                   {{ (item.avg_return * 100).toFixed(2) }}%
                 </td>
                 <td class="px-4 py-2 text-right">
-                  {{ item.avg_accuracy ? (item.avg_accuracy * 100).toFixed(1) + '%' : '-' }}
+                  {{ item.hit_rate ? (item.hit_rate * 100).toFixed(1) + '%' : '-' }}
                 </td>
               </tr>
             </tbody>

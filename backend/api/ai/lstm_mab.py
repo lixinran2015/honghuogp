@@ -389,6 +389,11 @@ async def predict_score(request: PredictRequest) -> Dict:
                 'error': '模型未训练，请先调用/train接口',
             }
 
+        # 自动检测并更新情绪周期
+        detected_emotion = evo_service.get_market_emotion_cycle()
+        if detected_emotion != model.mab.current_emotion:
+            model.update_emotion_cycle(detected_emotion)
+
         # 预测
         result = model.predict(
             ts_code=request.ts_code,

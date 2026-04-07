@@ -57,6 +57,48 @@ class ModelEvolutionService:
         self.ws = WarehouseService()
         self._ensure_model_dir()
 
+    @staticmethod
+    def map_emotion_stage(stage: Optional[str]) -> str:
+        """将数据库中的 emotion_stage 映射到 MAB 情绪周期名称"""
+        mapping = {
+            'high_tide': '高涨期',
+            'warming': '主升期',
+            'normal': '震荡期',
+            'freezing': '冰点期',
+            'main_rise': '主升期',
+            'oscillation': '震荡期',
+            'divergence': '分歧期',
+            'low_tide': '低迷期',
+            'depression': '低迷期',
+            'decline': '退潮期',
+            'retreat': '退潮期',
+            'ice_point': '冰点期',
+        }
+        return mapping.get(stage, '震荡期')
+
+    def get_market_emotion_cycle(self, trade_date: Optional[date] = None) -> str:
+        """根据 fact_market_emotion_daily 自动判定当前情绪周期"""
+        if trade_date is None:
+            trade_date = date.today()
+        session = self.ws.get_session()
+        try:
+            query = text("""
+                SELECT emotion_stage
+                FROM fact_market_emotion_daily
+                WHERE trade_date <= :trade_date
+                ORDER BY trade_date DESC
+                LIMIT 1
+            """)
+            result = session.execute(query, {'trade_date': trade_date}).fetchone()
+            if result and result[0]:
+                return self.map_emotion_stage(result[0])
+            return '震荡期'
+        except Exception as e:
+            logger.warning(f"⚠️ 获取市场情绪周期失败: {e}")
+            return '震荡期'
+        finally:
+            session.close()
+
     def _ensure_model_dir(self):
         """确保模型目录存在"""
         os.makedirs(MODEL_DIR, exist_ok=True)
@@ -339,13 +381,13 @@ class ModelEvolutionService:
             if df.empty:
                 return {"message": "暂无性能数据"}
 
-            # 按情绪周期统计
+            # 按情绪周期统计（使用方向命中率替代失效的 prediction_accuracy）
             emotion_query = text("""
                 SELECT
                     p.emotion_cycle,
                     COUNT(*) as count,
                     AVG(f.actual_return) as avg_return,
-                    AVG(f.prediction_accuracy) as avg_accuracy
+                    AVG(CASE WHEN (p.expected_return > 0) = (f.actual_return > 0) THEN 1 ELSE 0 END) as hit_rate
                 FROM lstm_mab_predictions p
                 JOIN lstm_mab_feedback f ON p.id = f.prediction_id
                 WHERE p.prediction_date >= :start_date

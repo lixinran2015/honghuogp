@@ -266,7 +266,7 @@ class DailyFeedbackLoop:
 
     def update_model_with_feedback(self, feedback_df: pd.DataFrame):
         """
-        使用反馈更新模型
+        使用反馈更新模型（按因子权重归因实际收益）
         """
         if self.model is None:
             logger.error("❌ 模型未加载，无法更新")
@@ -278,17 +278,47 @@ class DailyFeedbackLoop:
 
         logger.info(f"🔄 开始更新模型，共 {len(feedback_df)} 条反馈")
 
-        # 按因子更新MAB
-        for factor_name in self.model.factor_names:
-            # 计算该因子在每条反馈中的贡献
-            # 简化处理：使用实际收益作为该因子的奖励
-            for _, row in feedback_df.iterrows():
-                actual_return = row['actual_return']
+        # 批量读取预测时使用的 factor_weights
+        import json
+        session = self.ws.get_session()
+        try:
+            ids = feedback_df['prediction_id'].unique().tolist()
+            query = text("""
+                SELECT id, factor_weights
+                FROM lstm_mab_predictions
+                WHERE id = ANY(:ids)
+            """)
+            rows = session.execute(query, {'ids': ids}).fetchall()
+            weights_map = {r[0]: r[1] for r in rows}
+        except Exception as e:
+            logger.warning(f"⚠️ 读取因子权重失败: {e}，fallback 到平均归因")
+            weights_map = {}
+        finally:
+            session.close()
 
-                # 更新MAB（内部会将收益率转换为奖励信号）
-                self.model.update_factor_performance(factor_name, actual_return)
+        # 按因子权重归因实际收益并更新 MAB
+        for _, row in feedback_df.iterrows():
+            actual_return = row['actual_return']
+            raw_weights = weights_map.get(row['prediction_id'], {})
+            if isinstance(raw_weights, str):
+                try:
+                    raw_weights = json.loads(raw_weights)
+                except Exception:
+                    raw_weights = {}
 
-                logger.debug(f"更新因子 {factor_name}: 收益={actual_return:.4f}")
+            total_weight = sum(
+                raw_weights.get(name, 0) for name in self.model.factor_names
+            )
+            if total_weight <= 0:
+                # fallback: 平均分配
+                for factor_name in self.model.factor_names:
+                    self.model.update_factor_performance(factor_name, actual_return)
+            else:
+                for factor_name in self.model.factor_names:
+                    weight = raw_weights.get(factor_name, 0)
+                    attribution = weight / total_weight
+                    factor_return = actual_return * attribution
+                    self.model.update_factor_performance(factor_name, factor_return)
 
         logger.info("✅ 模型更新完成")
 
