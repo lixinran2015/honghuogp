@@ -532,7 +532,10 @@ class LeaderTrackingPoolService:
           item["is_space"] = False
           item["is_new"] = False
 
-      return {"success": True, "trade_date": trade_date.isoformat(), "pool": pool_list}
+      # 过滤：只保留 is_space 或 is_new 为 True 的股票
+      filtered_pool = [item for item in pool_list if item.get("is_space") or item.get("is_new")]
+
+      return {"success": True, "trade_date": trade_date.isoformat(), "pool": filtered_pool}
     finally:
       session.close()
 

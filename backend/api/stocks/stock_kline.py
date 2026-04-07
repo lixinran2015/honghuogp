@@ -74,7 +74,7 @@ async def get_kline_20(
     rows = session.execute(
       text(
         """
-        SELECT trade_date, close, ma20, amount
+        SELECT trade_date, close, ma20, amount, change_pct
         FROM fact_daily_price_qfq
         WHERE ts_code = :ts
           AND trade_date <= :end_dt
@@ -109,7 +109,7 @@ async def get_kline_20(
     kline_rows = rows[-20:] if len(rows) > 20 else rows
 
     kline: List[Dict] = []
-    for d, close, ma20, amount in kline_rows:
+    for d, close, ma20, amount, change_pct in kline_rows:
       if not d:
         continue
       kline.append(
@@ -118,6 +118,7 @@ async def get_kline_20(
           "close": float(close) if close is not None else None,
           "ma20": float(ma20) if ma20 is not None else None,
           "amount": float(amount) if amount is not None else None,
+          "change_pct": float(change_pct) if change_pct is not None else None,
         }
       )
 

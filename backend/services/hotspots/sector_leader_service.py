@@ -270,7 +270,7 @@ class SectorLeaderService:
                     limit_up_days = 0
                     max_continuous = 0
                     current_continuous = 0
-                    
+
                     window_prices = price_df[price_df['ts_code'] == ts_code].sort_values('trade_date')
                     if len(window_prices) > 1:
                         prev_close = None
@@ -284,6 +284,9 @@ class SectorLeaderService:
                                 else:
                                     current_continuous = 0
                             prev_close = row['close']
+
+                    # 当前连板数（最新连续涨停天数）
+                    current_limit = current_continuous
                     
                     # 量价策略评估
                     volume_price_pattern = None
@@ -315,6 +318,7 @@ class SectorLeaderService:
                     leader_dict['change_pct_5d'] = change_pct_5d
                     leader_dict['limit_up_days'] = limit_up_days
                     leader_dict['continuous_limit'] = max_continuous
+                    leader_dict['current_continuous_limit'] = current_limit  # 当前连板数（最新连续涨停天数）
                     # 上一个交易日的数据
                     leader_dict['last_price'] = last_price
                     leader_dict['last_volume'] = last_volume  # 成交量（手）
