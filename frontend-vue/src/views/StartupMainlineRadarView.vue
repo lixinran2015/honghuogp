@@ -425,7 +425,7 @@ const spaceLeadersByStock = computed(() => {
   for (const item of spaceLeadersLead.value || []) {
     for (const stock of item.stocks || []) {
       const tc = stock.ts_code
-      if (!tc) continue
+      if (!tc || stock.is_st) continue
       if (!byCode.has(tc)) {
         byCode.set(tc, {
           ts_code: tc,
@@ -458,7 +458,7 @@ const newLeadersByStock = computed(() => {
     for (const c of chain) {
       if (!c.is_new_leader) continue
       const tc = c.ts_code
-      if (!tc) continue
+      if (!tc || c.is_st) continue
       if (!byCode.has(tc)) {
         byCode.set(tc, {
           ts_code: tc,

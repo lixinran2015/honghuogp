@@ -581,6 +581,13 @@ class StartupSectorAnalyzer:
           return False
         return True
 
+      def _is_st_name(name: Optional[str]) -> bool:
+        """根据股票名称判断是否ST"""
+        if not name:
+          return False
+        n = name.strip()
+        return n.startswith("ST") or n.startswith("*ST")
+
       # 按板块构建链条：每个板块最多 6 只，排序按角色优先级 + 区间涨幅
       MAX_CHAIN_PER_SECTOR = 6
       for (sector_type, sector_name), codes in distinct_stocks.items():
@@ -609,6 +616,7 @@ class StartupSectorAnalyzer:
                 "is_new_leader": is_new_leader,
                 "first_seen_date": fd.isoformat() if fd else None,
                 "last_seen_date": ld.isoformat() if ld else None,
+                "is_st": _is_st_name(name_map.get(code_str)),
               },
             )
           )
@@ -677,6 +685,7 @@ class StartupSectorAnalyzer:
                   "continuous_limit": meta["continuous_limit"],
                   "period_return_pct": meta["period_return_pct"],
                   "is_new_leader": is_new_leader,
+                  "is_st": _is_st_name(r[1] or name_map.get(tc) or tc),
                 })
               break
             except Exception as e:
@@ -765,6 +774,7 @@ class StartupSectorAnalyzer:
               "continuous_limit": meta["continuous_limit"],
               "period_return_pct": meta["period_return_pct"],
               "is_new_leader": is_new_leader,
+              "is_st": _is_st_name(c["stock_name"] or name_map.get(c["ts_code"]) or c["ts_code"]),
             })
           break
         except Exception as e:
@@ -796,6 +806,7 @@ class StartupSectorAnalyzer:
                 "is_new_leader": bool(c.get("is_new_leader")),
                 "first_seen_date": c.get("first_seen_date"),
                 "last_seen_date": c.get("last_seen_date"),
+                "is_st": bool(c.get("is_st")),
               }
               for c in leaders
             ],
