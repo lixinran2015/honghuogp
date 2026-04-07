@@ -356,6 +356,14 @@ const TASK_TYPE_CATEGORIES = [
     ],
   },
   {
+    key: 'ai_model',
+    label: 'AI模型',
+    options: [
+      { value: 'lstm_mab_daily_feedback', label: 'LSTM-MAB每日反馈' },
+      { value: 'lstm_mab_retrain_check', label: 'LSTM-MAB重训练检查' },
+    ],
+  },
+  {
     key: 'crawler',
     label: '资讯爬虫',
     options: [
@@ -376,6 +384,7 @@ const CATEGORY_MAP = {
   market: { label: '市场情绪', class: 'bg-rose-100 text-rose-700' },
   short_term: { label: '短线监控', class: 'bg-red-100 text-red-700' },
   strategy: { label: '投资策略', class: 'bg-emerald-100 text-emerald-700' },
+  ai_model: { label: 'AI模型', class: 'bg-violet-100 text-violet-700' },
   crawler: { label: '资讯爬虫', class: 'bg-amber-100 text-amber-700' },
   other: { label: '其他', class: 'bg-gray-100 text-gray-700' },
 }
@@ -389,6 +398,7 @@ const getTaskCategory = (task) => {
   if (['limit_up_emotion_update', 'abnormal_analysis_scan'].includes(type)) return 'market'
   if (['break_board_detect', 'break_board_price_monitor'].includes(type)) return 'short_term'
   if (['s1_universe_update'].includes(type)) return 'strategy'
+  if (['lstm_mab_daily_feedback', 'lstm_mab_retrain_check'].includes(type)) return 'ai_model'
   if (['guba_popularity_crawl', 'guba_popularity_crawl_morning', 'guba_popularity_crawl_noon'].includes(type)) return 'crawler'
   return 'other'
 }

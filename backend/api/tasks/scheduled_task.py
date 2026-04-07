@@ -415,6 +415,8 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'break_board_detect': 'break_board_detection',
                 'break_board_detection': 'break_board_detection',  # 兼容历史误存数据
                 'break_board_price_monitor': 'break_board_price_monitor',
+                'lstm_mab_daily_feedback': 'lstm_mab_daily_feedback',
+                'lstm_mab_retrain_check': 'lstm_mab_retrain_check',
             }
             
             task_type = task_type_mapping.get(task.task_type)
@@ -489,6 +491,53 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 task.is_running = True
                 session.commit()
                 _start_task_thread(task_name, run_price_monitor)
+                return {
+                    "success": True,
+                    "message": f"任务 {task_name} 已触发执行"
+                }
+
+            # LSTM-MAB 每日反馈任务
+            if task_type == 'lstm_mab_daily_feedback':
+                import asyncio
+
+                def run_lstm_feedback():
+                    try:
+                        from backend.scripts.lstm_mab.daily_feedback import DailyFeedbackLoop
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        df = DailyFeedbackLoop()
+                        loop.run_until_complete(df.run_async())
+                        loop.close()
+                    except Exception as e:
+                        logger.error(f"执行LSTM-MAB每日反馈失败: {e}", exc_info=True)
+
+                task.is_running = True
+                session.commit()
+                _start_task_thread(task_name, run_lstm_feedback)
+                return {
+                    "success": True,
+                    "message": f"任务 {task_name} 已触发执行"
+                }
+
+            # LSTM-MAB 自动重训练检查
+            if task_type == 'lstm_mab_retrain_check':
+                def run_lstm_retrain_check():
+                    try:
+                        from backend.services.lstm_mab.evolution_service import get_evolution_service
+                        from backend.api.ai.lstm_mab import _run_training_task
+                        evo = get_evolution_service()
+                        should_retrain, reason = evo.should_retrain()
+                        if should_retrain:
+                            logger.info(f"🔄 触发LSTM-MAB自动重训练: {reason}")
+                            _run_training_task(None, None, 5)
+                        else:
+                            logger.info(f"📊 LSTM-MAB暂无需重训练: {reason}")
+                    except Exception as e:
+                        logger.error(f"执行LSTM-MAB重训练检查失败: {e}", exc_info=True)
+
+                task.is_running = True
+                session.commit()
+                _start_task_thread(task_name, run_lstm_retrain_check)
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"
