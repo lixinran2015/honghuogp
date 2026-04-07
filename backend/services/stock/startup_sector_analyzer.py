@@ -682,6 +682,94 @@ class StartupSectorAnalyzer:
             except Exception as e:
               logger.debug("补全龙头 sector=%s 查询失败: %s", sector_key, e)
 
+      # 6.1b 补全「没有任何启动候选、但有真实空间龙头」的板块
+      # 某些板块当天没有候选票，如果完全依赖 candidate-driven 的 sector 列表，
+      # 板块里的高标龙头会彻底消失，导致主线雷达缺失关键空间龙头。
+      # 从 dim_sector 全量建立反向映射（不能依赖 candidate 里出现的 sector，
+      # 否则当天没有候选票的板块会被直接忽略，导致高标龙头彻底消失）
+      all_sector_rows = session.execute(
+        text("SELECT sector_id, sector_type, name FROM dim_sector")
+      ).fetchall()
+      sector_id_to_name: Dict[str, Tuple[str, str]] = {
+        sid: (stype, sname) for sid, stype, sname in all_sector_rows
+      }
+      existing_sector_keys = {s.sector_key for s in sector_stats}
+
+      for window_id in sector_leader_window_ids:
+        try:
+          fill_all_rows = session.execute(
+            text(
+              """
+              SELECT sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct
+              FROM fact_sector_leader_snapshot
+              WHERE window_id = :wid AND leader_type = 'absolute_leader'
+              """
+            ),
+            {"wid": window_id},
+          ).fetchall()
+          # 先的去重/过滤：同板块只保留连板最高的那只，且只取无候选票的板块；
+          # 再按连板数排序，限制新增板块数，避免输出过度膨胀。
+          candidate_sectors: Dict[str, Dict] = {}
+          for sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct in fill_all_rows:
+            if sector_code not in sector_id_to_name:
+              continue
+            sector_type, sector_name = sector_id_to_name[sector_code]
+            sector_key = f"{sector_type}:{sector_name}"
+            if sector_key in existing_sector_keys:
+              continue
+            cl = int(continuous_limit or 0)
+            # 只保留连板 >= 2 的高标（过滤大量首板干扰）
+            if cl < 2:
+              continue
+            if sector_key not in candidate_sectors or cl > candidate_sectors[sector_key]["cl"]:
+              candidate_sectors[sector_key] = {
+                "sector_type": sector_type,
+                "sector_name": sector_name,
+                "ts_code": str(ts_code),
+                "stock_name": stock_name,
+                "leader_type": leader_type,
+                "cl": cl,
+                "period_return_pct": period_return_pct,
+              }
+          # 按连板数降序，最多追加 50 个无候选板块
+          sorted_candidates = sorted(candidate_sectors.values(), key=lambda x: x["cl"], reverse=True)[:50]
+          for c in sorted_candidates:
+            sector_key = f"{c['sector_type']}:{c['sector_name']}"
+            sector_chains[sector_key] = []
+            sector_stats.append(
+              SectorAggregateStat(
+                sector_key=sector_key,
+                sector_name=c["sector_name"],
+                sector_type=c["sector_type"],
+                total_signals=0,
+                distinct_stocks=1,
+                days_active=0,
+                avg_score_overall=0.0,
+                recent_3d_signals=0,
+                strength_score=0.0,
+                daily=[],
+              )
+            )
+            existing_sector_keys.add(sector_key)
+            meta = {
+              "leader_type": c["leader_type"],
+              "continuous_limit": c["cl"],
+              "period_return_pct": float(c["period_return_pct"]) if c["period_return_pct"] is not None else None,
+            }
+            is_new_leader = _is_new_leader(meta)
+            sector_chains[sector_key].append({
+              "ts_code": c["ts_code"],
+              "name": c["stock_name"] or name_map.get(c["ts_code"]) or c["ts_code"],
+              "role_label": "空间龙头(未入启动)",
+              "leader_type": meta["leader_type"],
+              "continuous_limit": meta["continuous_limit"],
+              "period_return_pct": meta["period_return_pct"],
+              "is_new_leader": is_new_leader,
+            })
+          break
+        except Exception as e:
+          logger.warning("补全无候选板块的空间龙头失败: %s", e)
+
       # 6.2 每个板块链条中，将「空间龙头」与「空间龙头(未入启动)」提到最前
       def _put_space_leaders_first(chain: List[Dict]) -> List[Dict]:
         space = [c for c in chain if c.get("role_label") and "空间龙头" in c["role_label"]]
