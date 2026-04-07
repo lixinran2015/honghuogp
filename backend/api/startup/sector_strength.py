@@ -94,7 +94,7 @@ async def get_startup_sector_strength(
       )
 
     analyzer = StartupSectorAnalyzer(warehouse)
-    leader_window_ids = ["rolling_30d_v2"] if stable else None
+    leader_window_ids = ["current_rolling_30d"]
     result = analyzer.analyze(
       start_date=start_dt,
       end_date=end_dt,

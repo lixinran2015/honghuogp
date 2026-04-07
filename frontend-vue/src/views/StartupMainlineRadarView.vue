@@ -422,10 +422,7 @@ const filteredSectors = computed(() => {
 // 按股票分组：同一只股在多个主线为空间龙头时合并为一行，列出所属主线
 const spaceLeadersByStock = computed(() => {
   const byCode = new Map()
-  // 只保留主线强度前 10 的板块对应的空间龙头
-  const topSectorKeys = new Set((filteredSectors.value || []).map((s) => s.sector_key))
   for (const item of spaceLeadersLead.value || []) {
-    if (!topSectorKeys.has(item.sector_key)) continue
     for (const stock of item.stocks || []) {
       const tc = stock.ts_code
       if (!tc) continue
