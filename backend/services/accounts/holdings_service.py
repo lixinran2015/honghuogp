@@ -308,7 +308,9 @@ class HoldingsService:
             ts_code = to_ts_code(symbol)
             row = session.execute(text("""
                 SELECT close FROM fact_daily_price_qfq
-                WHERE ts_code = :ts_code AND trade_date = (SELECT MAX(trade_date) FROM fact_daily_price_qfq)
+                WHERE ts_code = :ts_code
+                ORDER BY trade_date DESC
+                LIMIT 1
             """), {"ts_code": ts_code}).fetchone()
             if row and row[0]:
                 current_price = float(row[0])
@@ -574,8 +576,9 @@ class HoldingsService:
             for h in holdings:
                 holding_days = 0
                 if h.close_date and h.buy_date:
-                    diff = calculate_trading_days_diff(session, h.buy_date, h.close_date)
-                    holding_days = max(0, diff) if diff is not None and diff >= 0 else 0
+                    if isinstance(h.buy_date, date) and isinstance(h.close_date, date):
+                        diff = calculate_trading_days_diff(session, h.buy_date, h.close_date)
+                        holding_days = max(0, diff) if diff is not None and diff >= 0 else 0
 
                 close_day_profit = self._compute_close_day_profit(h, pct_chg_map)
 
