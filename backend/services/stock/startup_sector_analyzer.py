@@ -43,6 +43,11 @@ INDUSTRY_TO_SUB: Dict[str, List[str]] = {
 # 是否在接力链条中补全「真实龙头但未入启动候选」的标的（避免链条只显示补涨/跟风而缺空间龙头）
 INCLUDE_LEADERS_NOT_IN_CANDIDATES = True
 
+# 假龙头过滤阈值
+MAX_PERIOD_TURNOVER = 50.0  # 窗口期平均换手率上限（%，过滤异常交易）
+MIN_PERIOD_AMOUNT = 0.5     # 窗口期日均成交额下限（亿元）
+MAX_CONTINUOUS_LIMIT = 6    # 最大连板数（超过视为高位妖股，不进入刚启动池）
+
 
 @dataclass
 class SectorDailyStat:
@@ -349,9 +354,9 @@ class StartupSectorAnalyzer:
                 {"wid": window_id, "sid": sector_id, "codes": codes},
               ).fetchall()
               if leader_rows:
-                for ts_code, leader_type, continuous_limit, period_return_pct in leader_rows:
+                for ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d in leader_rows:
                   leader_meta_by_sector[sector_key][str(ts_code)] = _row_to_meta(
-                    (ts_code, leader_type, continuous_limit, period_return_pct)
+                    (ts_code, leader_type, continuous_limit, period_return_pct, change_pct_5d)
                   )
                 break
             except Exception as e:
@@ -566,12 +571,38 @@ class StartupSectorAnalyzer:
           pri = 50 + cl
         return f"{board_label} {role}".strip(), pri
 
+      def _has_liquidity_risk(meta: Dict) -> Tuple[bool, str]:
+        """
+        检查是否存在流动性风险（假龙头过滤）
+
+        Returns:
+          (是否有风险, 风险原因)
+        """
+        # 检查平均换手率
+        try:
+          period_turnover = float(meta.get("period_turnover") or 0.0)
+          if period_turnover > MAX_PERIOD_TURNOVER:
+            return True, f"平均换手率{period_turnover:.1f}%>{MAX_PERIOD_TURNOVER}%，异常活跃"
+        except Exception:
+          pass
+
+        # 检查成交额
+        try:
+          period_amount = float(meta.get("period_amount") or 0.0)
+          if period_amount < MIN_PERIOD_AMOUNT:
+            return True, f"日均成交额{period_amount:.2f}亿<{MIN_PERIOD_AMOUNT}亿，流动性不足"
+        except Exception:
+          pass
+
+        return False, ""
+
       def _is_new_leader(meta: Dict) -> bool:
         """
         粗略识别「刚启动龙头」：
         - 角色：空间龙头 / 补涨龙
         - 30 日涨幅中等偏强（25%~120%），上限与入池条件一致
         - 连板不超过 4 板（用连板数拦截高位妖股，而非涨幅上限）
+        - 【新增】流动性检查：过滤换手率异常、成交额过低的股票
         """
         ltype = (meta.get("leader_type") or "").lower()
         if ltype not in ("absolute_leader", "catch_up"):
@@ -588,6 +619,13 @@ class StartupSectorAnalyzer:
           return False
         if cl > 3:
           return False
+
+        # 【新增】流动性风险过滤
+        has_risk, risk_reason = _has_liquidity_risk(meta)
+        if has_risk:
+          logger.debug(f"过滤假龙头：{meta.get('ts_code')} - {risk_reason}")
+          return False
+
         return True
 
       def _is_st_name(name: Optional[str]) -> bool:
@@ -711,7 +749,10 @@ class StartupSectorAnalyzer:
       sector_id_to_name: Dict[str, Tuple[str, str]] = {
         sid: (stype, sname) for sid, stype, sname in all_sector_rows
       }
+      logger.info(f"[6.1b补全] dim_sector加载: {len(sector_id_to_name)}个板块")
+
       existing_sector_keys = {s.sector_key for s in sector_stats}
+      logger.info(f"[6.1b补全] 已有候选票的板块: {len(existing_sector_keys)}个")
 
       for window_id in sector_leader_window_ids:
         try:
@@ -725,19 +766,40 @@ class StartupSectorAnalyzer:
             ),
             {"wid": window_id},
           ).fetchall()
+          logger.info(f"[6.1b补全] 从snapshot获取到{len(fill_all_rows)}只absolute_leader")
+          # 统计连板分布
+          limit_distribution = {}
+          for row in fill_all_rows:
+            cl = int(row[4] or 0)
+            limit_distribution[cl] = limit_distribution.get(cl, 0) + 1
+          logger.info(f"[6.1b补全] 连板分布: {limit_distribution}")
           # 先的去重/过滤：同板块只保留连板最高的那只，且只取无候选票的板块；
           # 再按连板数排序，限制新增板块数，避免输出过度膨胀。
           candidate_sectors: Dict[str, Dict] = {}
+          filtered_count = {"sector_id_not_found": 0, "sector_has_candidates": 0, "low_limit": 0, "weak_5d": 0}
           for sector_code, ts_code, stock_name, leader_type, continuous_limit, period_return_pct, change_pct_5d in fill_all_rows:
+            # 调试：记录高标龙头（>=5板）的过滤情况
+            debug_high_limit = int(continuous_limit or 0) >= 5
+            if debug_high_limit:
+              logger.debug(f"[6.1b补全] 检查高标: {ts_code}({stock_name}) 板块={sector_code}, 连板={continuous_limit}, 5日涨幅={change_pct_5d}")
+
             if sector_code not in sector_id_to_name:
+              if debug_high_limit:
+                logger.warning(f"[6.1b补全] 高标{ts_code}被过滤: sector_code={sector_code} 不在dim_sector中")
+                filtered_count["sector_id_not_found"] += 1
               continue
             sector_type, sector_name = sector_id_to_name[sector_code]
             sector_key = f"{sector_type}:{sector_name}"
             if sector_key in existing_sector_keys:
+              if debug_high_limit:
+                logger.debug(f"[6.1b补全] 高标{ts_code}被过滤: 板块{sector_key}已有候选票")
+                filtered_count["sector_has_candidates"] += 1
               continue
             cl = int(continuous_limit or 0)
             # 只保留连板 >= 2 的高标（过滤大量首板干扰）
             if cl < 2:
+              if debug_high_limit:
+                filtered_count["low_limit"] += 1
               continue
             # 过滤近期走弱的股票（5日涨幅 <= 0 或空值）
             try:
@@ -745,8 +807,13 @@ class StartupSectorAnalyzer:
             except (TypeError, ValueError):
               ret_5d = None
             if ret_5d is None or ret_5d <= 0:
+              if debug_high_limit:
+                logger.warning(f"[6.1b补全] 高标{ts_code}被过滤: 5日涨幅={ret_5d}<=0或为空")
+                filtered_count["weak_5d"] += 1
               continue
             if sector_key not in candidate_sectors or cl > candidate_sectors[sector_key]["cl"]:
+              if debug_high_limit:
+                logger.info(f"[6.1b补全] 高标{ts_code}通过过滤: 板块={sector_key}, 连板={cl}, 5日涨幅={ret_5d}")
               candidate_sectors[sector_key] = {
                 "sector_type": sector_type,
                 "sector_name": sector_name,
@@ -756,6 +823,8 @@ class StartupSectorAnalyzer:
                 "cl": cl,
                 "period_return_pct": period_return_pct,
               }
+          if filtered_count["sector_id_not_found"] > 0 or filtered_count["weak_5d"] > 0:
+            logger.info(f"[6.1b补全] 高标过滤统计: {filtered_count}")
           # 按连板数降序，最多追加 50 个无候选板块
           sorted_candidates = sorted(candidate_sectors.values(), key=lambda x: x["cl"], reverse=True)[:50]
           for c in sorted_candidates:

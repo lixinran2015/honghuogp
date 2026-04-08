@@ -720,22 +720,44 @@ def _build_stock_detail_response(
     trade_date_str: Optional[str] = None,
 ) -> Dict[str, Any]:
     """为单只股票构建详情响应数据"""
-    # 1. 评分
-    score_result = scorer.score_stock(stock_data, trade_date=trade_date_str)
-    lstm_mab_score = {
-        "total_score": score_result["total_score"],
-        "grade": score_result["grade"],
-        "expected_return": score_result.get("expected_return"),
-        "confidence": score_result.get("confidence"),
-        "factor_scores": {
-            "龙头地位": score_result.get("breakdown", {}).get("leader_position", 0),
-            "技术形态": score_result.get("breakdown", {}).get("technical", 0),
-            "资金流向": score_result.get("breakdown", {}).get("money_flow", 0),
-            "情绪热度": score_result.get("breakdown", {}).get("sentiment", 0),
-        },
-        "factor_weights": score_result.get("factor_weights", {}),
-        "recommendation": score_result.get("recommendation", {}),
-    }
+    # 1. 评分 - 优先使用数据库中已保存的评分，避免列表和详情不一致
+    existing_score = stock_data.get("lstm_mab_score")
+    if existing_score and existing_score.get("total_score") is not None:
+        # 使用数据库中保存的评分
+        lstm_mab_score = {
+            "total_score": existing_score["total_score"],
+            "grade": existing_score.get("grade", "D"),
+            "expected_return": existing_score.get("expected_return"),
+            "confidence": existing_score.get("confidence"),
+            "factor_scores": existing_score.get("factor_scores", {
+                "龙头地位": 0,
+                "技术形态": 0,
+                "资金流向": 0,
+                "情绪热度": 0,
+            }),
+            "factor_weights": existing_score.get("factor_weights", {}),
+            "recommendation": existing_score.get("recommendation", {}),
+        }
+        logger.debug(f"股票 {ts_code} 使用数据库保存的评分: {lstm_mab_score['total_score']}")
+    else:
+        # 数据库中没有评分，实时计算
+        score_result = scorer.score_stock(stock_data, trade_date=trade_date_str)
+        lstm_mab_score = {
+            "total_score": score_result["total_score"],
+            "grade": score_result["grade"],
+            "expected_return": score_result.get("expected_return"),
+            "confidence": score_result.get("confidence"),
+            "factor_scores": {
+                "龙头地位": score_result.get("breakdown", {}).get("leader_position", 0),
+                "技术形态": score_result.get("breakdown", {}).get("technical", 0),
+                "资金流向": score_result.get("breakdown", {}).get("money_flow", 0),
+                "情绪热度": score_result.get("breakdown", {}).get("sentiment", 0),
+            },
+            "factor_weights": score_result.get("factor_weights", {}),
+            "recommendation": score_result.get("recommendation", {}),
+        }
+        logger.debug(f"股票 {ts_code} 实时计算评分: {lstm_mab_score['total_score']}")
+
     scored_stock = {
         **stock_data,
         "lstm_mab_score": lstm_mab_score,
@@ -786,7 +808,7 @@ def _build_stock_detail_response(
     if latest_price > 0:
         computed = compute_trade_plan(latest_price, stock_data)
         entry_price = computed.get("entry_price", latest_price)
-        rec = score_result.get("recommendation", {})
+        rec = lstm_mab_score.get("recommendation", {})
         tp1_pct = rec.get("take_profit_1_pct", 10)
         tp2_pct = rec.get("take_profit_2_pct", 15)
         sl_pct = rec.get("stop_loss_pct", -3)
@@ -865,7 +887,9 @@ async def get_stock_detail(
     )
 
     pool = result.get('pool') or []
-    stock_data = next((s for s in pool if s.get('ts_code') == ts_code), None)
+    retreat_pool = result.get('retreat_pool') or []
+    all_stocks = pool + retreat_pool
+    stock_data = next((s for s in all_stocks if s.get('ts_code') == ts_code), None)
     td_str = result.get('trade_date')
 
     # 若不在池中，尝试从雷达补充

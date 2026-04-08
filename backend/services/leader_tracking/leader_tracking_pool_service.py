@@ -367,6 +367,7 @@ class LeaderTrackingPoolService:
     """
     基于 analyzer 单日结果，构建每只股票的当前状态映射。
     用于覆盖持久池中可能过期的 is_space/is_new/continuous_limit。
+    同时获取 change_pct_5d 用于退潮判定。
     """
     state_map: Dict[str, Dict] = {}
     # 空间龙头
@@ -379,6 +380,7 @@ class LeaderTrackingPoolService:
           "is_space": True,
           "is_new": False,
           "continuous_limit": stock.get("continuous_limit"),
+          "change_pct_5d": stock.get("period_return_pct"),  # 从sector_leader_snapshot获取
         }
     # sectors.chain 中的股票：提取所有连板数据，仅对符合标准的标记 is_new
     for sec in result.get("sectors", []) or []:
@@ -389,6 +391,7 @@ class LeaderTrackingPoolService:
           continue
         is_new = _qualifies_as_new_for_tracking_pool(c)
         cl = c.get("continuous_limit")
+        change_pct_5d = c.get("period_return_pct")  # 5日涨幅
         if tc in state_map:
           # 已经是空间龙头，补充 is_new 和更高的连板数
           if is_new:
@@ -402,8 +405,175 @@ class LeaderTrackingPoolService:
             "is_space": False,
             "is_new": is_new,
             "continuous_limit": cl,
+            "change_pct_5d": change_pct_5d,
           }
     return state_map
+
+  def _get_dynamic_expire_days(
+    self,
+    trade_date: date,
+    session,
+  ) -> int:
+    """
+    基于市场情绪周期和市场波动率动态调整过期时间
+
+    规则：
+    - 基础过期：21天
+    - 情绪周期调整：
+      - 主升期：+7天（牛市多给时间）
+      - 震荡期：0天
+      - 退潮期：-7天（快速清理）
+      - 冰点期：-14天（只保留最强）
+    - 波动率调整（备用，如需可启用）：
+      - 高波动（>30%）：-7天
+      - 低波动（<15%）：+7天
+
+    Returns:
+      过期天数（限制在7-35天）
+    """
+    base_days = 21
+
+    # 情绪周期调整
+    emotion_adjust = 0
+    try:
+      from data_warehouse.models import FactMarketEmotionDaily
+      from backend.services.leader_tracking.emotion_cycle_analyzer import EmotionCycleAnalyzer
+
+      record = (
+        session.query(FactMarketEmotionDaily)
+        .filter(FactMarketEmotionDaily.trade_date == trade_date)
+        .first()
+      )
+      if record:
+        analyzer = EmotionCycleAnalyzer()
+        market_data = {
+          "limit_up_count": record.total_limit_up or 0,
+          "limit_down_count": record.total_limit_down or 0,
+          "max_continuous_limit": record.highest_streak or 0,
+          "advance_decline_ratio": 1.0,
+          "volume_ratio": 1.0,
+        }
+        result = analyzer.analyze(market_data)
+        cycle = result.cycle
+
+        emotion_adjust = {
+          "主升期": 7,
+          "高涨期": 7,
+          "震荡期": 0,
+          "退潮期": -7,
+          "低迷期": -7,
+          "冰点期": -14,
+        }.get(cycle, 0)
+
+        logger.debug(f"情绪周期：{cycle}，调整：{emotion_adjust}天")
+    except Exception as e:
+      logger.warning(f"获取情绪周期失败，使用默认值：{e}")
+
+    # 计算最终过期时间
+    expire_days = base_days + emotion_adjust
+
+    # 限制在7-35天
+    expire_days = max(7, min(35, expire_days))
+
+    return expire_days
+
+  def _should_mark_retreat(
+    self,
+    stock_item: Dict,
+    current_state: Optional[Dict],
+  ) -> Tuple[bool, str]:
+    """
+    判定是否应该标记为退潮
+
+    退潮判定条件：
+    1. 曾经 is_space 或 is_new（was_leader）
+    2. 现在失去龙头地位（is_space=False and is_new=False）
+    3. 5日涨幅 <= 0（或不在当前状态映射中，即已被主线雷达淘汰）
+
+    Args:
+      stock_item: 跟踪池中的股票记录（注意：is_space/is_new可能已被覆盖）
+      current_state: 当前状态映射（可能为None）
+
+    Returns:
+      (是否退潮, 退潮原因)
+    """
+    # 使用保存的历史状态（was_space/was_new在覆盖前保存）
+    was_space = stock_item.get("was_space", False)
+    was_new = stock_item.get("was_new", False)
+    was_leader = was_space or was_new
+
+    # 当前状态（从current_state获取，或从stock_item获取已覆盖的值）
+    if current_state:
+      is_space = current_state.get("is_space", False)
+      is_new = current_state.get("is_new", False)
+    else:
+      # 如果current_state为None，说明当日不在雷达中
+      is_space = False
+      is_new = False
+    is_currently_leader = is_space or is_new
+
+    # 从未是龙头的，不退潮
+    if not was_leader:
+      return False, ""
+
+    # 当前仍是龙头的，不退潮
+    if is_currently_leader:
+      return False, ""
+
+    # 失去龙头地位，检查5日涨幅
+    if current_state is None:
+      # 当日不在雷达中，视为失去关注
+      return True, "已不在主线雷达中"
+
+    change_pct_5d = current_state.get("change_pct_5d")
+    if change_pct_5d is not None and change_pct_5d <= 0:
+      return True, f"5日涨幅{change_pct_5d:.1f}%<=0，近期走弱"
+
+    # 失去龙头地位但5日涨幅仍>0，标记为观察期
+    return False, "观察期"
+
+  def _build_lstm_mab_score(self, pool_record) -> Optional[Dict]:
+    """
+    构建 LSTM-MAB 评分数据结构
+
+    Args:
+      pool_record: FactLeaderTrackingPool 记录
+
+    Returns:
+      评分数据结构字典，如果没有评分则返回 None
+    """
+    if pool_record.score is None:
+      return None
+
+    # 确保 total_score 是数字类型
+    total_score = float(pool_record.score)
+
+    # 从 score_breakdown 获取其他字段
+    breakdown = pool_record.score_breakdown or {}
+    if not isinstance(breakdown, dict):
+      breakdown = {}
+
+    expected_return = breakdown.get("expected_return")
+    confidence = breakdown.get("confidence")
+    factor_scores = breakdown.get("factor_scores")
+    factor_weights = breakdown.get("factor_weights")
+    recommendation = breakdown.get("recommendation")
+
+    return {
+      "total_score": total_score,
+      "grade": pool_record.grade,
+      "risk_level": pool_record.risk_level,
+      "emotion_cycle": pool_record.emotion_cycle,
+      "sector_strength": float(pool_record.sector_strength) if pool_record.sector_strength is not None else None,
+      "buy_signal": {"signal_type": pool_record.buy_signal} if pool_record.buy_signal else None,
+      "score_breakdown": pool_record.score_breakdown,
+      # 前端需要的字段
+      "expected_return": float(expected_return) if expected_return is not None else None,
+      "confidence": float(confidence) if confidence is not None else None,
+      "factor_scores": factor_scores,
+      "factor_weights": factor_weights,
+      "recommendation": recommendation,
+    }
 
   def get_pool(
     self,
@@ -484,12 +654,16 @@ class LeaderTrackingPoolService:
     session = self.ws.get_session()
     try:
       rows = session.query(FactLeaderTrackingPool).all()
-      # 时效性过滤：超过15个交易日（约21自然日）未出现的视为归档
-      cutoff = trade_date - timedelta(days=21)
+      # 时效性过滤：使用动态过期时间
+      expire_days = self._get_dynamic_expire_days(trade_date, session)
+      cutoff = trade_date - timedelta(days=expire_days)
       rows = [r for r in rows if r.last_seen_date and r.last_seen_date >= cutoff]
+      logger.debug(f"龙头跟踪池过期时间：{expire_days}天，cutoff={cutoff}")
       pool_list: List[Dict] = []
       for r in rows:
         ca = r.created_at
+        # 构建评分数据结构
+        lstm_mab_score = self._build_lstm_mab_score(r)
         pool_list.append(
           {
             "ts_code": r.ts_code,
@@ -502,6 +676,9 @@ class LeaderTrackingPoolService:
             "first_new_date": r.first_new_date.isoformat() if r.first_new_date else None,
             "last_seen_date": r.last_seen_date.isoformat() if r.last_seen_date else None,
             "pool_created_at": ca.isoformat() if ca else None,
+            "score": r.score,
+            "grade": r.grade,
+            "lstm_mab_score": lstm_mab_score,
           }
         )
       # 用当日 analyzer 实时结果覆盖可能过期的状态字段
@@ -520,22 +697,105 @@ class LeaderTrackingPoolService:
       except Exception as e:
         logger.warning("获取当日实时龙头状态失败（不影响主逻辑）: %s", e)
 
+      # 分类处理：活跃龙头、退潮股票、失活股票
+      active_pool: List[Dict] = []
+      retreat_pool: List[Dict] = []
+
       for item in pool_list:
         tc = item["ts_code"]
+        # 保存历史状态（用于判定退潮）
+        was_space = item.get("is_space", False)
+        was_new = item.get("is_new", False)
+        item["was_space"] = was_space
+        item["was_new"] = was_new
+
         if tc in current_state_map:
           state = current_state_map[tc]
           item["is_space"] = state["is_space"]
           item["is_new"] = state["is_new"]
           item["continuous_limit"] = state["continuous_limit"]
+          item["change_pct_5d"] = state.get("change_pct_5d")
         else:
-          # 当日不在雷达中：清空活跃角色标记，但保留持久化的连板记录
+          # 当日不在雷达中：清空活跃角色标记
           item["is_space"] = False
           item["is_new"] = False
+          item["change_pct_5d"] = None
 
-      # 过滤：只保留 is_space 或 is_new 为 True 的股票
-      filtered_pool = [item for item in pool_list if item.get("is_space") or item.get("is_new")]
+        # 退潮判定
+        is_retreat, retreat_reason = self._should_mark_retreat(
+          item, current_state_map.get(tc)
+        )
 
-      return {"success": True, "trade_date": trade_date.isoformat(), "pool": filtered_pool}
+        if item.get("is_space") or item.get("is_new"):
+          # 当前仍是龙头
+          item["retreat_status"] = "正常"
+          item["is_active"] = True
+          item["retreat_reason"] = ""
+          active_pool.append(item)
+        elif is_retreat:
+          # 已退潮
+          item["retreat_status"] = "退潮"
+          item["is_active"] = False
+          item["retreat_reason"] = retreat_reason
+          # 计算退潮天数（从last_seen_date到现在）
+          last_seen = item.get("last_seen_date")
+          if last_seen:
+            try:
+              from datetime import datetime
+              last_dt = datetime.fromisoformat(last_seen).date() if isinstance(last_seen, str) else last_seen
+              days_since_last = (trade_date - last_dt).days
+              item["days_since_last_seen"] = days_since_last
+              # 退潮超过3天的不展示
+              if days_since_last <= 3:
+                retreat_pool.append(item)
+            except Exception:
+              retreat_pool.append(item)
+          else:
+            retreat_pool.append(item)
+        else:
+          # 失活（从未是龙头，或失去龙头地位但5日涨幅仍>0）
+          item["retreat_status"] = "失活"
+          item["is_active"] = False
+          item["retreat_reason"] = retreat_reason
+          # 失活股票不加入任何列表
+
+      logger.info(
+        "龙头跟踪池：活跃 %s 只，退潮 %s 只，失活/归档 %s 只",
+        len(active_pool),
+        len(retreat_pool),
+        len(pool_list) - len(active_pool) - len(retreat_pool),
+      )
+
+      # 执行数据质量监控检查
+      try:
+        from backend.services.leader_tracking.leader_tracking_monitor import LeaderTrackingMonitor
+        monitor = LeaderTrackingMonitor(self.ws)
+        monitor_result = monitor.daily_check(
+          trade_date=trade_date,
+          active_pool=active_pool,
+          retreat_pool=retreat_pool,
+        )
+        # 将监控结果加入返回数据
+        monitor_summary = {
+          "health_score": monitor_result.get("health_score", 0),
+          "alert_count": len(monitor_result.get("alerts", [])),
+        }
+      except Exception as e:
+        logger.warning(f"监控检查失败（不影响主逻辑）：{e}")
+        monitor_summary = {"health_score": -1, "alert_count": 0}
+
+      return {
+        "success": True,
+        "trade_date": trade_date.isoformat(),
+        "pool": active_pool,  # 只包含活跃龙头
+        "retreat_pool": retreat_pool,  # 退潮股票（近3日内）
+        "stats": {
+          "active_count": len(active_pool),
+          "retreat_count": len(retreat_pool),
+          "total_tracked": len(pool_list),
+        },
+        "monitor": monitor_summary,
+      }
     finally:
       session.close()
 

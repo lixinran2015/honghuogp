@@ -317,8 +317,9 @@ class SectorLeaderService:
                     leader_dict['change_pct_1d'] = change_pct_1d
                     leader_dict['change_pct_5d'] = change_pct_5d
                     leader_dict['limit_up_days'] = limit_up_days
-                    leader_dict['continuous_limit'] = max_continuous
-                    leader_dict['current_continuous_limit'] = current_limit  # 当前连板数（最新连续涨停天数）
+                    # 使用当前连板数而不是历史最大连板数，确保主线雷达能正确识别高标龙头
+                    leader_dict['continuous_limit'] = current_limit  # 当前连板数（最新连续涨停天数）
+                    leader_dict['max_continuous_limit'] = max_continuous  # 历史最大连板数（备用）
                     # 上一个交易日的数据
                     leader_dict['last_price'] = last_price
                     leader_dict['last_volume'] = last_volume  # 成交量（手）

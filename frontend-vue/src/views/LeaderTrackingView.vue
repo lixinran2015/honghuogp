@@ -1002,6 +1002,10 @@ const leaderRowsBase = computed(() => {
       first_space_date: cur.first_space_date ?? partial.first_space_date ?? null,
       first_new_date: cur.first_new_date ?? partial.first_new_date ?? null,
       pool_created_at: cur.pool_created_at ?? partial.pool_created_at ?? null,
+      // 保留评分数据
+      score: cur.score ?? partial.score ?? null,
+      grade: cur.grade ?? partial.grade ?? null,
+      lstm_mab_score: cur.lstm_mab_score ?? partial.lstm_mab_score ?? null,
     })
   }
 
@@ -1017,6 +1021,10 @@ const leaderRowsBase = computed(() => {
       first_space_date: r.first_space_date || null,
       first_new_date: r.first_new_date || null,
       pool_created_at: r.pool_created_at || null,
+      // 传入评分数据
+      score: r.score ?? null,
+      grade: r.grade ?? null,
+      lstm_mab_score: r.lstm_mab_score ?? null,
     })
   }
   for (const r of spaceLeadersByStock.value || []) {
@@ -1440,10 +1448,12 @@ const toggleSort = (key) => {
 // 应用排序后的最终列表
 const leaderRows = computed(() => {
   const base = [...(leaderRowsBase.value || [])]
-  // 合并 AI 评分到每行数据
+  // 合并 AI 评分到每行数据：优先使用后端返回的评分，没有则从 stockScoreMap 获取
   const withScores = base.map(row => ({
     ...row,
-    lstm_mab_score: stockScoreMap.value[row.ts_code] || null
+    lstm_mab_score: (row.lstm_mab_score?.total_score != null ? row.lstm_mab_score : null)
+      || stockScoreMap.value[row.ts_code]
+      || null
   }))
   // 历史票持续展示：只排除 ST/ *ST，避免回调后”空间/刚启动”候选瞬间消失
   let filtered = withScores.filter((r) => !isSTStockName(r.name || r.ts_code))
