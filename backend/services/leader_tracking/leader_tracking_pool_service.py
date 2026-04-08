@@ -59,6 +59,7 @@ class LeaderTrackingPoolService:
     except ValueError:
       return None
 
+  # 已弃用：简化后不再需要，首次调用时会自动处理
   def _bootstrap_if_empty(
     self,
     trade_date: date,
@@ -227,38 +228,30 @@ class LeaderTrackingPoolService:
     stage_filter: str,
     leader_window_ids: List[str],
   ) -> None:
-    # 1) 避免重复同步：每日只 sync 一次（除非外部强制）
+    # 简化：每次调用都同步，确保数据最新（幂等操作）
     session = self.ws.get_session()
     try:
-      already = session.query(FactLeaderTrackingPoolSyncLog.trade_date).filter(
-        FactLeaderTrackingPoolSyncLog.trade_date == trade_date
-      ).first()
-      if already:
-        return
-
       analyzer = StartupSectorAnalyzer(self.ws)
+      # 使用范围查询（最近5天）确保1板龙头能被正确识别
+      start_dt = trade_date - timedelta(days=5)
       result = analyzer.analyze(
-        start_date=trade_date,
+        start_date=start_dt,
         end_date=trade_date,
         min_score=min_score,
         stage_filter=stage_filter,
         leader_window_ids=leader_window_ids,
       )
       if not result or result.get("success") is False:
-        session.add(FactLeaderTrackingPoolSyncLog(trade_date=trade_date))
-        session.commit()
         return
 
-      # 用 analyzer 的单日结果构造候选集合
+      # 用 analyzer 的结果构造候选集合（使用范围查询日期）
       pool_map = self._build_pool_map_from_analyzer_result(
         result,
         min_score=min_score,
-        trade_date_for_date_fields=(trade_date, trade_date),
+        trade_date_for_date_fields=(start_dt, trade_date),
         stage_filter=stage_filter,
       )
       if not pool_map:
-        session.add(FactLeaderTrackingPoolSyncLog(trade_date=trade_date))
-        session.commit()
         return
 
       existing_rows = (
@@ -309,12 +302,12 @@ class LeaderTrackingPoolService:
           if prev is None or info["continuous_limit"] > prev:
             row.continuous_limit = info["continuous_limit"]
 
-      session.add(FactLeaderTrackingPoolSyncLog(trade_date=trade_date))
       session.commit()
       logger.info("跟踪池增量同步完成：%s 只（trade_date=%s）", len(pool_map), trade_date)
     finally:
       session.close()
 
+  # 已弃用：简化后不再需要，每次调用都会实时同步
   def _sync_catch_up_missing_trade_dates(
     self,
     end_trade_date: date,
@@ -597,52 +590,8 @@ class LeaderTrackingPoolService:
 
     leader_window_ids = [stable_window_id]
 
-    if do_bootstrap:
-      self._bootstrap_if_empty(
-        trade_date=trade_date,
-        min_score=min_score,
-        stage_filter=stage_filter,
-        leader_window_ids=leader_window_ids,
-        bootstrap_days=bootstrap_days,
-      )
-
-    if replay_sync_days > 0:
-      n = min(int(replay_sync_days), 60)
-      session = self.ws.get_session()
-      try:
-        dates_clear = _last_n_trade_dates(session, trade_date, n)
-        if dates_clear:
-          session.query(FactLeaderTrackingPoolSyncLog).filter(
-            FactLeaderTrackingPoolSyncLog.trade_date.in_(dates_clear)
-          ).delete(synchronize_session=False)
-          session.commit()
-          logger.info(
-            "跟踪池 replay：已清除 %s 个交易日的 sync_log，随后将按缺口重跑",
-            len(dates_clear),
-          )
-      finally:
-        session.close()
-
-    if force_sync:
-      # 简单实现：删除 sync_log 行（避免影响其他日期）
-      session = self.ws.get_session()
-      try:
-        session.query(FactLeaderTrackingPoolSyncLog).filter(
-          FactLeaderTrackingPoolSyncLog.trade_date == trade_date
-        ).delete(synchronize_session=False)
-        session.commit()
-      finally:
-        session.close()
-
-    self._sync_catch_up_missing_trade_dates(
-      end_trade_date=trade_date,
-      min_score=min_score,
-      stage_filter=stage_filter,
-      leader_window_ids=leader_window_ids,
-      window_trading_days=catch_up_window_trading_days,
-      max_syncs=catch_up_max_syncs,
-    )
-
+    # 简化同步逻辑：直接同步当日数据
+    # 如果表为空，_sync_for_trade_date 会自动处理新股票入池
     self._sync_for_trade_date(
       trade_date=trade_date,
       min_score=min_score,

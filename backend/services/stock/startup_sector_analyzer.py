@@ -910,6 +910,9 @@ class StartupSectorAnalyzer:
               "first_seen_date": c.get("first_seen_date"),
               "last_seen_date": c.get("last_seen_date"),
               "is_st": bool(c.get("is_st")),
+              "period_return_pct": c.get("period_return_pct"),
+              "change_pct_5d": c.get("change_pct_5d"),
+              "continuous_limit": c.get("continuous_limit"),
             }
             for c in leaders
           ],
