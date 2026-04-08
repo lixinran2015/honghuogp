@@ -16,12 +16,6 @@ def _mock_session(**overrides):
     qmock = MagicMock()
     session.query.return_value = qmock
 
-    # query(...).limit(1).first() —— bootstrap 检查
-    qmock.limit.return_value.first.return_value = overrides.get("bootstrap_has_any", None)
-
-    # query(...).filter(...).first() —— sync log 查重
-    qmock.filter.return_value.first.return_value = overrides.get("sync_already", None)
-
     # query(...).filter(...).all() —— 查多行/同步记录
     qmock.filter.return_value.all.return_value = overrides.get("filter_all", [])
 
@@ -73,98 +67,9 @@ class TestParseTradeDate:
 
 
 @patch("backend.services.leader_tracking.leader_tracking_pool_service.StartupSectorAnalyzer")
-class TestBootstrapIfEmpty:
-    def test_skips_when_not_empty(self, MockAnalyzer):
-        session = _mock_session(bootstrap_has_any=MagicMock())
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        svc._bootstrap_if_empty(
-            trade_date=date(2026, 4, 5),
-            min_score=60,
-            stage_filter="confirmed",
-            leader_window_ids=["w1"],
-            bootstrap_days=180,
-        )
-        session.add.assert_not_called()
-        session.commit.assert_not_called()
-        session.close.assert_called_once()
-
-    def test_writes_when_empty(self, MockAnalyzer):
-        session1 = _mock_session(bootstrap_has_any=None)
-        session2 = _mock_session(filter_all=[])
-        mock_ws = MagicMock()
-        mock_ws.get_session.side_effect = [session1, session2]
-
-        mock_analyzer = MagicMock()
-        mock_analyzer.analyze.return_value = {
-            "success": True,
-            "space_leaders_lead": [
-                {
-                    "sector_name": "银行",
-                    "stocks": [{"ts_code": "000001.SZ", "name": "平安银行"}],
-                }
-            ],
-            "sectors": [],
-        }
-        MockAnalyzer.return_value = mock_analyzer
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        svc._bootstrap_if_empty(
-            trade_date=date(2026, 4, 5),
-            min_score=60,
-            stage_filter="confirmed",
-            leader_window_ids=["w1"],
-            bootstrap_days=180,
-        )
-        session1.add.assert_called()
-        session1.commit.assert_called_once()
-        session1.close.assert_called_once()
-        session2.close.assert_called_once()
-
-    def test_analyzer_failure_no_write(self, MockAnalyzer):
-        session = _mock_session(bootstrap_has_any=None)
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        mock_analyzer = MagicMock()
-        mock_analyzer.analyze.return_value = {"success": False}
-        MockAnalyzer.return_value = mock_analyzer
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        svc._bootstrap_if_empty(
-            trade_date=date(2026, 4, 5),
-            min_score=60,
-            stage_filter="confirmed",
-            leader_window_ids=["w1"],
-            bootstrap_days=180,
-        )
-        session.add.assert_not_called()
-        session.commit.assert_not_called()
-        session.close.assert_called_once()
-
-
-@patch("backend.services.leader_tracking.leader_tracking_pool_service.StartupSectorAnalyzer")
 class TestSyncForTradeDate:
-    def test_already_synced(self, MockAnalyzer):
-        session = _mock_session(sync_already=MagicMock())
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        svc._sync_for_trade_date(
-            trade_date=date(2026, 4, 5),
-            min_score=60,
-            stage_filter="confirmed",
-            leader_window_ids=["w1"],
-        )
-        MockAnalyzer.assert_not_called()
-        session.commit.assert_not_called()
-        session.close.assert_called_once()
-
     def test_sync_new_stock(self, MockAnalyzer):
-        session1 = _mock_session(sync_already=None, filter_all=[])
+        session1 = _mock_session(filter_all=[])
         session2 = _mock_session(filter_all=[])
         mock_ws = MagicMock()
         mock_ws.get_session.side_effect = [session1, session2]
@@ -246,11 +151,10 @@ class TestSyncForTradeDate:
 
 @patch("backend.services.leader_tracking.leader_tracking_pool_service.get_latest_trade_date")
 @patch("backend.services.leader_tracking.leader_tracking_pool_service.StartupSectorAnalyzer")
-@patch("backend.services.leader_tracking.leader_tracking_pool_service._last_n_trade_dates")
 class TestGetPool:
-    def test_default_trade_date(self, MockLastN, MockAnalyzer, MockGetLatest):
+    def test_default_trade_date(self, MockAnalyzer, MockGetLatest):
         MockGetLatest.return_value = date(2026, 4, 5)
-        session = _mock_session(bootstrap_has_any=MagicMock(), query_all=[])
+        session = _mock_session(query_all=[])
         mock_ws = MagicMock()
         mock_ws.get_session.return_value = session
 
@@ -260,33 +164,7 @@ class TestGetPool:
         assert result["trade_date"] == "2026-04-05"
         MockGetLatest.assert_called_once()
 
-    def test_replay_sync_days(self, MockLastN, MockAnalyzer, MockGetLatest):
-        MockLastN.return_value = [date(2026, 4, 1), date(2026, 4, 2)]
-        session = _mock_session(bootstrap_has_any=MagicMock(), query_all=[])
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        result = svc.get_pool(trade_date=date(2026, 4, 5), replay_sync_days=2)
-
-        # replay 会删除 sync_log
-        assert session.query.return_value.filter.return_value.delete.call_count >= 1
-        assert result["success"] is True
-
-    def test_force_sync(self, MockLastN, MockAnalyzer, MockGetLatest):
-        session = _mock_session(bootstrap_has_any=MagicMock(), query_all=[])
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        result = svc.get_pool(trade_date=date(2026, 4, 5), force_sync=True)
-
-        # force_sync 会删除当前日期的 sync_log
-        session.query.return_value.filter.return_value.delete.assert_called()
-        assert result["success"] is True
-
-    def test_returns_pool_with_overlay(self, MockLastN, MockAnalyzer, MockGetLatest):
-        MockLastN.return_value = []
+    def test_returns_pool_with_overlay(self, MockAnalyzer, MockGetLatest):
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = {
             "success": True,
@@ -318,7 +196,7 @@ class TestGetPool:
         mock_ws.get_session.return_value = session
 
         svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        result = svc.get_pool(trade_date=date(2026, 4, 5), do_bootstrap=False)
+        result = svc.get_pool(trade_date=date(2026, 4, 5))
 
         assert result["success"] is True
         pool = result["pool"]
@@ -326,9 +204,7 @@ class TestGetPool:
         assert pool[0]["is_space"] is True  # 被 overlay 覆盖为 True
         assert pool[0]["continuous_limit"] == 2
 
-    def test_analyzer_overlay_exception(self, MockLastN, MockAnalyzer, MockGetLatest):
-        MockLastN.return_value = []
-
+    def test_analyzer_overlay_exception(self, MockAnalyzer, MockGetLatest):
         # 第一次实例化（_sync_for_trade_date 内部）成功，第二次（overlay）抛异常
         _analyzer_calls = []
         def _analyzer_side_effect(*args, **kwargs):
@@ -357,63 +233,12 @@ class TestGetPool:
         mock_ws.get_session.return_value = session
 
         svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        result = svc.get_pool(trade_date=date(2026, 4, 5), do_bootstrap=False)
+        result = svc.get_pool(trade_date=date(2026, 4, 5))
 
         assert result["success"] is True
         assert len(result["pool"]) == 1
         # overlay 失败时 current_state_map 为空，代码会走 else 分支将 is_space 重置为 False
         assert result["pool"][0]["is_space"] is False
-
-    def test_catch_up_missing_dates(self, MockLastN, MockAnalyzer, MockGetLatest):
-        MockLastN.side_effect = lambda session, end_date, n: [
-            date(2026, 4, 1),
-            date(2026, 4, 2),
-            date(2026, 4, 3),
-        ]
-
-        # 构造一个能区分多次 sync log 查询的 mock session
-        synced_dates = {date(2026, 4, 2)}  # 只有 4/2 已同步
-
-        def query_side_effect(*args):
-            qm = MagicMock()
-            model = args[0] if args else None
-            # bootstrap check
-            qm.limit.return_value.first.return_value = MagicMock()
-            # sync log filter
-            def filter_side_effect(*fargs, **fkwargs):
-                fm = MagicMock()
-                # 退回 synced_rows 查询结果
-                if hasattr(model, "__tablename__") and model.__tablename__ == "fact_leader_tracking_pool_sync_log":
-                    # 这里根据调用上下文返回所有已同步日期
-                    fm.all.return_value = [(d,) for d in synced_dates]
-                else:
-                    fm.all.return_value = []
-                fm.first.return_value = None
-                fm.delete.return_value = None
-                return fm
-            qm.filter.side_effect = filter_side_effect
-            qm.all.return_value = []
-            return qm
-
-        session = MagicMock()
-        session.query.side_effect = query_side_effect
-        mock_ws = MagicMock()
-        mock_ws.get_session.return_value = session
-
-        mock_analyzer = MagicMock()
-        mock_analyzer.analyze.return_value = {"success": True, "space_leaders_lead": [], "sectors": []}
-        MockAnalyzer.return_value = mock_analyzer
-
-        svc = LeaderTrackingPoolService(warehouse=mock_ws)
-        result = svc.get_pool(
-            trade_date=date(2026, 4, 5),
-            do_bootstrap=False,
-            catch_up_window_trading_days=5,
-            catch_up_max_syncs=2,
-        )
-        assert result["success"] is True
-        # 至少为 catch-up sync 和最终当日 sync 各 commit 一次
-        assert session.commit.call_count >= 1
 
 
 class TestBuildCurrentStateMap:

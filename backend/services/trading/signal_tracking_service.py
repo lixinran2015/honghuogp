@@ -40,10 +40,6 @@ class SignalTrackingService:
             min_score=60,
             stage_filter='confirmed',
             stable_window_id='rolling_30d_v2',
-            do_bootstrap=False,
-            force_sync=False,
-            catch_up_window_trading_days=0,
-            catch_up_max_syncs=0,
         )
         if not pool_result or not pool_result.get('success') or not pool_result.get('pool'):
             logger.info(f"{trade_date} 龙头池为空，无信号可记录")

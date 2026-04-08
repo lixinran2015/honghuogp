@@ -152,10 +152,6 @@ class ScoreRankingBacktest:
                     min_score=min_score,
                     stage_filter=stage_filter,
                     stable_window_id='rolling_30d_v2',
-                    do_bootstrap=False,
-                    force_sync=False,
-                    catch_up_window_trading_days=0,
-                    catch_up_max_syncs=0,
                 )
                 if not pool_result or not pool_result.get('success') or not pool_result.get('pool'):
                     continue

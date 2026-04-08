@@ -411,27 +411,6 @@ async def get_leader_tracking_pool(
     min_score: int = Query(60, description="启动得分阈值"),
     stage: str = Query("confirmed", description="阶段过滤：confirmed / started"),
     stable_window_id: str = Query("rolling_30d_v2", description="快照窗口：用于判断空间/刚启动角色的稳定性"),
-    bootstrap_days: int = Query(180, description="池为空时的历史补齐天数（只用于首次初始化）"),
-    do_bootstrap: bool = Query(True, description="是否在池为空时自动 bootstrap"),
-    force_sync: bool = Query(False, description="是否强制重新同步当天（会跳过 sync log）"),
-    catch_up_window_trading_days: int = Query(
-        30,
-        ge=0,
-        le=120,
-        description="补同步：向前查看多少个交易日内的 sync 缺口（0 表示不补历史，仅同步 end 日）",
-    ),
-    catch_up_max_syncs: int = Query(
-        30,
-        ge=0,
-        le=30,
-        description="补同步：单次请求最多补跑几个缺失交易日（默认与窗口一致，一次补满近 30 个交易日缺口）",
-    ),
-    replay_sync_days: int = Query(
-        0,
-        ge=0,
-        le=60,
-        description="为 >0 时先删除最近 n 个交易日的 sync_log 再补跑（入池规则变更或需重灌历史时用）",
-    ),
     with_scores: bool = Query(
         False,
         description="是否使用 LSTM-MAB 模型进行智能评分",
@@ -454,12 +433,6 @@ async def get_leader_tracking_pool(
         min_score=min_score,
         stage_filter=stage,
         stable_window_id=stable_window_id,
-        bootstrap_days=bootstrap_days,
-        do_bootstrap=do_bootstrap,
-        force_sync=force_sync,
-        catch_up_window_trading_days=catch_up_window_trading_days,
-        catch_up_max_syncs=catch_up_max_syncs,
-        replay_sync_days=replay_sync_days,
     )
 
     # 如果请求了评分，调用统一评分引擎
@@ -570,12 +543,6 @@ async def get_top_scored_leaders(
         min_score=min_score,
         stage_filter=stage,
         stable_window_id='rolling_30d_v2',
-        bootstrap_days=180,
-        do_bootstrap=True,
-        force_sync=False,
-        catch_up_window_trading_days=30,
-        catch_up_max_syncs=30,
-        replay_sync_days=0,
     )
 
     if not result.get('success') or not result.get('pool'):

@@ -8,14 +8,16 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Set, Tuple
 
-from backend.services.leader_tracking.leader_recent_days_service import _last_n_trade_dates
 from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
 from backend.utils.trade_date_utils import get_latest_trade_date
 from data_warehouse.service.warehouse_service import WarehouseService
-from data_warehouse.models import FactLeaderTrackingPool, FactLeaderTrackingPoolSyncLog
+from data_warehouse.models import FactLeaderTrackingPool
 from data_warehouse.models.startup_candidate import FactStockStartupCandidate
 
 logger = logging.getLogger(__name__)
+
+# 常量：龙头查询窗口天数（与前端保持一致）
+LOOKUP_WINDOW_DAYS = 5
 
 
 def _qualifies_as_new_for_tracking_pool(chain_item: Dict) -> bool:
@@ -58,61 +60,6 @@ class LeaderTrackingPoolService:
       return datetime.strptime(s, "%Y-%m-%d").date()
     except ValueError:
       return None
-
-  # 已弃用：简化后不再需要，首次调用时会自动处理
-  def _bootstrap_if_empty(
-    self,
-    trade_date: date,
-    min_score: int,
-    stage_filter: str,
-    leader_window_ids: List[str],
-    bootstrap_days: int,
-  ) -> None:
-    session = self.ws.get_session()
-    try:
-      has_any = session.query(FactLeaderTrackingPool.ts_code).limit(1).first()
-      if has_any:
-        return
-
-      start_dt = trade_date - timedelta(days=int(bootstrap_days))
-      analyzer = StartupSectorAnalyzer(self.ws)
-      result = analyzer.analyze(
-        start_date=start_dt,
-        end_date=trade_date,
-        min_score=min_score,
-        stage_filter=stage_filter,
-        leader_window_ids=leader_window_ids,
-      )
-      if not result or result.get("success") is False:
-        logger.info("跟踪池 bootstrap：指定窗口内无数据，跳过")
-        return
-
-      pool_map = self._build_pool_map_from_analyzer_result(
-        result,
-        min_score=min_score,
-        trade_date_for_date_fields=(start_dt, trade_date),
-        stage_filter=stage_filter,
-      )
-
-      # 写入
-      for code, info in pool_map.items():
-        session.add(
-          FactLeaderTrackingPool(
-            ts_code=code,
-            name=info["name"],
-            is_space=info["is_space"],
-            is_new=info["is_new"],
-            first_space_date=info["first_space_date"],
-            first_new_date=info["first_new_date"],
-            last_seen_date=info["last_seen_date"],
-            sectors=info["sectors"],
-            continuous_limit=info["continuous_limit"],
-          )
-        )
-      session.commit()
-      logger.info("跟踪池 bootstrap 写入完成：%s 只", len(pool_map))
-    finally:
-      session.close()
 
   def _build_pool_map_from_analyzer_result(
     self,
@@ -233,7 +180,7 @@ class LeaderTrackingPoolService:
     try:
       analyzer = StartupSectorAnalyzer(self.ws)
       # 使用范围查询（最近5天）确保1板龙头能被正确识别
-      start_dt = trade_date - timedelta(days=5)
+      start_dt = trade_date - timedelta(days=LOOKUP_WINDOW_DAYS)
       result = analyzer.analyze(
         start_date=start_dt,
         end_date=trade_date,
@@ -306,51 +253,6 @@ class LeaderTrackingPoolService:
       logger.info("跟踪池增量同步完成：%s 只（trade_date=%s）", len(pool_map), trade_date)
     finally:
       session.close()
-
-  # 已弃用：简化后不再需要，每次调用都会实时同步
-  def _sync_catch_up_missing_trade_dates(
-    self,
-    end_trade_date: date,
-    min_score: int,
-    stage_filter: str,
-    leader_window_ids: List[str],
-    window_trading_days: int,
-    max_syncs: int,
-  ) -> None:
-    """
-    若中间若干交易日从未调用过 get_pool，sync_log 会缺档，对应日期的空间/刚启动不会进池。
-    在每次拉池时按时间顺序补跑最近 window 内未同步的交易日，每请求最多 max_syncs 次，避免超时。
-    """
-    if max_syncs <= 0 or window_trading_days <= 0:
-      return
-    window_trading_days = min(int(window_trading_days), 120)
-    max_syncs = min(int(max_syncs), 30)
-
-    session = self.ws.get_session()
-    try:
-      date_list = _last_n_trade_dates(session, end_trade_date, window_trading_days)
-      if not date_list:
-        return
-      date_list_asc = sorted(date_list)
-      synced_rows = (
-        session.query(FactLeaderTrackingPoolSyncLog.trade_date)
-        .filter(FactLeaderTrackingPoolSyncLog.trade_date.in_(date_list_asc))
-        .all()
-      )
-      synced_set = {r[0] for r in synced_rows}
-    finally:
-      session.close()
-
-    missing = [d for d in date_list_asc if d not in synced_set]
-    if not missing:
-      return
-    for td in missing[:max_syncs]:
-      self._sync_for_trade_date(
-        trade_date=td,
-        min_score=min_score,
-        stage_filter=stage_filter,
-        leader_window_ids=leader_window_ids,
-      )
 
   def _build_current_state_map(
     self,
@@ -574,16 +476,27 @@ class LeaderTrackingPoolService:
     min_score: int = 60,
     stage_filter: str = "confirmed",
     stable_window_id: str = "rolling_30d_v2",
-    bootstrap_days: int = 180,
-    do_bootstrap: bool = True,
-    force_sync: bool = False,
-    catch_up_window_trading_days: int = 30,
-    catch_up_max_syncs: int = 30,
-    replay_sync_days: int = 0,
   ) -> Dict:
     """
-    返回：
-    - pool：持久化成员列表
+    获取龙头跟踪池数据。
+
+    每次调用会实时同步当日数据，并使用 analyzer 结果覆盖可能过期的状态字段。
+    支持动态过期时间（基于情绪周期调整，默认21天，范围7-35天）。
+
+    Args:
+      trade_date: 交易日，默认为最新交易日
+      min_score: 启动得分阈值，默认60
+      stage_filter: 阶段过滤，confirmed 或 started
+      stable_window_id: 快照窗口ID，用于判断空间/刚启动角色
+
+    Returns:
+      Dict 包含:
+        - success: 是否成功
+        - trade_date: 交易日期
+        - pool: 活跃龙头列表
+        - retreat_pool: 退潮股票列表（近3日）
+        - stats: 统计信息
+        - monitor: 监控摘要
     """
     if trade_date is None:
       trade_date = get_latest_trade_date(self.ws) or date.today()
@@ -636,7 +549,7 @@ class LeaderTrackingPoolService:
       try:
         analyzer = StartupSectorAnalyzer(self.ws)
         # 使用范围查询而不是单日，确保能获取到法尔胜等1板龙头
-        start_dt = trade_date - timedelta(days=5)
+        start_dt = trade_date - timedelta(days=LOOKUP_WINDOW_DAYS)
         analyzer_result = analyzer.analyze(
           start_date=start_dt,
           end_date=trade_date,
@@ -693,7 +606,6 @@ class LeaderTrackingPoolService:
           last_seen = item.get("last_seen_date")
           if last_seen:
             try:
-              from datetime import datetime
               last_dt = datetime.fromisoformat(last_seen).date() if isinstance(last_seen, str) else last_seen
               days_since_last = (trade_date - last_dt).days
               item["days_since_last_seen"] = days_since_last
