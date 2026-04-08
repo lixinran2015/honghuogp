@@ -682,11 +682,14 @@ class LeaderTrackingPoolService:
           }
         )
       # 用当日 analyzer 实时结果覆盖可能过期的状态字段
+      # 使用范围查询（最近5天）与前端保持一致，确保能获取到所有空间龙头
       current_state_map: Dict[str, Dict] = {}
       try:
         analyzer = StartupSectorAnalyzer(self.ws)
+        # 使用范围查询而不是单日，确保能获取到法尔胜等1板龙头
+        start_dt = trade_date - timedelta(days=5)
         analyzer_result = analyzer.analyze(
-          start_date=trade_date,
+          start_date=start_dt,
           end_date=trade_date,
           min_score=min_score,
           stage_filter=stage_filter,
