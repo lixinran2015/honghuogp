@@ -28,6 +28,65 @@
       </div>
     </div>
 
+    <!-- 健康分数卡片 -->
+    <div
+      v-if="healthData"
+      class="mb-4 bg-white rounded-lg border border-border p-4"
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <!-- 健康分数圆圈 -->
+          <div class="flex items-center gap-3">
+            <div
+              class="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold"
+              :class="getHealthScoreBg(healthData.health_score) + ' ' + getHealthScoreColor(healthData.health_score)"
+            >
+              {{ healthData.health_score }}
+            </div>
+            <div>
+              <div class="text-sm font-semibold text-warmgray-900">健康分数</div>
+              <div class="text-xs text-warmgray-500">满分100分</div>
+            </div>
+          </div>
+
+          <!-- 分隔线 -->
+          <div class="w-px h-12 bg-warmgray-200"></div>
+
+          <!-- 关键指标（与页面显示一致） -->
+          <div class="flex items-center gap-4 text-sm">
+            <div>
+              <span class="text-warmgray-500">活跃龙头:</span>
+              <span class="font-medium text-warmgray-900 ml-1">{{ healthData.metrics?.active_count || 0 }}只</span>
+            </div>
+            <div>
+              <span class="text-warmgray-500">退潮:</span>
+              <span class="font-medium text-warmgray-900 ml-1">{{ healthData.metrics?.retreat_count || 0 }}只</span>
+            </div>
+            <div>
+              <span class="text-warmgray-500">跟踪总数:</span>
+              <span class="font-medium text-warmgray-900 ml-1">{{ healthData.metrics?.total_tracked || 0 }}只</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 告警数量 -->
+        <div class="flex-1 ml-8 text-right">
+          <span
+            v-if="healthData.alert_count > 0"
+            class="px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700"
+          >
+            ⚠️ {{ healthData.alert_count }} 条告警
+          </span>
+          <span
+            v-else
+            class="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700"
+          >
+            ✅ 系统健康
+          </span>
+        </div>
+      </div>
+    </div>
+
     <div class="space-y-4">
       <!-- 龙头列表 + 日线图 -->
       <div class="space-y-4">
@@ -784,6 +843,10 @@ const topScoredStocks = ref([])
 const scoringError = ref(null)
 const modelAvailable = ref(false)
 const currentEmotionCycle = ref('')
+
+// 龙头跟踪系统健康分数
+const healthData = ref(null)
+const healthLoading = ref(false)
 
 // 判断是否为 ST / *ST 股票（根据名称前缀）
 const isSTStockName = (name) => {
@@ -1767,6 +1830,8 @@ const fetchData = async () => {
 
     // 获取所有股票的 AI 评分（使用较大的 top_n 获取全部）
     await fetchAllStockScores()
+    // 获取龙头跟踪系统健康分数
+    await fetchHealthData()
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e)
@@ -1776,6 +1841,46 @@ const fetchData = async () => {
     poolLeaders.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// 获取龙头跟踪系统健康分数
+const fetchHealthData = async () => {
+  healthLoading.value = true
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/leader-tracking/health`)
+    if (res.data?.success) {
+      healthData.value = res.data.data
+    }
+  } catch (e) {
+    // 健康分数获取失败不影响主功能
+    console.warn('获取健康分数失败:', e)
+  } finally {
+    healthLoading.value = false
+  }
+}
+
+// 获取健康分数颜色
+const getHealthScoreColor = (score) => {
+  if (score >= 80) return 'text-green-600'
+  if (score >= 60) return 'text-amber-600'
+  return 'text-red-600'
+}
+
+// 获取健康分数背景色
+const getHealthScoreBg = (score) => {
+  if (score >= 80) return 'bg-green-100'
+  if (score >= 60) return 'bg-amber-100'
+  return 'bg-red-100'
+}
+
+// 获取告警等级图标
+const getAlertIcon = (level) => {
+  switch (level) {
+    case 'CRITICAL': return '🔴'
+    case 'WARNING': return '🟡'
+    case 'NOTICE': return '🔵'
+    default: return 'ℹ️'
   }
 }
 

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query, HTTPException
 from backend.services.leader_tracking.leader_tracking_pool_service import LeaderTrackingPoolService
 from backend.services.leader_tracking.leader_recent_days_service import LeaderRecentDaysService
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
+from backend.services.leader_tracking import check_pool_health
 from backend.services.lstm_mab import LSTMMABModel
 from backend.services.data.postgres_warehouse import PostgresWarehouse
 from backend.services.trading.monitor_stats_service import MonitorStatsService
@@ -913,3 +914,67 @@ async def get_stock_detail(
         "model_available": True,
         "data": detail,
     }
+
+
+@router.get("/health")
+async def get_leader_tracking_health(
+    trade_date: Optional[str] = Query(None, description="交易日，YYYY-MM-DD；不传则取最新交易日"),
+    min_score: int = Query(60, description="启动得分阈值"),
+    stage: str = Query("confirmed", description="阶段过滤：confirmed / started"),
+) -> dict:
+    """
+    获取龙头跟踪系统健康状态
+
+    返回数据质量监控结果，包括：
+    - health_score: 健康分数 (0-100)
+    - alerts: 告警列表 [{level, message}]
+    - metrics: 关键指标 {active_count, retreat_count, max_continuous_limit, market_status}
+
+    告警等级：
+    - CRITICAL: -30分 (如同步失败、龙头数量为0)
+    - WARNING: -15分 (如龙头数量过多、退潮比例高)
+    - NOTICE: -5分 (如龙头数量较少、连板数≥10)
+    """
+    from datetime import date
+
+    td = None
+    if trade_date:
+        try:
+            td = date.fromisoformat(trade_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="trade_date 格式错误，应为 YYYY-MM-DD")
+
+    try:
+        # 先获取 pool 数据，确保统计数量与页面显示一致
+        svc = LeaderTrackingPoolService()
+        pool_result = svc.get_pool(
+            trade_date=td,
+            min_score=min_score,
+            stage_filter=stage,
+            stable_window_id='rolling_30d_v2',
+        )
+
+        # 使用 pool 中的监控结果（get_pool 内部已调用监控检查）
+        monitor_data = pool_result.get("monitor", {})
+        stats = pool_result.get("stats", {})
+
+        # 构建响应
+        result = {
+            "trade_date": pool_result.get("trade_date"),
+            "health_score": monitor_data.get("health_score", -1),
+            "alert_count": monitor_data.get("alert_count", 0),
+            "metrics": {
+                "active_count": stats.get("active_count", 0),
+                "retreat_count": stats.get("retreat_count", 0),
+                "total_tracked": stats.get("total_tracked", 0),
+            },
+            "pool_result": pool_result.get("success", False),
+        }
+
+        return {
+            "success": True,
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"获取龙头跟踪健康状态失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取健康状态失败: {str(e)}")
