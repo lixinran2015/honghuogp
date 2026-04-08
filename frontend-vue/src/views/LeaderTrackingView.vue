@@ -858,9 +858,8 @@ const buildWatchlistNoteForRow = (row) => {
 // 按股票聚合：空间龙头（仅主线雷达同口径：强度>5 的前 10 条主线）
 const spaceLeadersByStock = computed(() => {
   const byCode = new Map()
-  const allowKeys = topSectorKeys.value
+  // 显示所有空间龙头，不限于前10主线板块
   for (const item of spaceLeadersLead.value || []) {
-    if (!allowKeys.has(item.sector_key)) continue
     for (const stock of item.stocks || []) {
       const tc = stock.ts_code
       if (!tc) continue
