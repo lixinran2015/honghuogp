@@ -874,28 +874,46 @@ class StartupSectorAnalyzer:
         sector_chains[sector_key] = _put_space_leaders_first(sector_chains[sector_key])
 
       # 6.3 各主线空间龙头汇总（供前端单独展示在最前）
+      # 注意：需要从 sector_chains 而不仅是 sector_stats 中提取，
+      # 因为6.1节补全的"未入启动"龙头可能只存在于 sector_chains 中
       space_leaders_lead: List[Dict] = []
-      for s in sector_stats:
-        chain = sector_chains.get(s.sector_key, [])
+
+      # 从 sector_chains 收集所有带有空间龙头的板块
+      for sector_key, chain in sector_chains.items():
         leaders = [c for c in chain if c.get("role_label") and "空间龙头" in c.get("role_label")]
-        if leaders:
-          space_leaders_lead.append({
-            "sector_key": s.sector_key,
-            "sector_name": s.sector_name,
-            "sector_type": s.sector_type,
-            "stocks": [
-              {
-                "ts_code": c["ts_code"],
-                "name": c.get("name") or c["ts_code"],
-                "role_label": c.get("role_label") or "空间龙头",
-                "is_new_leader": bool(c.get("is_new_leader")),
-                "first_seen_date": c.get("first_seen_date"),
-                "last_seen_date": c.get("last_seen_date"),
-                "is_st": bool(c.get("is_st")),
-              }
-              for c in leaders
-            ],
-          })
+        if not leaders:
+          continue
+
+        # 获取板块信息（优先从 sector_stats 查找，否则从 sector_key 解析）
+        sector_info = None
+        for s in sector_stats:
+          if s.sector_key == sector_key:
+            sector_info = {"sector_key": s.sector_key, "sector_name": s.sector_name, "sector_type": s.sector_type}
+            break
+
+        if sector_info is None:
+          # 从 sector_key 解析（格式：type:name）
+          if ":" in sector_key:
+            sector_type, sector_name = sector_key.split(":", 1)
+            sector_info = {"sector_key": sector_key, "sector_name": sector_name, "sector_type": sector_type}
+          else:
+            continue
+
+        space_leaders_lead.append({
+          **sector_info,
+          "stocks": [
+            {
+              "ts_code": c["ts_code"],
+              "name": c.get("name") or c["ts_code"],
+              "role_label": c.get("role_label") or "空间龙头",
+              "is_new_leader": bool(c.get("is_new_leader")),
+              "first_seen_date": c.get("first_seen_date"),
+              "last_seen_date": c.get("last_seen_date"),
+              "is_st": bool(c.get("is_st")),
+            }
+            for c in leaders
+          ],
+        })
 
       return {
         "success": True,
