@@ -855,7 +855,7 @@ const buildWatchlistNoteForRow = (row) => {
   return `龙头跟踪-${reason}`
 }
 
-// 按股票聚合：空间龙头（仅主线雷达同口径：强度>5 的前 10 条主线）
+// 按股票聚合：空间龙头（所有板块，不限于前10主线）
 const spaceLeadersByStock = computed(() => {
   const byCode = new Map()
   // 显示所有空间龙头，不限于前10主线板块
@@ -908,10 +908,11 @@ const spaceLeadersByStock = computed(() => {
   })
 })
 
-// 按股票聚合：刚启动龙头（仅 filteredSectorsRadar 内的板块）
+// 按股票聚合：刚启动龙头（所有板块，不限于前10主线）
 const newLeadersByStock = computed(() => {
   const byCode = new Map()
-  for (const s of filteredSectorsRadar.value || []) {
+  // 显示所有板块的刚启动龙头，不限于前10主线
+  for (const s of sectors.value || []) {
     const chain = s.chain || []
     for (const c of chain) {
       if (!c.is_new_leader) continue
