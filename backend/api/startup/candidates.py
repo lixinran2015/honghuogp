@@ -649,7 +649,8 @@ async def get_startup_performance(
                 ).first()
                 
                 entry_price = float(entry_data_query[0]) if entry_data_query and entry_data_query[0] else 0
-                entry_amount = float(entry_data_query[1]) if entry_data_query and entry_data_query[1] else 0
+                # amount 数据库单位是千元，转换为元
+                entry_amount = float(entry_data_query[1]) * 1000 if entry_data_query and entry_data_query[1] else 0
                 
                 if entry_price <= 0:
                     continue
