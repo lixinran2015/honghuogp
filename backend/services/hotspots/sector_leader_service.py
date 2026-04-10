@@ -73,8 +73,14 @@ class SectorLeaderService:
                         'amount': float(p.amount) if p.amount else 0,
                         'turnover_rate': float(p.turnover_rate) if p.turnover_rate else 0
                     })
-                
+
                 price_df = pd.DataFrame(price_df_data)
+
+                # 检查输入股票代码是否有重复
+                unique_stock_codes = set(stock_codes)
+                if len(unique_stock_codes) != len(stock_codes):
+                    duplicates = [code for code in stock_codes if stock_codes.count(code) > 1]
+                    logger.warning(f"⚠️ 板块 {sector_code} 输入股票代码有重复: {set(duplicates)}")
                 
                 if price_df.empty:
                     return []
@@ -333,15 +339,23 @@ class SectorLeaderService:
                 
                 # 6. 组装结果并计算额外指标
                 leaders = []
+                leader_ts_codes = set()  # 去重检查
+
+                def add_leader_if_unique(leader_dict, source):
+                    ts_code = leader_dict.get('ts_code')
+                    if ts_code and ts_code not in leader_ts_codes:
+                        leader_ts_codes.add(ts_code)
+                        calculate_additional_metrics(leader_dict)
+                        leaders.append(leader_dict)
+                    elif ts_code:
+                        logger.warning(f"⚠️ 板块 {sector_code} 发现重复股票代码 {ts_code} ({source})，已跳过")
+
                 if absolute_leader:
-                    calculate_additional_metrics(absolute_leader)
-                    leaders.append(absolute_leader)
+                    add_leader_if_unique(absolute_leader, 'absolute_leader')
                 if catch_up:
-                    calculate_additional_metrics(catch_up)
-                    leaders.append(catch_up)
+                    add_leader_if_unique(catch_up, 'catch_up')
                 for follower in followers[:10]:  # 最多10个跟风
-                    calculate_additional_metrics(follower)
-                    leaders.append(follower)
+                    add_leader_if_unique(follower, 'follower')
                 
                 decl_str = '（本板块普跌，取相对抗跌）' if is_sector_declining else ''
                 logger.info(f"✅ 板块 {sector_code} 识别到 {len(leaders)} 个龙头：{'相对抗跌1个' if is_sector_declining else '绝对龙头1个'}，补涨{'1个' if catch_up else '0个'}，{'抗跌' if is_sector_declining else '跟风'}{len(followers)}个{decl_str}")

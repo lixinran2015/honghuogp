@@ -76,12 +76,21 @@ def update_sector_leaders(window_id: str = 'rolling_30d_v2', task_type: str = 's
                         FactStockSector.sector_id == sector.sector_id,
                         FactStockSector.end_date.is_(None)
                     ).limit(100).all()
-                    
+
                     if not stock_sectors:
                         logger.warning(f"⚠️ 板块 {sector.sector_id} 没有成分股，跳过")
                         continue
-                    
-                    stock_codes = [s.ts_code for s in stock_sectors]
+
+                    # 去重：同一股票可能有多条记录（不同start_date）
+                    seen_codes = set()
+                    stock_codes = []
+                    for s in stock_sectors:
+                        if s.ts_code not in seen_codes:
+                            seen_codes.add(s.ts_code)
+                            stock_codes.append(s.ts_code)
+
+                    if len(stock_codes) != len(stock_sectors):
+                        logger.warning(f"⚠️ 板块 {sector.sector_id} 去重前 {len(stock_sectors)} 条记录，去重后 {len(stock_codes)} 只股票")
                     
                     # 识别龙头
                     leaders = leader_service.identify_sector_leaders(
