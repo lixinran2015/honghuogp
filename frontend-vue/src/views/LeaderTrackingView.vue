@@ -1262,10 +1262,21 @@ const dailyTrueDragons = computed(() => {
     const ar = st.amountRatio5_20Text || (st.amountRatio5_20 != null ? `${st.amountRatio5_20.toFixed(1)}x` : '--')
     const lastSeen = r.last_seen_date || '—'
     const buyType = bpFresh[r.ts_code]?.type ?? null
-    const typeToLabel = (t) =>
-      t === 'breakout' ? '右侧接力' : t === 'pullback' ? '缩量回踩' : t === 'first_move' ? '刚启动' : '未触发'
-    const buyLabel =
-      buyType === 'breakout' ? '右侧接力' : buyType === 'pullback' ? '缩量回踩' : buyType === 'first_move' ? '刚启动' : '未触发'
+    const typeToLabel = (t) => {
+      const map = {
+        'breakout': '右侧接力',
+        'pullback': '缩量回踩',
+        'first_move': '刚启动',
+        '首板放量': '首板放量',
+        '二板缩量': '二板缩量',
+        '三板换手': '三板换手',
+        '断板反包': '断板反包',
+        '龙头首阴': '龙头首阴',
+        '分时低吸': '分时低吸'
+      }
+      return map[t] || '未触发'
+    }
+    const buyLabel = typeToLabel(buyType)
 
     let buyRange = '--'
     if (buyType) {
