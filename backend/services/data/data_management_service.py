@@ -982,9 +982,18 @@ class DataManagementService:
         update_sector_heat_snapshot(task_type='manual')
     
     def _run_sector_leaders_update(self):
-        """执行板块龙头更新"""
-        from backend.scripts.data_update.update_sector_leaders import update_sector_leaders
-        update_sector_leaders(task_type='manual')
+        """执行板块龙头更新（使用 4+2 简化版规则重建）"""
+        from datetime import date
+        from backend.services.sector.sector_leader_detector import SectorLeaderDetector
+
+        detector = SectorLeaderDetector()
+        stats = detector.build_window(
+            window_id='rolling_30d_v2',
+            end_date=date.today(),
+            lookback_days=30,
+            sector_ids=None
+        )
+        logger.info(f"✅ 板块龙头重建完成: {stats.get('sectors', 0)} 个板块, {stats.get('stocks', 0)} 条记录")
     
     def _run_sync_stock(self):
         """执行股票基础信息同步"""
