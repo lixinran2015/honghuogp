@@ -162,6 +162,7 @@ const allMenuGroups = [
     module: 'common',
     items: [
       { path: '/short-term-dashboard', label: '仪表盘', icon: 'ChartBarIcon' },
+      { path: '/daily-report', label: '龙头日报', icon: 'ClipboardDocumentListIcon' },
       { path: '/holdings', label: '我的自选', icon: 'BriefcaseIcon' },
       { path: '/watchlist', label: '股票跟踪', icon: 'EyeIcon' },
       { path: '/leader-tracking', label: '龙头跟踪', icon: 'ChartBarIcon' },
