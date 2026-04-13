@@ -1,0 +1,11 @@
+.git
+node_modules
+.env
+*.pyc
+__pycache__
+*.md
+docs/
+frontend-vue/node_modules/
+scripts/productization/deploy/postgres_data/
+.coverage
+.DS_Store
