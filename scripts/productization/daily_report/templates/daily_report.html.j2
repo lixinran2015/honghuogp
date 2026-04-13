@@ -84,6 +84,39 @@
   <p style="color: #6b7280; margin-bottom: 24px;">暂无新增跟踪标的。</p>
   {% endif %}
 
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">五、📊 历史推荐表现追踪（近5日）</h3>
+  {% if past_recommendations %}
+    {% for day in past_recommendations %}
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 8px;">{{ day.trade_date[5:] }} 推荐</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 12px;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: left;">股票</th>
+            <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: left;">板块</th>
+            <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">推荐日评分</th>
+            <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">至今涨幅</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stock in day.stocks %}
+          <tr>
+            <td style="padding: 10px 8px; border: 1px solid #e5e7eb;">{{ stock.name }}</td>
+            <td style="padding: 10px 8px; border: 1px solid #e5e7eb;">{{ stock.sector_short|default('-') }}</td>
+            <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.total_score|default('-') }}</td>
+            <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center; {% if stock.change_pct is not none %}{% if stock.change_pct > 0 %}color: #ef4444;{% elif stock.change_pct < 0 %}color: #22c55e;{% endif %}{% endif %}">
+              {% if stock.change_pct is not none %}{{ '%+.2f'|format(stock.change_pct) }}%{% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: #6b7280; margin-bottom: 24px;">暂无足够历史数据生成推荐追踪。</p>
+  {% endif %}
+
   <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 24px; color: #9ca3af; font-size: 13px;">
     <b>免责声明</b>：本内容仅为数据整理与个人研究记录，不构成任何投资建议。股市有风险，入市需谨慎。
   </div>

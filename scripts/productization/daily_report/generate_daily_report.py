@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -125,6 +125,85 @@ def _get(endpoint: str, base_url: str = DEFAULT_BASE_URL, params: Optional[Dict]
         raise RuntimeError(f"请求 {url} 失败: {e}")
 
 
+def fetch_trade_dates(base_url: str = DEFAULT_BASE_URL, lookback: int = 10) -> List[str]:
+    """获取最近 lookback 个交易日的日期字符串列表（由近到远，今天在最前）。"""
+    today = date.today().isoformat()
+    try:
+        data = _get("/api/data-warehouse/trade-calendar", base_url=base_url, params={"is_open": "true", "end_date": today})
+        items = data.get("data", [])
+        dates = [item["trade_date"] for item in items if item.get("is_open")]
+        # 倒序：最近的交易日在前面
+        return dates[::-1][:lookback]
+    except Exception as e:
+        logger.warning(f"获取交易日历失败: {e}")
+        return []
+
+
+def _get_close_price(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_URL) -> Optional[float]:
+    """获取股票在 end_date 的收盘价。"""
+    try:
+        data = _get("/api/stock/kline-20", base_url=base_url, params={"ts_code": ts_code, "end_date": end_date})
+        kline = data.get("kline", [])
+        if kline:
+            close = kline[-1].get("close")
+            return float(close) if close is not None else None
+    except Exception as e:
+        logger.warning(f"获取 {ts_code} {end_date} 收盘价失败: {e}")
+    return None
+
+
+def fetch_past_recommendations(days: int = 5, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+    """
+    获取最近 days 个交易日（不含今天）的 Top 5 推荐，并计算推荐日至今的涨跌幅。
+    返回按推荐日期分组的数据列表，最近日期在前。
+    """
+    all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=days + 5)
+    today_str = date.today().isoformat()
+    past_dates = [d for d in all_trade_dates if d < today_str][:days]
+    if not past_dates:
+        return []
+
+    result = []
+    for td in past_dates:
+        try:
+            data = _get("/api/leader-tracking/top-scored", base_url=base_url,
+                        params={"trade_date": td, "top_n": TOP_N_LEADERS})
+            stocks = data.get("top_stocks", [])
+            if not stocks:
+                continue
+
+            day_entry = {"trade_date": td, "stocks": []}
+            for s in stocks[:TOP_N_LEADERS]:
+                score = s.get("lstm_mab_score") or {}
+                ts_code = s.get("ts_code", "")
+                name = s.get("name", "")
+                sector = _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else "")
+                total_score = _fmt_num(score.get("total_score"), 1)
+
+                rec_close = _get_close_price(ts_code, td, base_url)
+                today_close = _get_close_price(ts_code, today_str, base_url)
+
+                if rec_close and today_close and rec_close > 0:
+                    change_pct = round((today_close / rec_close - 1) * 100, 2)
+                else:
+                    change_pct = None
+
+                day_entry["stocks"].append({
+                    "ts_code": ts_code,
+                    "name": name,
+                    "sector_short": sector,
+                    "total_score": total_score,
+                    "change_pct": change_pct,
+                })
+
+            if day_entry["stocks"]:
+                result.append(day_entry)
+        except Exception as e:
+            logger.warning(f"获取 {td} 历史推荐失败: {e}")
+
+    return result
+
+
 def fetch_emotion_cycle(base_url: str = DEFAULT_BASE_URL) -> Dict[str, Any]:
     data = _get("/api/emotion-cycle/analyze", base_url=base_url)
     return {
@@ -232,6 +311,12 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         logger.warning(f"获取技术形态触发池失败: {e}")
         signal_stocks = []
 
+    try:
+        past_recommendations = fetch_past_recommendations(days=5, base_url=base_url)
+    except Exception as e:
+        logger.warning(f"获取历史推荐追踪失败: {e}")
+        past_recommendations = []
+
     context = {
         "trade_date": date.today().isoformat(),
         "emotion_cycle_description": format_emotion_cycle(emotion["cycle"]),
@@ -243,6 +328,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "signal_stocks": signal_stocks,
         "signal_count": len(signal_stocks),
         "watchlist_excluding_top5": watchlist_excluding_top5,
+        "past_recommendations": past_recommendations,
         "summary": _build_summary(signal_stocks, emotion),
         "strategy": _build_strategy(signal_stocks, emotion),
         "disclaimer": DISCLAIMER,
