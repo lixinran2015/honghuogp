@@ -92,8 +92,8 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "grade": score.get("grade", "-"),
             "grade_emoji": get_grade_emoji(score.get("grade")),
             "total_score": score.get("total_score", 0),
-            "expected_return": round(score.get("expected_return", 0) * 100, 2) if score.get("expected_return") else 0,
-            "confidence": round(score.get("confidence", 0) * 100, 2) if score.get("confidence") else 0,
+            "expected_return": round(score.get("expected_return", 0), 2) if score.get("expected_return") is not None else 0,
+            "confidence": round(score.get("confidence", 0), 2) if score.get("confidence") is not None else 0,
             "factor_scores": _map_factor_scores(score.get("factor_scores") or {}),
         })
     return result
