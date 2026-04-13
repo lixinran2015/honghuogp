@@ -2,32 +2,38 @@
 
 ---
 
+## 📌 今日核心观点
+
+- **情绪状态**：{{ emotion_cycle_description|default('-') }}（涨停 {{ limit_up_count|default('-') }} 家 / 跌停 {{ limit_down_count|default('-') }} 家）
+- **市场高度**：最高连板 {{ max_continuous_limit|default('-') }} 板，涨跌比 {{ advance_decline_ratio|default('-') }}
+- **今日要点**：{{ summary|default('-') }}
+- **明日策略**：{{ strategy|default('-') }}
+
+---
+
 ## 一、情绪周期判断
 
 {{ emotion_cycle_description|default('-') }}
 
 - 涨停家数：{{ limit_up_count|default('-') }}
 - 跌停家数：{{ limit_down_count|default('-') }}
-- 市场最高连板：{{ max_continuous_limit|default('-') }}
+- 市场最高连板：{{ max_continuous_limit|default('-') }} 板
 - 涨跌比：{{ advance_decline_ratio|default('-') }}
 
 ---
 
-## 二、Top {{ top_stocks|length }} 空间龙头
+## 二、🔥 Top {{ top_stocks|length }} 空间龙头
 
 {% if top_stocks %}
-| 股票 | 板块 | 等级 | 总分 | 预期收益 | 置信度 |
-|------|------|------|------|----------|--------|
+| 股票 | 板块 | 等级 | 总分 | 预期收益 | 置信度 | 5日涨幅 |
+|------|------|------|------|----------|--------|----------|
 {% for stock in top_stocks %}
-| {{ stock.name }} ({{ stock.ts_code }}) | {{ stock.sectors[0] if stock.sectors else '-' }} | {{ stock.grade_emoji|default('-') }} {{ stock.grade|default('-') }} | {{ stock.total_score|default('-') }} | {{ stock.expected_return|default('-') }}% | {{ stock.confidence|default('-') }}% |
+| {{ stock.name }} | {{ stock.sector_short|default('-') }} | {{ stock.grade_emoji|default('-') }} {{ stock.grade|default('-') }} | {{ stock.total_score|default('-') }} | {{ stock.expected_return|default('-') }}% | {{ stock.confidence|default('-') }}% | {{ stock.change_pct_5d|default('-') }}% |
 {% endfor %}
 
-**因子得分详情：**
-
+> **简评**
 {% for stock in top_stocks %}
-- **{{ stock.name }}**
-  - 龙头地位：{{ stock.factor_scores.get('龙头地位', 0) }} | 技术形态：{{ stock.factor_scores.get('技术形态', 0) }}
-  - 资金流向：{{ stock.factor_scores.get('资金流向', 0) }} | 情绪热度：{{ stock.factor_scores.get('情绪热度', 0) }}
+> - **{{ stock.name }}**：{{ stock.brief_comment|default('综合评价良好') }}
 {% endfor %}
 {% else %}
 - 今日暂无空间龙头数据。
@@ -46,18 +52,19 @@
 {% endfor %}
 {% else %}
 - 今日未监测到明显的技术形态触发信号。
+- **解读**：情绪高涨期 + 买点信号空窗，说明市场以持筹博弈为主，新启动机会较少，明日重点观察早盘分歧后的承接力度，避免盲目追高。
 {% endif %}
 
 ---
 
-## 四、次日跟踪名单
+## 四、👀 次日跟踪名单（Top 6-10）
 
-{% if watchlist %}
-{% for stock in watchlist %}
-- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }} · 等级 {{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分)
+{% if watchlist_excluding_top5 %}
+{% for stock in watchlist_excluding_top5 %}
+- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sector_short|default('-') }} · 等级 {{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分) · 5日涨幅 {{ stock.change_pct_5d|default('-') }}%
 {% endfor %}
 {% else %}
-- 暂无次日跟踪名单。
+- 暂无新增跟踪标的。
 {% endif %}
 
 ---

@@ -52,6 +52,63 @@ def _map_factor_scores(raw_factor_scores: Dict[str, Any]) -> Dict[str, float]:
         result[zh] = raw_factor_scores.get(zh) if zh in raw_factor_scores else raw_factor_scores.get(en, 0)
     return result
 
+
+def _fmt_num(val, digits: int = 2) -> str:
+    """格式化数字，保留指定小数位。"""
+    if val is None:
+        return "-"
+    try:
+        return f"{float(val):.{digits}f}"
+    except (TypeError, ValueError):
+        return str(val)
+
+
+def _short_sector(name: Optional[str]) -> str:
+    """缩短过长的板块名。"""
+    if not name:
+        return "-"
+    replacements = {
+        "人民币贬值受益": "贬值受益",
+        "华为海思概念股": "华为海思",
+        "3D玻璃": "3D玻璃",
+    }
+    return replacements.get(name, name)
+
+
+def _build_brief_comment(stock: Dict[str, Any]) -> str:
+    """基于最强因子生成一句话简评。"""
+    factors = stock.get("factor_scores", {})
+    if not factors:
+        return "综合评价良好"
+    sorted_factors = sorted(factors.items(), key=lambda x: x[1], reverse=True)
+    top_name, top_score = sorted_factors[0]
+    comments = {
+        "龙头地位": "龙头地位突出" if top_score >= 70 else "龙头地位一般",
+        "技术形态": "技术形态良好" if top_score >= 70 else "技术形态一般",
+        "资金流向": "资金关注度较高" if top_score >= 70 else "资金关注度一般",
+        "情绪热度": "市场情绪较热" if top_score >= 70 else "市场情绪一般",
+    }
+    return comments.get(top_name, "综合评价良好")
+
+
+def _build_summary(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
+    cycle = emotion.get("cycle", "当前")
+    if signal_stocks:
+        return f"监测到 {len(signal_stocks)} 只技术形态触发股，{cycle}短线氛围活跃，可重点关注早盘承接力度。"
+    return f"技术形态触发池为空，说明{cycle}市场以持筹博弈为主，建议关注已有龙头的持续性，避免盲目追高。"
+
+
+def _build_strategy(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
+    cycle = emotion.get("cycle", "")
+    if cycle in ["高涨期", "震荡期"]:
+        if signal_stocks:
+            return "情绪偏暖，明日可轻仓试错新启动标的，同时做好止损计划。"
+        return "情绪偏暖但无新买点，明日以观察为主，重点看前排龙头的分歧机会。"
+    if cycle in ["低迷期", "冰点期"]:
+        return "情绪偏冷，控制仓位，优先处理持仓，少开新仓。"
+    return "明日以观察为主，等待更明确的信号出现。"
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,17 +142,21 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
     result = []
     for s in stocks[:top_n]:
         score = s.get("lstm_mab_score") or {}
-        result.append({
+        stock_item = {
             "ts_code": s.get("ts_code", ""),
             "name": s.get("name", ""),
             "sectors": s.get("sectors", []),
+            "sector_short": _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else ""),
             "grade": score.get("grade", "-"),
             "grade_emoji": get_grade_emoji(score.get("grade")),
-            "total_score": score.get("total_score", 0),
-            "expected_return": round(score.get("expected_return", 0), 2) if score.get("expected_return") is not None else 0,
-            "confidence": round(score.get("confidence", 0), 2) if score.get("confidence") is not None else 0,
+            "total_score": _fmt_num(score.get("total_score"), 1),
+            "expected_return": _fmt_num(score.get("expected_return"), 2),
+            "confidence": _fmt_num(score.get("confidence"), 1),
+            "change_pct_5d": _fmt_num(s.get("change_pct_5d"), 1),
             "factor_scores": _map_factor_scores(score.get("factor_scores") or {}),
-        })
+        }
+        stock_item["brief_comment"] = _build_brief_comment(stock_item)
+        result.append(stock_item)
     return result
 
 
@@ -162,7 +223,8 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         all_top = []
 
     top_stocks = all_top[:TOP_N_LEADERS]
-    watchlist = all_top
+    top_ts_codes = {s["ts_code"] for s in top_stocks}
+    watchlist_excluding_top5 = [s for s in all_top[TOP_N_LEADERS:] if s["ts_code"] not in top_ts_codes]
 
     try:
         signal_stocks = fetch_signal_stocks(base_url)
@@ -176,10 +238,13 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "limit_up_count": emotion["limit_up_count"],
         "limit_down_count": emotion["limit_down_count"],
         "max_continuous_limit": emotion["max_continuous_limit"],
-        "advance_decline_ratio": emotion["advance_decline_ratio"],
+        "advance_decline_ratio": _fmt_num(emotion.get("advance_decline_ratio"), 2),
         "top_stocks": top_stocks,
         "signal_stocks": signal_stocks,
-        "watchlist": watchlist,
+        "signal_count": len(signal_stocks),
+        "watchlist_excluding_top5": watchlist_excluding_top5,
+        "summary": _build_summary(signal_stocks, emotion),
+        "strategy": _build_strategy(signal_stocks, emotion),
         "disclaimer": DISCLAIMER,
     }
 
