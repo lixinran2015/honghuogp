@@ -62,7 +62,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { marked } from 'marked'
 
 const selectedDate = ref(new Date().toISOString().split('T')[0])
 const htmlContent = ref('')
@@ -76,12 +75,12 @@ async function loadReport() {
 
   try {
     const dateStr = selectedDate.value
-    const res = await fetch(`/daily-reports/${dateStr}.md`)
+    const res = await fetch(`/daily-reports/${dateStr}.html`)
     if (!res.ok) {
       throw new Error(`未找到 ${dateStr} 的日报，请确认该日期已生成。`)
     }
-    const markdown = await res.text()
-    htmlContent.value = marked.parse(markdown)
+    const html = await res.text()
+    htmlContent.value = html
   } catch (e) {
     error.value = e.message || '加载日报失败'
   } finally {

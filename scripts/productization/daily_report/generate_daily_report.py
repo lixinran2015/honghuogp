@@ -203,7 +203,7 @@ def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
 
 
 def load_template() -> Template:
-    template_path = Path(__file__).parent / "templates" / "daily_report.md.j2"
+    template_path = Path(__file__).parent / "templates" / "daily_report.html.j2"
     if not template_path.exists():
         raise FileNotFoundError(f"日报模板不存在: {template_path}")
     return Template(template_path.read_text(encoding="utf-8"))
