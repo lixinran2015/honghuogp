@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import pytest
 from scripts.productization.daily_report.copywriting import (
     neutralize_text,
