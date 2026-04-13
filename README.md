@@ -252,4 +252,20 @@ data_warehouse/
 
 ---
 
+## 产品化部署
+
+详见 [`scripts/productization/README.md`](scripts/productization/README.md)。
+
+快速部署：
+```bash
+cd scripts/productization/deploy
+./deploy.sh
+```
+
+生成日报：
+```bash
+/Users/lxr/workspace/honghuogp/venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
+    --output ./daily_reports/$(date +%Y-%m-%d).md
+```
+
 **免责声明**：本系统仅供学习研究使用，不构成任何投资建议。股市有风险，入市需谨慎。
