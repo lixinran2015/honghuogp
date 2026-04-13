@@ -127,7 +127,7 @@
   {% else %}
     <p style="margin: 0 0 8px 0;">今日未监测到明显的技术形态触发信号。</p>
     {% if recent_win_rate is not none %}
-    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近{{ past_recommendations|length }}日推荐胜率 <b>{{ recent_win_rate }}%</b>，空仓等待也是策略的一部分。</p>
+    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近期推荐胜率 <b>{{ recent_win_rate }}%</b>，空仓等待也是策略的一部分。</p>
     {% endif %}
     <p style="margin: 0; color: #4b5563; font-size: 14px;"><b>解读</b>：情绪高涨期 + 买点信号空窗，说明市场以持筹博弈为主，新启动机会较少，明日重点观察早盘分歧后的承接力度，避免盲目追高。</p>
   {% endif %}
@@ -154,7 +154,7 @@
   <p style="color: #6b7280; margin-bottom: 24px;">暂无新增跟踪标的。</p>
   {% endif %}
 
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐表现追踪（近5日）</h3>
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐表现追踪（往前第5个交易日）</h3>
   {% if past_recommendations %}
     {% for day in past_recommendations %}
     <div style="margin-bottom: 16px;">

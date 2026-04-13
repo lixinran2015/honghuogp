@@ -275,56 +275,55 @@ def _get_close_price(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_U
     return None
 
 
-def fetch_past_recommendations(days: int = 5, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+def fetch_past_recommendations(day_offset: int = 5, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
-    获取最近 days 个交易日（不含今天）的 Top 5 推荐，并计算推荐日至今的涨跌幅。
-    返回按推荐日期分组的数据列表，最近日期在前。
+    获取往前第 day_offset 个交易日的 Top 5 推荐，并计算推荐日至今的涨跌幅。
+    返回只包含该交易日的列表（便于模板复用循环逻辑）。
     """
-    all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=days + 5)
+    all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=day_offset + 5)
     today_str = date.today().isoformat()
-    past_dates = [d for d in all_trade_dates if d < today_str][:days]
-    if not past_dates:
+    past_dates = [d for d in all_trade_dates if d < today_str]
+    if len(past_dates) < day_offset:
         return []
 
-    result = []
-    for td in past_dates:
-        try:
-            data = _get("/api/leader-tracking/top-scored", base_url=base_url,
-                        params={"trade_date": td, "top_n": TOP_N_LEADERS})
-            stocks = data.get("top_stocks", [])
-            if not stocks:
-                continue
+    td = past_dates[day_offset - 1]
+    try:
+        data = _get("/api/leader-tracking/top-scored", base_url=base_url,
+                    params={"trade_date": td, "top_n": TOP_N_LEADERS})
+        stocks = data.get("top_stocks", [])
+        if not stocks:
+            return []
 
-            day_entry = {"trade_date": td, "stocks": []}
-            for s in stocks[:TOP_N_LEADERS]:
-                score = s.get("lstm_mab_score") or {}
-                ts_code = s.get("ts_code", "")
-                name = s.get("name", "")
-                sector = _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else "")
-                total_score = _fmt_num(score.get("total_score"), 1)
+        day_entry = {"trade_date": td, "stocks": []}
+        for s in stocks[:TOP_N_LEADERS]:
+            score = s.get("lstm_mab_score") or {}
+            ts_code = s.get("ts_code", "")
+            name = s.get("name", "")
+            sector = _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else "")
+            total_score = _fmt_num(score.get("total_score"), 1)
 
-                rec_close = _get_close_price(ts_code, td, base_url)
-                today_close = _get_close_price(ts_code, today_str, base_url)
+            rec_close = _get_close_price(ts_code, td, base_url)
+            today_close = _get_close_price(ts_code, today_str, base_url)
 
-                if rec_close and today_close and rec_close > 0:
-                    change_pct = round((today_close / rec_close - 1) * 100, 2)
-                else:
-                    change_pct = None
+            if rec_close and today_close and rec_close > 0:
+                change_pct = round((today_close / rec_close - 1) * 100, 2)
+            else:
+                change_pct = None
 
-                day_entry["stocks"].append({
-                    "ts_code": ts_code,
-                    "name": name,
-                    "sector_short": sector,
-                    "total_score": total_score,
-                    "change_pct": change_pct,
-                })
+            day_entry["stocks"].append({
+                "ts_code": ts_code,
+                "name": name,
+                "sector_short": sector,
+                "total_score": total_score,
+                "change_pct": change_pct,
+            })
 
-            if day_entry["stocks"]:
-                result.append(day_entry)
-        except Exception as e:
-            logger.warning(f"获取 {td} 历史推荐失败: {e}")
+        if day_entry["stocks"]:
+            return [day_entry]
+    except Exception as e:
+        logger.warning(f"获取 {td} 历史推荐失败: {e}")
 
-    return result
+    return []
 
 
 def fetch_yesterday_emotion(base_url: str = DEFAULT_BASE_URL) -> Optional[Dict[str, Any]]:
@@ -482,7 +481,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         signal_stocks = []
 
     try:
-        past_recommendations = fetch_past_recommendations(days=5, base_url=base_url)
+        past_recommendations = fetch_past_recommendations(day_offset=5, base_url=base_url)
     except Exception as e:
         logger.warning(f"获取历史推荐追踪失败: {e}")
         past_recommendations = []
