@@ -4,21 +4,22 @@
 
 ## 一、情绪周期判断
 
-{{ emotion_cycle_description }}
+{{ emotion_cycle_description|default('-') }}
 
-- 涨停家数：{{ limit_up_count }}
-- 跌停家数：{{ limit_down_count }}
-- 市场最高连板：{{ max_continuous_limit }}
-- 涨跌比：{{ advance_decline_ratio }}
+- 涨停家数：{{ limit_up_count|default('-') }}
+- 跌停家数：{{ limit_down_count|default('-') }}
+- 市场最高连板：{{ max_continuous_limit|default('-') }}
+- 涨跌比：{{ advance_decline_ratio|default('-') }}
 
 ---
 
 ## 二、Top {{ top_stocks|length }} 空间龙头
 
+{% if top_stocks %}
 | 股票 | 板块 | 等级 | 总分 | 预期收益 | 置信度 |
 |------|------|------|------|----------|--------|
 {% for stock in top_stocks %}
-| {{ stock.name }} ({{ stock.ts_code }}) | {{ stock.sectors[0] if stock.sectors else '-' }} | {{ stock.grade_emoji }} {{ stock.grade }} | {{ stock.total_score }} | {{ stock.expected_return }}% | {{ stock.confidence }}% |
+| {{ stock.name }} ({{ stock.ts_code }}) | {{ stock.sectors[0] if stock.sectors else '-' }} | {{ stock.grade_emoji }} {{ stock.grade }} | {{ stock.total_score|default('-') }} | {{ stock.expected_return|default('-') }}% | {{ stock.confidence|default('-') }}% |
 {% endfor %}
 
 **因子得分详情：**
@@ -28,6 +29,9 @@
   - 龙头地位：{{ stock.factor_scores.get('龙头地位', 0) }} | 技术形态：{{ stock.factor_scores.get('技术形态', 0) }}
   - 资金流向：{{ stock.factor_scores.get('资金流向', 0) }} | 情绪热度：{{ stock.factor_scores.get('情绪热度', 0) }}
 {% endfor %}
+{% else %}
+- 今日暂无空间龙头数据。
+{% endif %}
 
 ---
 
@@ -37,8 +41,8 @@
 {% for stock in signal_stocks %}
 - **{{ stock.name }} ({{ stock.ts_code }})** · {{ stock.sectors[0] if stock.sectors else '-' }}
   - 形态：{{ stock.signal_description }}
-  - 强度：{{ stock.strength_score }} | 质量：{{ stock.quality }}
-  - AI 评分：{{ stock.grade }} ({{ stock.total_score }} 分)
+  - 强度：{{ stock.strength_score|default('-') }} | 质量：{{ stock.quality }}
+  - AI 评分：{{ stock.grade }} ({{ stock.total_score|default('-') }} 分)
 {% endfor %}
 {% else %}
 - 今日未监测到明显的技术形态触发信号。
@@ -48,9 +52,13 @@
 
 ## 四、次日跟踪名单
 
+{% if watchlist %}
 {% for stock in watchlist %}
-- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }} · 等级 {{ stock.grade }} ({{ stock.total_score }} 分)
+- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }} · 等级 {{ stock.grade }} ({{ stock.total_score|default('-') }} 分)
 {% endfor %}
+{% else %}
+- 暂无次日跟踪名单。
+{% endif %}
 
 ---
 
