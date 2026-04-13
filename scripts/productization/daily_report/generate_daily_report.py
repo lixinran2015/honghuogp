@@ -275,18 +275,19 @@ def _get_close_price(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_U
     return None
 
 
-def fetch_past_recommendations(day_offset: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
-    获取往前第 day_offset 个交易日的 Top 5 推荐，并计算推荐日至今的涨跌幅。
-    返回只包含该交易日的列表（便于模板复用循环逻辑）。
+    获取 base_date 往前第 days 个交易日（含 base_date 当日计）的 Top 5 推荐，并计算推荐日至 base_date 的涨跌幅。
+    例如 days=5 表示从 base_date 往回数第 5 个交易日，返回只包含该交易日的列表。
     """
     base_str = base_date or date.today().isoformat()
-    all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=day_offset + 5)
-    past_dates = [d for d in all_trade_dates if d < base_str]
-    if len(past_dates) < day_offset:
+    all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=days + 5)
+    # 取包含 base_str 在内的最近 days 个交易日，然后取最后一个（即第 days 个）
+    target_dates = [d for d in all_trade_dates if d <= base_str][:days]
+    if len(target_dates) < days:
         return []
 
-    td = past_dates[day_offset - 1]
+    td = target_dates[-1]
     try:
         data = _get("/api/leader-tracking/top-scored", base_url=base_url,
                     params={"trade_date": td, "top_n": TOP_N_LEADERS})
@@ -491,7 +492,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         signal_stocks = []
 
     try:
-        past_recommendations = fetch_past_recommendations(day_offset=5, base_date=actual_trade_date, base_url=base_url)
+        past_recommendations = fetch_past_recommendations(days=5, base_date=actual_trade_date, base_url=base_url)
     except Exception as e:
         logger.warning(f"获取历史推荐追踪失败: {e}")
         past_recommendations = []
