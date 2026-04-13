@@ -402,11 +402,11 @@ class MarketEnvironmentAnalyzer:
     def _get_max_continuous_limit(self, session, trade_date: str) -> int:
         """获取市场最高连板数
 
-        从 fact_limit_up_daily 和 fact_sector_leader_snapshot 表中获取当日最高连板数
+        优先从 fact_limit_up_daily 获取当日涨停数据中的最高连板数。
+        该表按交易日维护，能准确反映当日市场的真实连板高度。
         """
         max_limit = 0
 
-        # 1. 从 fact_limit_up_daily 获取
         try:
             result = session.execute(
                 text("""
@@ -421,29 +421,12 @@ class MarketEnvironmentAnalyzer:
             )
             row = result.fetchone()
             if row and row[0]:
-                max_limit = max(max_limit, int(row[0]))
+                max_limit = int(row[0])
                 logger.info(f"从 fact_limit_up_daily 获取到最高连板数: {max_limit}")
             else:
                 logger.warning(f"fact_limit_up_daily 中没有找到连板数据，日期: {trade_date}")
         except Exception as e:
             logger.warning(f"从 fact_limit_up_daily 获取最高连板数失败: {e}")
-
-        # 2. 从 fact_sector_leader_snapshot 获取
-        # 注意：window_id 是字符串如 'rolling_30d_v2'，不是日期
-        try:
-            result = session.execute(
-                text("""
-                    SELECT MAX(continuous_limit) as max_limit
-                    FROM fact_sector_leader_snapshot
-                    WHERE window_id = 'rolling_30d_v2'
-                """),
-            )
-            row = result.fetchone()
-            if row and row[0]:
-                max_limit = max(max_limit, int(row[0]))
-                logger.info(f"从 fact_sector_leader_snapshot 获取到最高连板数: {row[0]}, 当前最大值: {max_limit}")
-        except Exception as e:
-            logger.warning(f"从 fact_sector_leader_snapshot 获取最高连板数失败: {e}")
 
         logger.info(f"最终市场高度: {max_limit}")
         return max_limit
