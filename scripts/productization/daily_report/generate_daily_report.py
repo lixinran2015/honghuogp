@@ -275,14 +275,14 @@ def _get_close_price(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_U
     return None
 
 
-def fetch_past_recommendations(day_offset: int = 5, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+def fetch_past_recommendations(day_offset: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
     获取往前第 day_offset 个交易日的 Top 5 推荐，并计算推荐日至今的涨跌幅。
     返回只包含该交易日的列表（便于模板复用循环逻辑）。
     """
+    base_str = base_date or date.today().isoformat()
     all_trade_dates = fetch_trade_dates(base_url=base_url, lookback=day_offset + 5)
-    today_str = date.today().isoformat()
-    past_dates = [d for d in all_trade_dates if d < today_str]
+    past_dates = [d for d in all_trade_dates if d < base_str]
     if len(past_dates) < day_offset:
         return []
 
@@ -303,10 +303,10 @@ def fetch_past_recommendations(day_offset: int = 5, base_url: str = DEFAULT_BASE
             total_score = _fmt_num(score.get("total_score"), 1)
 
             rec_close = _get_close_price(ts_code, td, base_url)
-            today_close = _get_close_price(ts_code, today_str, base_url)
+            latest_close = _get_close_price(ts_code, base_str, base_url)
 
-            if rec_close and today_close and rec_close > 0:
-                change_pct = round((today_close / rec_close - 1) * 100, 2)
+            if rec_close and latest_close and rec_close > 0:
+                change_pct = round((latest_close / rec_close - 1) * 100, 2)
             else:
                 change_pct = None
 
@@ -326,13 +326,13 @@ def fetch_past_recommendations(day_offset: int = 5, base_url: str = DEFAULT_BASE
     return []
 
 
-def fetch_yesterday_emotion(base_url: str = DEFAULT_BASE_URL) -> Optional[Dict[str, Any]]:
-    """获取昨日情绪周期数据。"""
+def fetch_yesterday_emotion(base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> Optional[Dict[str, Any]]:
+    """获取 base_date 前一交易日的情绪周期数据。"""
+    base_str = base_date or date.today().isoformat()
     dates = fetch_trade_dates(base_url=base_url, lookback=3)
-    today_str = date.today().isoformat()
     yd = None
     for d in dates:
-        if d < today_str:
+        if d < base_str:
             yd = d
             break
     if not yd:
@@ -451,6 +451,16 @@ def load_template() -> Template:
 
 
 def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> str:
+    # 以数据库实际最新数据日期作为报告日期（优先从 top-scored API 获取）
+    actual_trade_date = date.today().isoformat()
+    try:
+        top_scored_meta = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": 1})
+        api_trade_date = top_scored_meta.get("trade_date")
+        if api_trade_date:
+            actual_trade_date = api_trade_date
+    except Exception as e:
+        logger.warning(f"获取实际数据日期失败: {e}")
+
     try:
         emotion = fetch_emotion_cycle(base_url)
     except Exception as e:
@@ -458,7 +468,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         emotion = {"cycle": "未知", "limit_up_count": 0, "limit_down_count": 0, "max_continuous_limit": 0, "advance_decline_ratio": 0}
 
     try:
-        yesterday_emotion = fetch_yesterday_emotion(base_url)
+        yesterday_emotion = fetch_yesterday_emotion(base_date=actual_trade_date, base_url=base_url)
     except Exception as e:
         logger.warning(f"获取昨日情绪数据失败: {e}")
         yesterday_emotion = None
@@ -481,7 +491,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         signal_stocks = []
 
     try:
-        past_recommendations = fetch_past_recommendations(day_offset=5, base_url=base_url)
+        past_recommendations = fetch_past_recommendations(day_offset=5, base_date=actual_trade_date, base_url=base_url)
     except Exception as e:
         logger.warning(f"获取历史推荐追踪失败: {e}")
         past_recommendations = []
@@ -490,7 +500,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
     emotion_progress = _build_emotion_progress(emotion["cycle"])
 
     context = {
-        "trade_date": date.today().isoformat(),
+        "trade_date": actual_trade_date,
         "emotion_cycle_description": format_emotion_cycle(emotion["cycle"]),
         "limit_up_count": emotion["limit_up_count"],
         "limit_down_count": emotion["limit_down_count"],
