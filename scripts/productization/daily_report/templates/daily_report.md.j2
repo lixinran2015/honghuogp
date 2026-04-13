@@ -19,7 +19,7 @@
 | 股票 | 板块 | 等级 | 总分 | 预期收益 | 置信度 |
 |------|------|------|------|----------|--------|
 {% for stock in top_stocks %}
-| {{ stock.name }} ({{ stock.ts_code }}) | {{ stock.sectors[0] if stock.sectors else '-' }} | {{ stock.grade_emoji }} {{ stock.grade }} | {{ stock.total_score|default('-') }} | {{ stock.expected_return|default('-') }}% | {{ stock.confidence|default('-') }}% |
+| {{ stock.name }} ({{ stock.ts_code }}) | {{ stock.sectors[0] if stock.sectors else '-' }} | {{ stock.grade_emoji|default('-') }} {{ stock.grade|default('-') }} | {{ stock.total_score|default('-') }} | {{ stock.expected_return|default('-') }}% | {{ stock.confidence|default('-') }}% |
 {% endfor %}
 
 **因子得分详情：**
@@ -40,9 +40,9 @@
 {% if signal_stocks %}
 {% for stock in signal_stocks %}
 - **{{ stock.name }} ({{ stock.ts_code }})** · {{ stock.sectors[0] if stock.sectors else '-' }}
-  - 形态：{{ stock.signal_description }}
-  - 强度：{{ stock.strength_score|default('-') }} | 质量：{{ stock.quality }}
-  - AI 评分：{{ stock.grade }} ({{ stock.total_score|default('-') }} 分)
+  - 形态：{{ stock.signal_description|default('-') }}
+  - 强度：{{ stock.strength_score|default('-') }} | 质量：{{ stock.quality|default('-') }}
+  - AI 评分：{{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分)
 {% endfor %}
 {% else %}
 - 今日未监测到明显的技术形态触发信号。
@@ -54,7 +54,7 @@
 
 {% if watchlist %}
 {% for stock in watchlist %}
-- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }} · 等级 {{ stock.grade }} ({{ stock.total_score|default('-') }} 分)
+- {{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }} · 等级 {{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分)
 {% endfor %}
 {% else %}
 - 暂无次日跟踪名单。
@@ -62,4 +62,4 @@
 
 ---
 
-{{ disclaimer }}
+{{ disclaimer|default('-') }}
