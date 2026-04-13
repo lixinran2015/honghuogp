@@ -44,8 +44,12 @@ class BaostockDailySource(DailyDataSource):
                     cls._instance._initialized = False
         return cls._instance
     
-    def __init__(self):
-        """初始化 Baostock 数据源"""
+    def __init__(self, timeout=5):
+        """初始化 Baostock 数据源
+        
+        Args:
+            timeout: 登录超时时间（秒），默认5秒
+        """
         if self._initialized:
             return
         
@@ -55,11 +59,18 @@ class BaostockDailySource(DailyDataSource):
         global _baostock_logged_in
         with _baostock_lock:
             if not _baostock_logged_in:
-                lg = bs.login()
-                if lg.error_code != "0":
-                    raise RuntimeError(f"Baostock 登录失败: {lg.error_msg}")
-                _baostock_logged_in = True
-                logger.info("✅ Baostock 登录成功")
+                # 使用线程 + 超时来避免阻塞
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(bs.login)
+                    try:
+                        lg = future.result(timeout=timeout)
+                        if lg.error_code != "0":
+                            raise RuntimeError(f"Baostock 登录失败: {lg.error_msg}")
+                        _baostock_logged_in = True
+                        logger.info("✅ Baostock 登录成功")
+                    except concurrent.futures.TimeoutError:
+                        raise RuntimeError(f"Baostock 登录超时（{timeout}秒），请检查网络连接")
         
         self.available = True
         self._initialized = True

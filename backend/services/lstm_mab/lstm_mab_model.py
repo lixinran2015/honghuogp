@@ -152,15 +152,17 @@ class LSTMMABModel:
         # 3. 计算加权总分
         # 首先标准化因子值到0-100范围
         normalized_scores = {}
-        for name in self.factor_names:
-            if name in factor_values:
+        # 兼容旧模型：确保输出所有标准因子分数（用于前端展示）
+        all_factor_names = ['leader_position', 'technical', 'money_flow', 'sentiment']
+        for name in all_factor_names:
+            if name in factor_values and factor_values[name] is not None:
                 # 假设因子值已经是0-100范围，如果不是需要标准化
                 score = factor_values[name]
                 normalized_scores[name] = np.clip(score, 0, 100)
             else:
                 normalized_scores[name] = 50  # 默认值
 
-        # 加权计算总分
+        # 加权计算总分（仍只基于模型实际训练的因子，兼容旧模型）
         total_score = sum(
             normalized_scores[name] * weights[name]
             for name in self.factor_names
@@ -171,7 +173,8 @@ class LSTMMABModel:
         total_score = total_score + lstm_bonus
         total_score = np.clip(total_score, 0, 100)
 
-        # 4. 确定等级
+        # 4. 确定等级（基于舍入后的分数，确保显示和评级一致）
+        total_score = round(total_score, 2)
         grade = self._get_grade(total_score)
 
         # 5. 计算置信度
@@ -180,7 +183,7 @@ class LSTMMABModel:
 
         return ScoreResult(
             ts_code=ts_code,
-            total_score=round(total_score, 2),
+            total_score=total_score,
             grade=grade,
             factor_scores=normalized_scores,
             factor_weights=weights,

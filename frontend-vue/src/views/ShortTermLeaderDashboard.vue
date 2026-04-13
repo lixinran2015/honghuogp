@@ -110,7 +110,7 @@
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-semibold text-warmgray-900 flex items-center gap-2">
               <StarIcon class="w-4 h-4 text-cta" />
-              TOP精选 (S级)
+              TOP精选 (S/A级)
             </h2>
             <button
               @click="importToHoldings"
@@ -188,7 +188,7 @@
                 </tr>
                 <tr v-if="topPicks.length === 0">
                   <td colspan="5" class="px-3 py-8 text-center text-warmgray-500">
-                    暂无S级推荐股票
+                    暂无S/A级推荐股票
                   </td>
                 </tr>
               </tbody>
@@ -752,10 +752,12 @@ async function fetchMarketBrief() {
 
 async function fetchTopPicks() {
   try {
-    const response = await fetch('/api/leader-tracking/top-scored?with_scores=true&min_grade=S')
+    const response = await fetch('/api/leader-tracking/top-scored?with_scores=true')
     const data = await response.json()
     if (data.success) {
-      topPicks.value = data.leaders || []
+      topPicks.value = (data.top_stocks || []).filter(
+        s => ['S', 'A'].includes(s.lstm_mab_score?.grade)
+      )
     }
   } catch (e) {
     console.error('获取TOP精选失败:', e)
@@ -868,7 +870,7 @@ async function refreshAllData() {
 }
 
 function viewStockDetail(stock) {
-  router.push(`/stock-detail/${stock.ts_code}`)
+  openStockDetailDrawer(stock.ts_code)
 }
 
 function viewSectorDetail(sector) {

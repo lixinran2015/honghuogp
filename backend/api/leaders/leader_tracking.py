@@ -28,6 +28,54 @@ logger = logging.getLogger(__name__)
 # 模型缓存
 _model_instance: Optional[LSTMMABModel] = None
 
+# 常量
+_FACTOR_KEYS = ["leader_position", "technical", "money_flow", "sentiment"]
+_FACTOR_KEY_CHINESE = {
+    "leader_position": "龙头地位",
+    "technical": "技术形态",
+    "money_flow": "资金流向",
+    "sentiment": "情绪热度",
+}
+
+
+def _is_limit_up(ts_code: str, pct: float) -> bool:
+    prefix = ts_code.split('.')[0]
+    if prefix.startswith(('300', '301', '688')):
+        return pct >= 19.8
+    return pct >= 9.8
+
+
+def _map_factor_scores(raw_factor_scores: Dict[str, Any]) -> Dict[str, float]:
+    """将数据库中的因子评分（可能为英文键）映射为前端需要的中文键。"""
+    result: Dict[str, float] = {}
+    for en, zh in _FACTOR_KEY_CHINESE.items():
+        result[zh] = raw_factor_scores.get(zh) if zh in raw_factor_scores else raw_factor_scores.get(en, 0)
+    return result
+
+
+def _build_trade_plan(
+    latest_price: float,
+    stock_data: Dict[str, Any],
+    recommendation: Dict[str, Any],
+) -> Dict[str, Any]:
+    """构建交易计划数据。"""
+    computed = compute_trade_plan(latest_price, stock_data)
+    entry_price = computed.get("entry_price", latest_price)
+    tp1_pct = recommendation.get("take_profit_1_pct", 10)
+    tp2_pct = recommendation.get("take_profit_2_pct", 15)
+    sl_pct = recommendation.get("stop_loss_pct", -3)
+
+    return {
+        "entry_price": round(entry_price, 2),
+        "entry_pct": round((entry_price / latest_price - 1) * 100, 1) if latest_price > 0 else 0.0,
+        "stop_loss_price": round(entry_price * (1 + sl_pct / 100), 2),
+        "stop_loss_pct": sl_pct,
+        "take_profit_1": round(entry_price * (1 + tp1_pct / 100), 2),
+        "take_profit_1_pct": tp1_pct,
+        "take_profit_2": round(entry_price * (1 + tp2_pct / 100), 2),
+        "take_profit_2_pct": tp2_pct,
+    }
+
 # 数据仓库实例
 _warehouse_instance: Optional[PostgresWarehouse] = None
 
@@ -242,7 +290,84 @@ def _get_auto_emotion_cycle(trade_date: Optional[str], warehouse: Optional[Any])
     return '震荡期'
 
 
-def _calculate_factor_values(stock_data: Dict[str, Any], trade_date: Optional[str] = None, warehouse: Optional[Any] = None) -> Dict[str, float]:
+def _calc_leader_position(stock_data: Dict[str, Any]) -> float:
+    """计算龙头地位因子 (0-100)。"""
+    score = 0.0
+    continuous_limit = stock_data.get('continuous_limit') or 0
+    if continuous_limit >= 5:
+        score += 40
+    elif continuous_limit >= 3:
+        score += 30
+    elif continuous_limit >= 2:
+        score += 20
+    elif continuous_limit >= 1:
+        score += 10
+
+    is_space = stock_data.get('is_space', False)
+    is_new = stock_data.get('is_new', False)
+    if is_space and is_new:
+        score += 30
+    elif is_space:
+        score += 25
+    elif is_new:
+        score += 20
+
+    sector_count = len(stock_data.get('sectors') or [])
+    if sector_count >= 3:
+        score += 20
+    elif sector_count >= 2:
+        score += 15
+    elif sector_count >= 1:
+        score += 10
+
+    if stock_data.get('first_space_date') or stock_data.get('first_new_date'):
+        score += 10
+
+    return min(100.0, score)
+
+
+def _calc_technical(stock_data: Dict[str, Any]) -> float:
+    """计算技术形态因子 (0-100)。"""
+    score = 50.0
+    stats = stock_data.get('stats', {})
+
+    pct20d = stats.get('pct20d')
+    if pct20d is not None:
+        if pct20d >= 50:
+            score += 20
+        elif pct20d >= 30:
+            score += 15
+        elif pct20d >= 20:
+            score += 10
+        elif pct20d >= 10:
+            score += 5
+        elif pct20d < -10:
+            score -= 15
+        elif pct20d < -5:
+            score -= 10
+
+    retreat_label = stats.get('retreat_label', '')
+    if retreat_label == '强势':
+        score += 15
+    elif retreat_label == '震荡':
+        score += 5
+    elif retreat_label == '退潮风险':
+        score -= 20
+
+    position_tag = stats.get('positionTag', '')
+    if '强于20日线' in position_tag:
+        score += 10
+    elif '跌破20日线' in position_tag:
+        score -= 15
+
+    return max(0.0, min(100.0, score))
+
+
+def _calculate_factor_values(
+    stock_data: Dict[str, Any],
+    trade_date: Optional[str] = None,
+    warehouse: Optional[Any] = None,
+) -> Dict[str, float]:
     """
     根据股票数据计算 LSTM-MAB 需要的因子值
 
@@ -252,100 +377,12 @@ def _calculate_factor_values(stock_data: Dict[str, Any], trade_date: Optional[st
     - money_flow: 资金流向 (0-100)
     - sentiment: 情绪热度 (0-100)
     """
-    factors = {}
-
-    # 龙头地位因子计算
-    leader_score = 0.0
-
-    # 连板高度权重 (40分)
-    continuous_limit = stock_data.get('continuous_limit') or 0
-    if continuous_limit >= 5:
-        leader_score += 40
-    elif continuous_limit >= 3:
-        leader_score += 30
-    elif continuous_limit >= 2:
-        leader_score += 20
-    elif continuous_limit >= 1:
-        leader_score += 10
-
-    # 空间龙头/刚启动类型权重 (30分)
-    is_space = stock_data.get('is_space', False)
-    is_new = stock_data.get('is_new', False)
-    if is_space and is_new:
-        leader_score += 30
-    elif is_space:
-        leader_score += 25
-    elif is_new:
-        leader_score += 20
-
-    # 板块数量权重 (20分) - 涉及板块越多影响力越大
-    sectors = stock_data.get('sectors') or []
-    sector_count = len(sectors)
-    if sector_count >= 3:
-        leader_score += 20
-    elif sector_count >= 2:
-        leader_score += 15
-    elif sector_count >= 1:
-        leader_score += 10
-
-    # 在池时间权重 (10分) - 持续跟踪时间越长越稳定
-    first_date = stock_data.get('first_space_date') or stock_data.get('first_new_date')
-    if first_date:
-        leader_score += 10
-
-    factors['leader_position'] = min(100.0, leader_score)
-
-    # 技术形态因子计算
-    technical_score = 50.0  # 基础分
-
-    # 可以从 stats 中获取技术数据进行调整
-    stats = stock_data.get('stats', {})
-
-    # 20日涨幅调整
-    pct20d = stats.get('pct20d')
-    if pct20d is not None:
-        if pct20d >= 50:
-            technical_score += 20
-        elif pct20d >= 30:
-            technical_score += 15
-        elif pct20d >= 20:
-            technical_score += 10
-        elif pct20d >= 10:
-            technical_score += 5
-        elif pct20d < -10:
-            technical_score -= 15
-        elif pct20d < -5:
-            technical_score -= 10
-
-    # 基于退潮/强势状态调整
-    retreat_label = stats.get('retreat_label', '')
-    if retreat_label == '强势':
-        technical_score += 15
-    elif retreat_label == '震荡':
-        technical_score += 5
-    elif retreat_label == '退潮风险':
-        technical_score -= 20
-
-    # 基于位置调整
-    position_tag = stats.get('positionTag', '')
-    if '强于20日线' in position_tag:
-        technical_score += 10
-    elif '跌破20日线' in position_tag:
-        technical_score -= 15
-
-    factors['technical'] = max(0.0, min(100.0, technical_score))
-
-    # 资金流向因子
-    factors['money_flow'] = _get_money_flow_factor(
-        stock_data.get('ts_code'), trade_date, warehouse
-    )
-
-    # 情绪热度因子
-    factors['sentiment'] = _get_sentiment_factor(
-        stock_data, trade_date, warehouse
-    )
-
-    return factors
+    return {
+        "leader_position": _calc_leader_position(stock_data),
+        "technical": _calc_technical(stock_data),
+        "money_flow": _get_money_flow_factor(stock_data.get("ts_code"), trade_date, warehouse),
+        "sentiment": _get_sentiment_factor(stock_data, trade_date, warehouse),
+    }
 
 
 def _score_stocks(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -560,54 +597,59 @@ async def get_top_scored_leaders(
         from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
         requested_codes = [c.strip() for c in ts_codes.split(',') if c.strip()]
         pool_codes = {s.get('ts_code') for s in pool}
-        missing_codes = [c for c in requested_codes if c not in pool_codes]
+        missing_codes = set(c for c in requested_codes if c not in pool_codes)
 
         if missing_codes:
-            # 获取实时雷达数据
             analyzer = StartupSectorAnalyzer()
             radar_result = analyzer.analyze(end_date=td)
+            missing_stocks_map: Dict[str, Dict] = {}
 
-            # 从space_leaders_lead和sectors中提取缺失股票的信息
-            missing_stocks_map = {}
+            def _ensure_missing(tc: str, name: str, sector_name: Optional[str],
+                                is_space: bool, is_new: bool,
+                                continuous_limit: Optional[int]) -> None:
+                if tc not in missing_codes:
+                    return
+                if tc not in missing_stocks_map:
+                    missing_stocks_map[tc] = {
+                        "ts_code": tc,
+                        "name": name or tc,
+                        "sectors": [sector_name] if sector_name else [],
+                        "is_space": is_space,
+                        "is_new": is_new,
+                        "continuous_limit": continuous_limit,
+                    }
+                else:
+                    stock = missing_stocks_map[tc]
+                    if sector_name and sector_name not in stock["sectors"]:
+                        stock["sectors"].append(sector_name)
+                    stock["is_space"] = stock["is_space"] or is_space
+                    stock["is_new"] = stock["is_new"] or is_new
+
             for item in radar_result.get("space_leaders_lead", []) or []:
                 sector_name = item.get("sector_name")
                 for stock in item.get("stocks", []) or []:
-                    tc = stock.get("ts_code")
-                    if tc in missing_codes and tc not in missing_stocks_map:
-                        missing_stocks_map[tc] = {
-                            "ts_code": tc,
-                            "name": stock.get("name") or tc,
-                            "sectors": [sector_name] if sector_name else [],
-                            "is_space": True,
-                            "is_new": False,
-                            "continuous_limit": stock.get("continuous_limit"),
-                        }
+                    _ensure_missing(
+                        tc=stock.get("ts_code"),
+                        name=stock.get("name"),
+                        sector_name=sector_name,
+                        is_space=True,
+                        is_new=False,
+                        continuous_limit=stock.get("continuous_limit"),
+                    )
 
             for sec in radar_result.get("sectors", []) or []:
                 sector_name = sec.get("sector_name")
-                chain = sec.get("chain", []) or []
-                for c in chain:
-                    tc = c.get("ts_code")
-                    if tc in missing_codes:
-                        if tc not in missing_stocks_map:
-                            missing_stocks_map[tc] = {
-                                "ts_code": tc,
-                                "name": c.get("name") or tc,
-                                "sectors": [sector_name] if sector_name else [],
-                                "is_space": False,
-                                "is_new": bool(c.get("is_new_leader")),
-                                "continuous_limit": c.get("continuous_limit"),
-                            }
-                        else:
-                            if sector_name and sector_name not in missing_stocks_map[tc]["sectors"]:
-                                missing_stocks_map[tc]["sectors"].append(sector_name)
-                            if c.get("is_new_leader"):
-                                missing_stocks_map[tc]["is_new"] = True
+                for c in sec.get("chain", []) or []:
+                    _ensure_missing(
+                        tc=c.get("ts_code"),
+                        name=c.get("name"),
+                        sector_name=sector_name,
+                        is_space=False,
+                        is_new=bool(c.get("is_new_leader")),
+                        continuous_limit=c.get("continuous_limit"),
+                    )
 
-            # 将缺失的股票添加到pool
-            for tc in missing_codes:
-                if tc in missing_stocks_map:
-                    pool.append(missing_stocks_map[tc])
+            pool.extend(missing_stocks_map.values())
     td_str = result.get('trade_date')
     scorer = UnifiedShortTermScorer(_get_warehouse())
 
@@ -681,6 +723,43 @@ def _get_latest_daily_quote(ts_code: str, warehouse=None) -> Optional[Dict[str, 
         return None
 
 
+def _build_lstm_mab_score(
+    score_source: Dict[str, Any],
+    is_existing: bool = True,
+) -> Dict[str, Any]:
+    """从评分结果或数据库记录构建统一的 lstm_mab_score 结构。"""
+    if is_existing:
+        raw_factor_scores = score_source.get("factor_scores") or {}
+        factor_scores = _map_factor_scores(raw_factor_scores)
+    else:
+        breakdown = score_source.get("breakdown", {})
+        factor_scores = {
+            _FACTOR_KEY_CHINESE[k]: breakdown.get(k, 0)
+            for k in _FACTOR_KEYS
+        }
+
+    return {
+        "total_score": score_source["total_score"],
+        "grade": score_source.get("grade", "D"),
+        "expected_return": score_source.get("expected_return"),
+        "confidence": score_source.get("confidence"),
+        "factor_scores": factor_scores,
+        "factor_weights": score_source.get("factor_weights", {}),
+        "recommendation": score_source.get("recommendation", {}),
+    }
+
+
+def _extract_buy_signal(raw_signal: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """将原始买点信号格式化为前端需要的结构。"""
+    if not raw_signal:
+        return None
+    return {
+        "signal_type": raw_signal.get("signal_type"),
+        "strength_score": raw_signal.get("strength_score"),
+        "quality": raw_signal.get("quality") or "中",
+    }
+
+
 def _build_stock_detail_response(
     ts_code: str,
     stock_data: Dict[str, Any],
@@ -691,45 +770,14 @@ def _build_stock_detail_response(
     # 1. 评分 - 优先使用数据库中已保存的评分，避免列表和详情不一致
     existing_score = stock_data.get("lstm_mab_score")
     if existing_score and existing_score.get("total_score") is not None:
-        # 使用数据库中保存的评分
-        lstm_mab_score = {
-            "total_score": existing_score["total_score"],
-            "grade": existing_score.get("grade", "D"),
-            "expected_return": existing_score.get("expected_return"),
-            "confidence": existing_score.get("confidence"),
-            "factor_scores": existing_score.get("factor_scores", {
-                "龙头地位": 0,
-                "技术形态": 0,
-                "资金流向": 0,
-                "情绪热度": 0,
-            }),
-            "factor_weights": existing_score.get("factor_weights", {}),
-            "recommendation": existing_score.get("recommendation", {}),
-        }
+        lstm_mab_score = _build_lstm_mab_score(existing_score, is_existing=True)
         logger.debug(f"股票 {ts_code} 使用数据库保存的评分: {lstm_mab_score['total_score']}")
     else:
-        # 数据库中没有评分，实时计算
         score_result = scorer.score_stock(stock_data, trade_date=trade_date_str)
-        lstm_mab_score = {
-            "total_score": score_result["total_score"],
-            "grade": score_result["grade"],
-            "expected_return": score_result.get("expected_return"),
-            "confidence": score_result.get("confidence"),
-            "factor_scores": {
-                "龙头地位": score_result.get("breakdown", {}).get("leader_position", 0),
-                "技术形态": score_result.get("breakdown", {}).get("technical", 0),
-                "资金流向": score_result.get("breakdown", {}).get("money_flow", 0),
-                "情绪热度": score_result.get("breakdown", {}).get("sentiment", 0),
-            },
-            "factor_weights": score_result.get("factor_weights", {}),
-            "recommendation": score_result.get("recommendation", {}),
-        }
+        lstm_mab_score = _build_lstm_mab_score(score_result, is_existing=False)
         logger.debug(f"股票 {ts_code} 实时计算评分: {lstm_mab_score['total_score']}")
 
-    scored_stock = {
-        **stock_data,
-        "lstm_mab_score": lstm_mab_score,
-    }
+    scored_stock = {**stock_data, "lstm_mab_score": lstm_mab_score}
 
     # 2. 买点信号
     buy_signal = None
@@ -741,13 +789,7 @@ def _build_stock_detail_response(
             warehouse=scorer.warehouse,
             emotion_cycle=emotion_cycle,
         )
-        raw_signal = buy_signals.get(ts_code)
-        if raw_signal:
-            buy_signal = {
-                "signal_type": raw_signal.get("signal_type"),
-                "strength_score": raw_signal.get("strength_score"),
-                "quality": raw_signal.get("quality") or "中",
-            }
+        buy_signal = _extract_buy_signal(buy_signals.get(ts_code))
     except Exception as e:
         logger.warning(f"买点识别失败 {ts_code}: {e}")
 
@@ -755,41 +797,23 @@ def _build_stock_detail_response(
     quote = _get_latest_daily_quote(ts_code, scorer.warehouse)
     latest_price = quote["close"] if quote else 0.0
     price_change_pct = quote["pct_change"] if quote else 0.0
-    def _is_limit_up(ts_code: str, pct: float) -> bool:
-        prefix = ts_code.split('.')[0]
-        if prefix.startswith(('300', '301', '688')):
-            return pct >= 19.8
-        return pct >= 9.8
-    is_limit_up = _is_limit_up(ts_code, price_change_pct)
+    limit_up = _is_limit_up(ts_code, price_change_pct)
 
     # 4. 交易计划
-    trade_plan = {
-        "entry_price": 0.0,
-        "entry_pct": 0.0,
-        "stop_loss_price": 0.0,
-        "stop_loss_pct": 0.0,
-        "take_profit_1": 0.0,
-        "take_profit_1_pct": 0.0,
-        "take_profit_2": 0.0,
-        "take_profit_2_pct": 0.0,
-    }
-    if latest_price > 0:
-        computed = compute_trade_plan(latest_price, stock_data)
-        entry_price = computed.get("entry_price", latest_price)
-        rec = lstm_mab_score.get("recommendation", {})
-        tp1_pct = rec.get("take_profit_1_pct", 10)
-        tp2_pct = rec.get("take_profit_2_pct", 15)
-        sl_pct = rec.get("stop_loss_pct", -3)
-        trade_plan = {
-            "entry_price": round(entry_price, 2),
-            "entry_pct": round((entry_price / latest_price - 1) * 100, 1) if latest_price > 0 else 0.0,
-            "stop_loss_price": round(entry_price * (1 + sl_pct / 100), 2),
-            "stop_loss_pct": sl_pct,
-            "take_profit_1": round(entry_price * (1 + tp1_pct / 100), 2),
-            "take_profit_1_pct": tp1_pct,
-            "take_profit_2": round(entry_price * (1 + tp2_pct / 100), 2),
-            "take_profit_2_pct": tp2_pct,
+    trade_plan = (
+        _build_trade_plan(latest_price, stock_data, lstm_mab_score.get("recommendation", {}))
+        if latest_price > 0
+        else {
+            "entry_price": 0.0,
+            "entry_pct": 0.0,
+            "stop_loss_price": 0.0,
+            "stop_loss_pct": 0.0,
+            "take_profit_1": 0.0,
+            "take_profit_1_pct": 0.0,
+            "take_profit_2": 0.0,
+            "take_profit_2_pct": 0.0,
         }
+    )
 
     # 5. 板块支撑
     sectors = stock_data.get("sectors", [])
@@ -813,7 +837,7 @@ def _build_stock_detail_response(
         "name": stock_data.get("name", ts_code),
         "latest_price": latest_price,
         "price_change_pct": price_change_pct,
-        "is_limit_up": is_limit_up,
+        "is_limit_up": limit_up,
         "lstm_mab_score": lstm_mab_score,
         "buy_signal": buy_signal,
         "sector_support": sector_support,
@@ -846,12 +870,6 @@ async def get_stock_detail(
         min_score=60,
         stage_filter="confirmed",
         stable_window_id='rolling_30d_v2',
-        bootstrap_days=180,
-        do_bootstrap=True,
-        force_sync=False,
-        catch_up_window_trading_days=30,
-        catch_up_max_syncs=30,
-        replay_sync_days=0,
     )
 
     pool = result.get('pool') or []
@@ -865,25 +883,23 @@ async def get_stock_detail(
         from backend.services.stock.startup_sector_analyzer import StartupSectorAnalyzer
         analyzer = StartupSectorAnalyzer()
         radar_result = analyzer.analyze(end_date=td)
-        for item in radar_result.get("space_leaders_lead", []) or []:
-            for s in item.get("stocks", []) or []:
-                if s.get("ts_code") == ts_code:
-                    stock_data = {
-                        "ts_code": ts_code,
-                        "name": s.get("name") or ts_code,
-                        "sectors": [item.get("sector_name")] if item.get("sector_name") else [],
-                        "is_space": True,
-                        "is_new": False,
-                        "continuous_limit": s.get("continuous_limit"),
-                    }
-                    break
-            if stock_data:
-                break
-        if not stock_data:
-            for sec in radar_result.get("sectors", []) or []:
+
+        def _find_radar_stock(radar_data: Dict) -> Optional[Dict]:
+            for item in radar_data.get("space_leaders_lead", []) or []:
+                for s in item.get("stocks", []) or []:
+                    if s.get("ts_code") == ts_code:
+                        return {
+                            "ts_code": ts_code,
+                            "name": s.get("name") or ts_code,
+                            "sectors": [item.get("sector_name")] if item.get("sector_name") else [],
+                            "is_space": True,
+                            "is_new": False,
+                            "continuous_limit": s.get("continuous_limit"),
+                        }
+            for sec in radar_data.get("sectors", []) or []:
                 for c in sec.get("chain", []) or []:
                     if c.get("ts_code") == ts_code:
-                        stock_data = {
+                        return {
                             "ts_code": ts_code,
                             "name": c.get("name") or ts_code,
                             "sectors": [sec.get("sector_name")] if sec.get("sector_name") else [],
@@ -891,9 +907,9 @@ async def get_stock_detail(
                             "is_new": bool(c.get("is_new_leader")),
                             "continuous_limit": c.get("continuous_limit"),
                         }
-                        break
-                if stock_data:
-                    break
+            return None
+
+        stock_data = _find_radar_stock(radar_result)
 
     if not stock_data:
         raise HTTPException(status_code=404, detail=f"未找到股票 {ts_code} 的龙头跟踪数据")
@@ -935,8 +951,6 @@ async def get_leader_tracking_health(
     - WARNING: -15分 (如龙头数量过多、退潮比例高)
     - NOTICE: -5分 (如龙头数量较少、连板数≥10)
     """
-    from datetime import date
-
     td = None
     if trade_date:
         try:
