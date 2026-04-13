@@ -35,6 +35,23 @@ TOP_N_LEADERS = 5
 SIGNAL_POOL_SIZE = 5
 WATCHLIST_SIZE = 10
 
+_FACTOR_KEY_MAP = {
+    "leader_position": "龙头地位",
+    "technical": "技术形态",
+    "money_flow": "资金流向",
+    "sentiment": "情绪热度",
+}
+
+
+def _map_factor_scores(raw_factor_scores: Dict[str, Any]) -> Dict[str, float]:
+    """将 API 返回的英文因子键映射为中文键。"""
+    if not raw_factor_scores:
+        return {}
+    result: Dict[str, float] = {}
+    for en, zh in _FACTOR_KEY_MAP.items():
+        result[zh] = raw_factor_scores.get(zh) if zh in raw_factor_scores else raw_factor_scores.get(en, 0)
+    return result
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,7 +94,7 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "total_score": score.get("total_score", 0),
             "expected_return": round(score.get("expected_return", 0) * 100, 2) if score.get("expected_return") else 0,
             "confidence": round(score.get("confidence", 0) * 100, 2) if score.get("confidence") else 0,
-            "factor_scores": score.get("factor_scores", {}),
+            "factor_scores": _map_factor_scores(score.get("factor_scores") or {}),
         })
     return result
 
