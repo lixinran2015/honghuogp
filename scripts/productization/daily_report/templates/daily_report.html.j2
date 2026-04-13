@@ -8,18 +8,46 @@
       <li><b>情绪状态</b>：{{ emotion_cycle_description|default('-') }}（涨停 {{ limit_up_count|default('-') }} 家 / 跌停 {{ limit_down_count|default('-') }} 家）</li>
       <li><b>市场高度</b>：最高连板 {{ max_continuous_limit|default('-') }} 板，涨跌比 {{ advance_decline_ratio|default('-') }}</li>
       <li><b>今日要点</b>：{{ summary|default('-') }}</li>
-      <li><b>明日策略</b>：{{ strategy|default('-') }}</li>
+      <li><b>明日策略</b>：详见下方操作清单</li>
     </ul>
   </div>
 
   <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">一、情绪周期判断</h3>
   <p style="margin: 0 0 12px 0;">{{ emotion_cycle_description|default('-') }}</p>
+  {% if emotion_progress %}
+  <div style="margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 6px;">
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+      {% for c in emotion_progress.cycles %}
+        {% if loop.index0 == emotion_progress.current_index %}
+        <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #f59e0b; color: #fff;">{{ c }}</span>
+        {% else %}
+        <span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; color: #6b7280; background: #e5e7eb;">{{ c }}</span>
+        {% endif %}
+        {% if not loop.last %}
+        <span style="color: #d1d5db; font-size: 12px;">→</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div style="font-size: 13px; color: #4b5563;">🌡️ {{ emotion_progress.thermometer }}</div>
+  </div>
+  {% endif %}
   <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #4b5563;">
-    <li>涨停家数：<b>{{ limit_up_count|default('-') }}</b></li>
-    <li>跌停家数：<b>{{ limit_down_count|default('-') }}</b></li>
-    <li>市场最高连板：<b>{{ max_continuous_limit|default('-') }} 板</b></li>
-    <li>涨跌比：<b>{{ advance_decline_ratio|default('-') }}</b></li>
+    <li>涨停家数：<b>{{ limit_up_count|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(limit_up_count, yesterday_emotion.limit_up_count, '家') }}</span>{% endif %}</li>
+    <li>跌停家数：<b>{{ limit_down_count|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(limit_down_count, yesterday_emotion.limit_down_count, '家') }}</span>{% endif %}</li>
+    <li>市场最高连板：<b>{{ max_continuous_limit|default('-') }} 板</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(max_continuous_limit, yesterday_emotion.max_continuous_limit, '板') }}</span>{% endif %}</li>
+    <li>涨跌比：<b>{{ advance_decline_ratio|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(advance_decline_ratio, yesterday_emotion.advance_decline_ratio) }}</span>{% endif %}</li>
   </ul>
+
+  {% if sector_heat %}
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">🔥 板块热度排行</h3>
+  <div style="margin-bottom: 24px;">
+    {% for sec in sector_heat %}
+    <div style="display: inline-block; margin: 0 8px 8px 0; padding: 6px 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 16px; font-size: 14px; color: #c2410c;">
+      {{ sec.name }} <span style="font-weight: 600;">({{ sec.count }}只)</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">二、🔥 Top {{ top_stocks|length }} 空间龙头</h3>
   {% if top_stocks %}
@@ -31,29 +59,57 @@
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">等级</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">总分</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">预期收益</th>
-        <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">置信度</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">5日涨幅</th>
       </tr>
     </thead>
     <tbody>
       {% for stock in top_stocks %}
       <tr>
-        <td style="padding: 10px 8px; border: 1px solid #e5e7eb;">{{ stock.name }}</td>
+        <td style="padding: 10px 8px; border: 1px solid #e5e7eb;">
+          <div style="font-weight: 600;">{{ stock.name }}</div>
+          {% if stock.badges %}
+          <div style="margin-top: 4px;">
+            {% for b in stock.badges %}
+            <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px; color: {{ b.color }}; background: {{ b.bg }}; border: 1px solid {{ b.color }}33;">{{ b.text }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </td>
         <td style="padding: 10px 8px; border: 1px solid #e5e7eb;">{{ stock.sector_short|default('-') }}</td>
         <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.grade_emoji|default('-') }} {{ stock.grade|default('-') }}</td>
         <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.total_score|default('-') }}</td>
-        <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.expected_return|default('-') }}%</td>
-        <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.confidence|default('-') }}%</td>
-        <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">{{ stock.change_pct_5d|default('-') }}%</td>
+        <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center; {% if stock.expected_return != '-' %}{% if stock.expected_return|float > 0 %}color: #ef4444;{% elif stock.expected_return|float < 0 %}color: #22c55e;{% endif %}{% endif %}">{{ stock.expected_return|default('-') }}%</td>
+        <td style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center; {% if stock.change_pct_5d != '-' %}{% if stock.change_pct_5d|float > 0 %}color: #ef4444;{% elif stock.change_pct_5d|float < 0 %}color: #22c55e;{% endif %}{% endif %}">{{ stock.change_pct_5d|default('-') }}%</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <div style="background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; margin-bottom: 24px; color: #374151;">
+  <div style="background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; margin-bottom: 12px; color: #374151;">
     <b>简评</b><br/>
     {% for stock in top_stocks %}
     • <b>{{ stock.name }}</b>：{{ stock.brief_comment|default('综合评价良好') }}<br/>
+    {% endfor %}
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <b style="font-size: 14px; color: #374151; display: block; margin-bottom: 8px;">四维因子拆解</b>
+    {% for stock in top_stocks %}
+    <div style="margin-bottom: 12px; padding: 10px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px;">
+      <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">{{ stock.name }}</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        {% for bar in stock.factor_bars %}
+        <div style="flex: 1; min-width: 120px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-bottom: 2px;">
+            <span>{{ bar.name }}</span><span>{{ bar.score }}</span>
+          </div>
+          <div style="background: #f3f4f6; border-radius: 3px; height: 6px; overflow: hidden;">
+            <div style="width: {{ bar.width }}%; background: {{ bar.color }}; height: 100%;"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
     {% endfor %}
   </div>
   {% else %}
@@ -70,10 +126,24 @@
     {% endfor %}
   {% else %}
     <p style="margin: 0 0 8px 0;">今日未监测到明显的技术形态触发信号。</p>
+    {% if recent_win_rate is not none %}
+    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近{{ past_recommendations|length }}日推荐胜率 <b>{{ recent_win_rate }}%</b>，空仓等待也是策略的一部分。</p>
+    {% endif %}
     <p style="margin: 0; color: #4b5563; font-size: 14px;"><b>解读</b>：情绪高涨期 + 买点信号空窗，说明市场以持筹博弈为主，新启动机会较少，明日重点观察早盘分歧后的承接力度，避免盲目追高。</p>
   {% endif %}
 
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">四、👀 次日跟踪名单（Top 6-10）</h3>
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">四、明日操作清单</h3>
+  <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+    {% for item in strategy_list %}
+      {% if item.type == 'do' %}
+      <div style="margin-bottom: 8px; color: #166534; font-size: 14px;">✅ {{ item.text }}</div>
+      {% else %}
+      <div style="margin-bottom: 8px; color: #991b1b; font-size: 14px;">❌ {{ item.text }}</div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">五、👀 次日跟踪名单（Top 6-10）</h3>
   {% if watchlist_excluding_top5 %}
   <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #374151;">
     {% for stock in watchlist_excluding_top5 %}
@@ -84,7 +154,7 @@
   <p style="color: #6b7280; margin-bottom: 24px;">暂无新增跟踪标的。</p>
   {% endif %}
 
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">五、📊 历史推荐表现追踪（近5日）</h3>
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐表现追踪（近5日）</h3>
   {% if past_recommendations %}
     {% for day in past_recommendations %}
     <div style="margin-bottom: 16px;">

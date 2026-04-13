@@ -1,10 +1,10 @@
 """
 日报生成主脚本
 
-调用本地 FastAPI 接口，生成去投顾化的 Markdown 日报。
+调用本地 FastAPI 接口，生成去投顾化的 HTML 日报。
 使用示例:
     /Users/lxr/workspace/honghuogp/venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
-        --output ./daily_reports/2026-04-13.md
+        --output ./daily_reports/2026-04-13.html
 """
 
 import argparse
@@ -40,6 +40,15 @@ _FACTOR_KEY_MAP = {
     "technical": "技术形态",
     "money_flow": "资金流向",
     "sentiment": "情绪热度",
+}
+
+_EMOTION_CYCLES = ["冰点期", "低迷期", "恢复期", "震荡期", "高涨期", "退潮期"]
+
+_FACTOR_COLORS = {
+    "龙头地位": "#ef4444",
+    "技术形态": "#3b82f6",
+    "资金流向": "#22c55e",
+    "情绪热度": "#f59e0b",
 }
 
 
@@ -91,6 +100,58 @@ def _build_brief_comment(stock: Dict[str, Any]) -> str:
     return comments.get(top_name, "综合评价良好")
 
 
+def _build_badges(stock: Dict[str, Any]) -> List[Dict[str, str]]:
+    """根据股票数据生成标签徽章。"""
+    badges = []
+    continuous_limit = stock.get("continuous_limit") or 0
+    try:
+        continuous_limit = int(continuous_limit)
+    except (TypeError, ValueError):
+        continuous_limit = 0
+
+    if continuous_limit >= 3:
+        badges.append({"text": f"{continuous_limit}连板", "color": "#ef4444", "bg": "#fef2f2"})
+    elif continuous_limit == 2:
+        badges.append({"text": "2连板", "color": "#f97316", "bg": "#fff7ed"})
+
+    factors = stock.get("factor_scores", {})
+    if factors.get("龙头地位", 0) >= 75:
+        badges.append({"text": "龙头地位", "color": "#8b5cf6", "bg": "#f5f3ff"})
+    if factors.get("技术形态", 0) >= 75:
+        badges.append({"text": "技术突破", "color": "#3b82f6", "bg": "#eff6ff"})
+    if factors.get("资金流向", 0) >= 75:
+        badges.append({"text": "资金强势", "color": "#22c55e", "bg": "#f0fdf4"})
+    if factors.get("情绪热度", 0) >= 75:
+        badges.append({"text": "情绪高热", "color": "#f59e0b", "bg": "#fffbeb"})
+
+    try:
+        change_pct_5d = float(stock.get("change_pct_5d") or 0)
+        if change_pct_5d > 50:
+            badges.append({"text": "短期强势", "color": "#ec4899", "bg": "#fdf2f8"})
+    except (TypeError, ValueError):
+        pass
+
+    return badges
+
+
+def _build_factor_bars(factor_scores: Dict[str, float]) -> List[Dict[str, Any]]:
+    """构建四维因子进度条数据。"""
+    bars = []
+    for name in ["龙头地位", "技术形态", "资金流向", "情绪热度"]:
+        score = factor_scores.get(name, 0)
+        try:
+            score = float(score)
+        except (TypeError, ValueError):
+            score = 0
+        bars.append({
+            "name": name,
+            "score": round(score, 1),
+            "width": min(score, 100),
+            "color": _FACTOR_COLORS.get(name, "#6b7280"),
+        })
+    return bars
+
+
 def _build_summary(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
     cycle = emotion.get("cycle", "当前")
     if signal_stocks:
@@ -98,15 +159,77 @@ def _build_summary(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
     return f"技术形态触发池为空，说明{cycle}市场以持筹博弈为主，建议关注已有龙头的持续性，避免盲目追高。"
 
 
-def _build_strategy(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
+def _build_strategy_list(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> List[Dict[str, str]]:
+    """返回操作 checklist 列表。"""
     cycle = emotion.get("cycle", "")
+    items = []
     if cycle in ["高涨期", "震荡期"]:
         if signal_stocks:
-            return "情绪偏暖，明日可轻仓试错新启动标的，同时做好止损计划。"
-        return "情绪偏暖但无新买点，明日以观察为主，重点看前排龙头的分歧机会。"
-    if cycle in ["低迷期", "冰点期"]:
-        return "情绪偏冷，控制仓位，优先处理持仓，少开新仓。"
-    return "明日以观察为主，等待更明确的信号出现。"
+            items.append({"type": "do", "text": "情绪偏暖，明日可轻仓试错新启动标的"})
+            items.append({"type": "do", "text": "做好止损计划，严守纪律"})
+        else:
+            items.append({"type": "do", "text": "情绪偏暖但无新买点，明日以观察为主"})
+            items.append({"type": "do", "text": "重点看前排龙头的分歧机会"})
+        items.append({"type": "dont", "text": "避免盲目追高开仓"})
+    elif cycle in ["低迷期", "冰点期"]:
+        items.append({"type": "do", "text": "情绪偏冷，控制仓位，优先处理持仓"})
+        items.append({"type": "do", "text": "少开新仓，等待情绪修复信号"})
+        items.append({"type": "dont", "text": "不轻易抄底或重仓博反弹"})
+    else:
+        items.append({"type": "do", "text": "明日以观察为主，等待更明确的信号出现"})
+        items.append({"type": "dont", "text": "避免在方向不明时频繁操作"})
+    return items
+
+
+def _format_day_change(current: Any, previous: Any, unit: str = "") -> str:
+    """格式化环比变化文本。"""
+    try:
+        cur = float(current)
+        prev = float(previous)
+    except (TypeError, ValueError):
+        return ""
+    diff = round(cur - prev, 2)
+    if diff > 0:
+        return f"(+{diff}{unit} ↑)"
+    elif diff < 0:
+        return f"({diff}{unit} ↓)"
+    else:
+        return "(持平)"
+
+
+def _build_emotion_progress(cycle: str) -> Dict[str, Any]:
+    """构建情绪周期可视化进度条数据。"""
+    cycles = _EMOTION_CYCLES
+    index = cycles.index(cycle) if cycle in cycles else 3
+    thermometer = {
+        0: "赚钱效应: 极弱",
+        1: "赚钱效应: 弱",
+        2: "赚钱效应: 修复中",
+        3: "赚钱效应: 一般",
+        4: "赚钱效应: 强",
+        5: "赚钱效应: 减弱",
+    }.get(index, "赚钱效应: 一般")
+    return {
+        "cycles": cycles,
+        "current_index": index,
+        "thermometer": thermometer,
+    }
+
+
+def _calc_recent_win_rate(past_recommendations: List[Dict[str, Any]]) -> Optional[float]:
+    """计算近N日推荐胜率（涨幅>0为胜）。"""
+    total = 0
+    wins = 0
+    for day in past_recommendations:
+        for stock in day.get("stocks", []):
+            cp = stock.get("change_pct")
+            if cp is not None:
+                total += 1
+                if cp > 0:
+                    wins += 1
+    if total == 0:
+        return None
+    return round(wins / total * 100, 1)
 
 
 logger = logging.getLogger(__name__)
@@ -204,6 +327,31 @@ def fetch_past_recommendations(days: int = 5, base_url: str = DEFAULT_BASE_URL) 
     return result
 
 
+def fetch_yesterday_emotion(base_url: str = DEFAULT_BASE_URL) -> Optional[Dict[str, Any]]:
+    """获取昨日情绪周期数据。"""
+    dates = fetch_trade_dates(base_url=base_url, lookback=3)
+    today_str = date.today().isoformat()
+    yd = None
+    for d in dates:
+        if d < today_str:
+            yd = d
+            break
+    if not yd:
+        return None
+    try:
+        data = _get("/api/emotion-cycle/analyze", base_url=base_url, params={"trade_date": yd})
+        return {
+            "cycle": data.get("data", {}).get("cycle", "未知"),
+            "limit_up_count": data.get("data", {}).get("limit_up_count", 0),
+            "limit_down_count": data.get("data", {}).get("limit_down_count", 0),
+            "max_continuous_limit": data.get("data", {}).get("max_continuous_limit", 0),
+            "advance_decline_ratio": data.get("data", {}).get("advance_decline_ratio", 0),
+        }
+    except Exception as e:
+        logger.warning(f"获取昨日情绪数据失败: {e}")
+        return None
+
+
 def fetch_emotion_cycle(base_url: str = DEFAULT_BASE_URL) -> Dict[str, Any]:
     data = _get("/api/emotion-cycle/analyze", base_url=base_url)
     return {
@@ -221,6 +369,7 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
     result = []
     for s in stocks[:top_n]:
         score = s.get("lstm_mab_score") or {}
+        factor_scores = _map_factor_scores(score.get("factor_scores") or {})
         stock_item = {
             "ts_code": s.get("ts_code", ""),
             "name": s.get("name", ""),
@@ -232,9 +381,12 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "expected_return": _fmt_num(score.get("expected_return"), 2),
             "confidence": _fmt_num(score.get("confidence"), 1),
             "change_pct_5d": _fmt_num(s.get("change_pct_5d"), 1),
-            "factor_scores": _map_factor_scores(score.get("factor_scores") or {}),
+            "factor_scores": factor_scores,
+            "continuous_limit": s.get("continuous_limit") or 0,
         }
         stock_item["brief_comment"] = _build_brief_comment(stock_item)
+        stock_item["badges"] = _build_badges(stock_item)
+        stock_item["factor_bars"] = _build_factor_bars(factor_scores)
         result.append(stock_item)
     return result
 
@@ -281,6 +433,17 @@ def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     return result
 
 
+def build_sector_heat(all_top: List[Dict[str, Any]], top_n: int = 5) -> List[Dict[str, Any]]:
+    """从 Top 股票列表聚合板块热度排行。"""
+    sector_counts: Dict[str, int] = {}
+    for s in all_top:
+        sector = s.get("sector_short") or "-"
+        if sector and sector != "-":
+            sector_counts[sector] = sector_counts.get(sector, 0) + 1
+    sorted_sectors = sorted(sector_counts.items(), key=lambda x: x[1], reverse=True)
+    return [{"name": name, "count": count} for name, count in sorted_sectors[:top_n]]
+
+
 def load_template() -> Template:
     template_path = Path(__file__).parent / "templates" / "daily_report.html.j2"
     if not template_path.exists():
@@ -296,6 +459,12 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         emotion = {"cycle": "未知", "limit_up_count": 0, "limit_down_count": 0, "max_continuous_limit": 0, "advance_decline_ratio": 0}
 
     try:
+        yesterday_emotion = fetch_yesterday_emotion(base_url)
+    except Exception as e:
+        logger.warning(f"获取昨日情绪数据失败: {e}")
+        yesterday_emotion = None
+
+    try:
         all_top = fetch_top_stocks(top_n=WATCHLIST_SIZE, base_url=base_url)
     except Exception as e:
         logger.warning(f"获取龙头评分失败: {e}")
@@ -304,6 +473,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
     top_stocks = all_top[:TOP_N_LEADERS]
     top_ts_codes = {s["ts_code"] for s in top_stocks}
     watchlist_excluding_top5 = [s for s in all_top[TOP_N_LEADERS:] if s["ts_code"] not in top_ts_codes]
+    sector_heat = build_sector_heat(all_top, top_n=5)
 
     try:
         signal_stocks = fetch_signal_stocks(base_url)
@@ -317,6 +487,9 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         logger.warning(f"获取历史推荐追踪失败: {e}")
         past_recommendations = []
 
+    recent_win_rate = _calc_recent_win_rate(past_recommendations)
+    emotion_progress = _build_emotion_progress(emotion["cycle"])
+
     context = {
         "trade_date": date.today().isoformat(),
         "emotion_cycle_description": format_emotion_cycle(emotion["cycle"]),
@@ -324,14 +497,19 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "limit_down_count": emotion["limit_down_count"],
         "max_continuous_limit": emotion["max_continuous_limit"],
         "advance_decline_ratio": _fmt_num(emotion.get("advance_decline_ratio"), 2),
+        "yesterday_emotion": yesterday_emotion,
+        "emotion_progress": emotion_progress,
         "top_stocks": top_stocks,
         "signal_stocks": signal_stocks,
         "signal_count": len(signal_stocks),
         "watchlist_excluding_top5": watchlist_excluding_top5,
         "past_recommendations": past_recommendations,
+        "recent_win_rate": recent_win_rate,
+        "sector_heat": sector_heat,
         "summary": _build_summary(signal_stocks, emotion),
-        "strategy": _build_strategy(signal_stocks, emotion),
+        "strategy_list": _build_strategy_list(signal_stocks, emotion),
         "disclaimer": DISCLAIMER,
+        "fmt_change": _format_day_change,
     }
 
     template = load_template()
@@ -350,7 +528,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
 
 def main():
     parser = argparse.ArgumentParser(description="生成 A股短线龙头日报")
-    parser.add_argument("--output", "-o", type=str, help="输出 Markdown 文件路径")
+    parser.add_argument("--output", "-o", type=str, help="输出 HTML 文件路径")
     parser.add_argument("--base-url", type=str, default=DEFAULT_BASE_URL, help="API 基地址")
     args = parser.parse_args()
     generate_report(output_path=args.output, base_url=args.base_url)
