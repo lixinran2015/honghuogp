@@ -9,6 +9,7 @@
 
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import date
@@ -29,6 +30,12 @@ from scripts.productization.daily_report.copywriting import (
 )
 
 DEFAULT_BASE_URL = os.getenv("HH_API_BASE_URL", "http://localhost:8000")
+
+TOP_N_LEADERS = 5
+SIGNAL_POOL_SIZE = 5
+WATCHLIST_SIZE = 10
+
+logger = logging.getLogger(__name__)
 
 
 def _get(endpoint: str, base_url: str = DEFAULT_BASE_URL, params: Optional[Dict] = None) -> Dict[str, Any]:
@@ -55,7 +62,7 @@ def fetch_emotion_cycle(base_url: str = DEFAULT_BASE_URL) -> Dict[str, Any]:
     }
 
 
-def fetch_top_stocks(top_n: int = 5, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": top_n})
     stocks = data.get("top_stocks", [])
     result = []
@@ -95,14 +102,14 @@ def fetch_signal_stocks(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]
             "grade": score.get("grade", "-"),
             "total_score": score.get("total_score", 0),
         })
-    # 按强度排序，取前 5
+    # 按强度排序，取前 SIGNAL_POOL_SIZE
     result.sort(key=lambda x: x["strength_score"] or 0, reverse=True)
-    return result[:5]
+    return result[:SIGNAL_POOL_SIZE]
 
 
 def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """次日跟踪名单：取 Top 10 评分股票作为观察对象"""
-    data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": 10})
+    data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": WATCHLIST_SIZE})
     stocks = data.get("top_stocks", [])
     result = []
     for s in stocks:
@@ -119,14 +126,32 @@ def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
 
 def load_template() -> Template:
     template_path = Path(__file__).parent / "templates" / "daily_report.md.j2"
+    if not template_path.exists():
+        raise FileNotFoundError(f"日报模板不存在: {template_path}")
     return Template(template_path.read_text(encoding="utf-8"))
 
 
 def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> str:
-    emotion = fetch_emotion_cycle(base_url)
-    top_stocks = fetch_top_stocks(top_n=5, base_url=base_url)
-    signal_stocks = fetch_signal_stocks(base_url)
-    watchlist = fetch_watchlist(base_url)
+    try:
+        emotion = fetch_emotion_cycle(base_url)
+    except Exception as e:
+        logger.warning(f"获取情绪周期失败: {e}")
+        emotion = {"cycle": "未知", "limit_up_count": 0, "limit_down_count": 0, "max_continuous_limit": 0, "advance_decline_ratio": 0}
+
+    try:
+        all_top = fetch_top_stocks(top_n=WATCHLIST_SIZE, base_url=base_url)
+    except Exception as e:
+        logger.warning(f"获取龙头评分失败: {e}")
+        all_top = []
+
+    top_stocks = all_top[:TOP_N_LEADERS]
+    watchlist = all_top
+
+    try:
+        signal_stocks = fetch_signal_stocks(base_url)
+    except Exception as e:
+        logger.warning(f"获取技术形态触发池失败: {e}")
+        signal_stocks = []
 
     context = {
         "trade_date": date.today().isoformat(),

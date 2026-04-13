@@ -45,6 +45,7 @@ from scripts.productization.daily_report.generate_daily_report import (
     fetch_signal_stocks,
     fetch_watchlist,
     load_template,
+    generate_report,
 )
 
 
@@ -114,3 +115,35 @@ def test_load_template():
     rendered = template.render({})
     assert "情绪周期判断" in rendered
     assert "Top" in rendered
+
+
+def test_fetch_watchlist(monkeypatch):
+    def mock_get(url, **kwargs):
+        return MockResponse({
+            "success": True,
+            "top_stocks": [
+                {
+                    "ts_code": "000001.SZ",
+                    "name": "平安银行",
+                    "sectors": ["银行"],
+                    "lstm_mab_score": {"grade": "A", "total_score": 80},
+                }
+            ]
+        })
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    result = fetch_watchlist(base_url="http://test")
+    assert len(result) == 1
+    assert result[0]["name"] == "平安银行"
+
+
+def test_generate_report_handles_api_failure(monkeypatch, caplog):
+    def mock_get(url, **kwargs):
+        raise requests.Timeout("连接超时")
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    import logging
+    with caplog.at_level(logging.WARNING):
+        result = generate_report(base_url="http://test")
+    assert "获取情绪周期失败" in caplog.text or "获取龙头评分失败" in caplog.text
+    assert "A股短线龙头日报" in result
