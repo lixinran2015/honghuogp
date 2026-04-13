@@ -224,6 +224,10 @@ frontend-vue/
 ├── src/views/
 │   ├── LeaderTrackingView.vue           # 龙头跟踪页
 │   └── LeaderBuyBacktestView.vue        # 买卖回溯页
+scripts/productization/
+├── deploy/               # 生产环境部署配置
+├── daily_report/         # 日报生成脚本
+└── tests/                # 产品化测试
 data_warehouse/
 ├── models/                              # SQLAlchemy ORM 模型
 └── etl/                                 # ETL 脚本
@@ -264,7 +268,7 @@ cd scripts/productization/deploy
 
 生成日报：
 ```bash
-/Users/lxr/workspace/honghuogp/venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
+.venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
     --output ./daily_reports/$(date +%Y-%m-%d).md
 ```
 

@@ -10,6 +10,8 @@
 
 ## 快速开始
 
+> 以下命令假设你当前位于项目根目录，且虚拟环境为 `.venv/`。
+
 ### 1. 部署远程环境
 
 ```bash
@@ -22,14 +24,14 @@ cd scripts/productization/deploy
 确保后端服务已启动，然后执行：
 
 ```bash
-/Users/lxr/workspace/honghuogp/venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
+../../.venv/bin/python scripts/productization/daily_report/generate_daily_report.py \
     --output ./daily_reports/$(date +%Y-%m-%d).md
 ```
 
 ### 3. 运行测试
 
 ```bash
-/Users/lxr/workspace/honghuogp/venv/bin/python -m pytest scripts/productization/tests/test_daily_report.py -v
+../../.venv/bin/python -m pytest scripts/productization/tests/test_daily_report.py -v
 ```
 
 ## 合规提示
