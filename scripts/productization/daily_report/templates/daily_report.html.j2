@@ -125,7 +125,7 @@
   {% if signal_stocks %}
     {% for stock in signal_stocks %}
     <div style="margin-bottom: 12px; padding: 12px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px;">
-      <div style="font-weight: 600; margin-bottom: 6px;">{{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sectors[0] if stock.sectors else '-' }}</div>
+      <div style="font-weight: 600; margin-bottom: 6px;">{{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sector_short|default('-') }}</div>
       <div style="color: #4b5563; font-size: 14px;">形态：{{ stock.signal_description|default('-') }}<br/>强度：{{ stock.strength_score|default('-') }} | 质量：{{ stock.quality|default('-') }}<br/>AI 评分：{{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分)</div>
     </div>
     {% endfor %}

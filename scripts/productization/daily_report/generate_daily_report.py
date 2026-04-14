@@ -84,6 +84,22 @@ def _short_sector(name: Optional[str]) -> str:
     return replacements.get(name, name)
 
 
+def _choose_sector(stock_sectors: List[str], stock_name: Optional[str]) -> str:
+    """为股票选择合适的展示板块，避免非ST股票被归入ST板块。"""
+    if not stock_sectors:
+        return "-"
+    filtered = []
+    for sec in stock_sectors:
+        if not sec:
+            continue
+        if sec == "ST板块" and not _is_st_stock(stock_name):
+            continue
+        filtered.append(sec)
+    if not filtered:
+        return "-"
+    return _short_sector(filtered[0])
+
+
 def _build_brief_comment(stock: Dict[str, Any]) -> str:
     """生成个性化简评，避免复读机。"""
     factors = stock.get("factor_scores", {})
@@ -160,6 +176,9 @@ def _build_brief_comment(stock: Dict[str, Any]) -> str:
             "技术图形走突破，量价配合尚可，适合等回踩或板块共振时参与",
             "技术形态评分占优，短期趋势向上，关注板块配合度",
             "图形结构较好，处于相对强势区间，可纳入观察池跟踪",
+            "技术形态亮点突出，但需确认板块跟风力度再决定是否跟进",
+            "走势结构逐步清晰，若板块轮动至该方向有望延续强势",
+            "技术形态给出正向信号，短期动能偏强，注意节奏把握",
         ]
         idx = hash(stock.get("name", "")) % len(templates)
         return templates[idx]
@@ -416,7 +435,7 @@ def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, b
             score = s.get("lstm_mab_score") or {}
             ts_code = s.get("ts_code", "")
             name = s.get("name", "")
-            sector = _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else "")
+            sector = _choose_sector(s.get("sectors", []), s.get("name", ""))
             total_score = _fmt_num(score.get("total_score"), 1)
 
             rec_close = _get_close_price(ts_code, td, base_url)
@@ -536,7 +555,7 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "ts_code": ts_code,
             "name": s.get("name", ""),
             "sectors": s.get("sectors", []),
-            "sector_short": _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else ""),
+            "sector_short": _choose_sector(s.get("sectors", []), s.get("name", "")),
             "grade": score.get("grade", "-"),
             "grade_emoji": get_grade_emoji(score.get("grade")),
             "total_score": _fmt_num(score.get("total_score"), 1),
@@ -547,10 +566,22 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "continuous_limit": actual_continuous_limit,
             "raw_continuous_limit": raw_continuous_limit,
         }
-        stock_item["brief_comment"] = _build_brief_comment(stock_item)
-        stock_item["badges"] = _build_badges(stock_item)
-        stock_item["factor_bars"] = _build_factor_bars(factor_scores)
         result.append(stock_item)
+
+    # 后处理：去重化简评，避免同一批次出现完全相同的文案
+    used_comments = set()
+    for stock in result:
+        comment = _build_brief_comment(stock)
+        attempt = 0
+        while comment in used_comments and attempt < 10:
+            fake_stock = dict(stock)
+            fake_stock["name"] = f"{stock['name']}#{attempt}"
+            comment = _build_brief_comment(fake_stock)
+            attempt += 1
+        stock["brief_comment"] = comment
+        used_comments.add(comment)
+        stock["badges"] = _build_badges(stock)
+        stock["factor_bars"] = _build_factor_bars(stock["factor_scores"])
     return result
 
 
@@ -568,6 +599,7 @@ def fetch_signal_stocks(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]
             "ts_code": s.get("ts_code", ""),
             "name": s.get("name", ""),
             "sectors": s.get("sectors", []),
+            "sector_short": _choose_sector(s.get("sectors", []), s.get("name", "")),
             "signal_description": format_buy_signal(signal.get("signal_type")),
             "strength_score": signal.get("strength_score", 0),
             "quality": signal.get("quality", "中"),
@@ -603,7 +635,7 @@ def fetch_sector_heat_stocks(base_url: str = DEFAULT_BASE_URL, top_n: int = 30) 
     result = []
     for s in stocks:
         result.append({
-            "sector_short": _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else ""),
+            "sector_short": _choose_sector(s.get("sectors", []), s.get("name", "")),
         })
     return result
 
