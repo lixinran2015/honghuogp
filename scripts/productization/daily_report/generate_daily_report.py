@@ -33,7 +33,6 @@ DEFAULT_BASE_URL = os.getenv("HH_API_BASE_URL", "http://localhost:8000")
 
 TOP_N_LEADERS = 5
 SIGNAL_POOL_SIZE = 5
-WATCHLIST_SIZE = 10
 
 _FACTOR_KEY_MAP = {
     "leader_position": "龙头地位",
@@ -611,23 +610,6 @@ def fetch_signal_stocks(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]
     return result[:SIGNAL_POOL_SIZE]
 
 
-def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
-    """次日跟踪名单：取 Top 10 评分股票作为观察对象"""
-    data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": WATCHLIST_SIZE})
-    stocks = data.get("top_stocks", [])
-    result = []
-    for s in stocks:
-        score = s.get("lstm_mab_score") or {}
-        result.append({
-            "ts_code": s.get("ts_code", ""),
-            "name": s.get("name", ""),
-            "sectors": s.get("sectors", []),
-            "grade": score.get("grade", "-"),
-            "total_score": score.get("total_score", 0),
-        })
-    return result
-
-
 def fetch_sector_heat_stocks(base_url: str = DEFAULT_BASE_URL, top_n: int = 30) -> List[Dict[str, Any]]:
     """获取更大范围的龙头股票用于统计板块热度。"""
     data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": top_n})
@@ -682,14 +664,10 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         yesterday_emotion = None
 
     try:
-        all_top = fetch_top_stocks(top_n=WATCHLIST_SIZE, base_url=base_url, trade_date=actual_trade_date)
+        top_stocks = fetch_top_stocks(top_n=TOP_N_LEADERS, base_url=base_url, trade_date=actual_trade_date)
     except Exception as e:
         logger.warning(f"获取龙头评分失败: {e}")
-        all_top = []
-
-    top_stocks = all_top[:TOP_N_LEADERS]
-    top_ts_codes = {s["ts_code"] for s in top_stocks}
-    watchlist_excluding_top5 = [s for s in all_top[TOP_N_LEADERS:] if s["ts_code"] not in top_ts_codes]
+        top_stocks = []
 
     try:
         sector_heat_all = fetch_sector_heat_stocks(base_url=base_url, top_n=30)
@@ -731,7 +709,6 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "top_stocks": top_stocks,
         "signal_stocks": signal_stocks,
         "signal_count": len(signal_stocks),
-        "watchlist_excluding_top5": watchlist_excluding_top5,
         "past_recommendations": past_recommendations,
         "recent_win_rate": recent_win_rate,
         "sector_heat": sector_heat,

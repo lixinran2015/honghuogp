@@ -148,18 +148,7 @@
     {% endfor %}
   </div>
 
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">五、👀 次日跟踪名单（Top 6-10）</h3>
-  {% if watchlist_excluding_top5 %}
-  <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #374151;">
-    {% for stock in watchlist_excluding_top5 %}
-    <li style="margin-bottom: 6px;">{{ stock.name }} ({{ stock.ts_code }}) · {{ stock.sector_short|default('-') }} · 等级 {{ stock.grade|default('-') }} ({{ stock.total_score|default('-') }} 分) · 5日涨幅 {{ stock.change_pct_5d|default('-') }}%</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p style="color: #6b7280; margin-bottom: 24px;">暂无新增跟踪标的。</p>
-  {% endif %}
-
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐追踪</h3>
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">五、📊 历史推荐追踪</h3>
   {% if past_recommendations %}
     {% for day in past_recommendations %}
     <div style="margin-bottom: 16px;">
