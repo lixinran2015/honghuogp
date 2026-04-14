@@ -660,6 +660,7 @@ class StartupSectorAnalyzer:
                 "leader_type": meta.get("leader_type"),
                 "continuous_limit": meta.get("continuous_limit", 0),
                 "period_return_pct": meta.get("period_return_pct"),
+                "change_pct_5d": meta.get("change_pct_5d"),
                 "is_new_leader": is_new_leader,
                 "first_seen_date": fd.isoformat() if fd else None,
                 "last_seen_date": ld.isoformat() if ld else None,
@@ -701,7 +702,7 @@ class StartupSectorAnalyzer:
               fill_rows = session.execute(
                 text(
                   """
-                  SELECT ts_code, stock_name, leader_type, leader_rank, continuous_limit, period_return_pct
+                  SELECT ts_code, stock_name, leader_type, leader_rank, continuous_limit, period_return_pct, change_pct_5d
                   FROM fact_sector_leader_snapshot
                   WHERE window_id = :wid AND sector_code = :sid
                     AND leader_type IN ('absolute_leader', 'catch_up')
@@ -722,6 +723,7 @@ class StartupSectorAnalyzer:
                   "leader_type": r[2],
                   "continuous_limit": r[4] or 0,
                   "period_return_pct": float(r[5]) if r[5] is not None else None,
+                  "change_pct_5d": float(r[6]) if r[6] is not None else None,
                 }
                 is_new_leader = _is_new_leader(meta)
                 sector_chains[sector_key].append({
@@ -731,6 +733,7 @@ class StartupSectorAnalyzer:
                   "leader_type": meta["leader_type"],
                   "continuous_limit": meta["continuous_limit"],
                   "period_return_pct": meta["period_return_pct"],
+                  "change_pct_5d": meta["change_pct_5d"],
                   "is_new_leader": is_new_leader,
                   "is_st": _is_st_name(r[1] or name_map.get(tc) or tc),
                 })
@@ -822,6 +825,7 @@ class StartupSectorAnalyzer:
                 "leader_type": leader_type,
                 "cl": cl,
                 "period_return_pct": period_return_pct,
+                "change_pct_5d": ret_5d,
               }
           if filtered_count["sector_id_not_found"] > 0 or filtered_count["weak_5d"] > 0:
             logger.info(f"[6.1b补全] 高标过滤统计: {filtered_count}")
@@ -849,6 +853,7 @@ class StartupSectorAnalyzer:
               "leader_type": c["leader_type"],
               "continuous_limit": c["cl"],
               "period_return_pct": float(c["period_return_pct"]) if c["period_return_pct"] is not None else None,
+              "change_pct_5d": c["change_pct_5d"],
             }
             is_new_leader = _is_new_leader(meta)
             sector_chains[sector_key].append({
@@ -858,6 +863,7 @@ class StartupSectorAnalyzer:
               "leader_type": meta["leader_type"],
               "continuous_limit": meta["continuous_limit"],
               "period_return_pct": meta["period_return_pct"],
+              "change_pct_5d": meta["change_pct_5d"],
               "is_new_leader": is_new_leader,
               "is_st": _is_st_name(c["stock_name"] or name_map.get(c["ts_code"]) or c["ts_code"]),
             })

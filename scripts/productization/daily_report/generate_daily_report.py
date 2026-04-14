@@ -85,19 +85,70 @@ def _short_sector(name: Optional[str]) -> str:
 
 
 def _build_brief_comment(stock: Dict[str, Any]) -> str:
-    """基于最强因子生成一句话简评。"""
+    """生成个性化简评，避免复读机。"""
     factors = stock.get("factor_scores", {})
-    if not factors:
-        return "综合评价良好"
+    continuous_limit = stock.get("continuous_limit") or 0
+    try:
+        continuous_limit = int(continuous_limit)
+    except (TypeError, ValueError):
+        continuous_limit = 0
+    change_pct_5d = 0
+    try:
+        change_pct_5d = float(stock.get("change_pct_5d") or 0)
+    except (TypeError, ValueError):
+        pass
+    sector = stock.get("sector_short") or ""
+
+    # 高辨识度特殊场景优先（涨幅优先于连板数，避免老妖股被误评"刚刚启动"）
+    if "ST" in sector:
+        if continuous_limit >= 3:
+            return "ST题材炒作中的高标股，波动极大，仅适合高风险偏好的短线选手"
+        return "ST题材异动，存在摘帽或重组预期，但退市风险不可忽视"
+
+    if change_pct_5d > 100:
+        return "近5日已超翻倍，处于强势加速阶段，仅适合已有持仓者跟踪，新开仓需严控仓位"
+    if change_pct_5d > 60:
+        return "短期涨幅已超60%，资金关注度升温，需要等一个舒服的分歧买点"
+
+    if continuous_limit >= 5:
+        return "当前市场最高连板标的，人气聚焦，但高位分歧风险在累积"
+    if continuous_limit == 4:
+        return "4连板强势标的，处于板块前排，需观察明日封板质量"
+    if continuous_limit == 3:
+        return "3连板确立板块地位，若板块延续强势仍有空间"
+    if continuous_limit == 2:
+        if change_pct_5d > 40:
+            return "2连板但短期涨幅已高，属于高位加速，追涨风险大于机会"
+        return f"在{sector}中刚刚2连板启动，处于发酵初期，次日竞价强度是关键" if sector and sector != "-" else "刚刚2连板启动，处于发酵初期，次日竞价强度是关键"
+
+    # 基于因子组合
     sorted_factors = sorted(factors.items(), key=lambda x: x[1], reverse=True)
+    if not sorted_factors:
+        return "综合评价良好"
     top_name, top_score = sorted_factors[0]
-    comments = {
-        "龙头地位": "龙头地位突出" if top_score >= 70 else "龙头地位一般",
-        "技术形态": "技术形态良好" if top_score >= 70 else "技术形态一般",
-        "资金流向": "资金关注度较高" if top_score >= 70 else "资金关注度一般",
-        "情绪热度": "市场情绪较热" if top_score >= 70 else "市场情绪一般",
-    }
-    return comments.get(top_name, "综合评价良好")
+    bottom_name, bottom_score = sorted_factors[-1]
+
+    # 有明显短板
+    if bottom_score < 50 and top_score >= 75:
+        if bottom_name == "资金流向":
+            return f"{top_name}过硬，但资金关注度偏低，观察明日能否放量接力"
+        if bottom_name == "龙头地位":
+            return f"{top_name}优秀，但板块辨识度一般，持续性需看板块能否发酵"
+        if bottom_name == "技术形态":
+            return f"{top_name}较好，但技术图形尚未完全走顺，需要等板块共振"
+        if bottom_name == "情绪热度":
+            return f"{top_name}不错，但市场情绪尚未完全聚焦，需要一次放量确认"
+
+    if top_name == "龙头地位" and top_score >= 75:
+        return "板块内辨识度高，若板块延续强势，有望继续领跑"
+    if top_name == "技术形态" and top_score >= 75:
+        return "技术图形走突破，量价配合尚可，适合等回踩或板块共振时参与"
+    if top_name == "资金流向" and top_score >= 75:
+        return "资金持续流入，筹码结构较好，关注能否走出持续性"
+    if top_name == "情绪热度" and top_score >= 75:
+        return "市场情绪聚焦，人气较高，但需注意情绪退潮时的兑现压力"
+
+    return "各维度评分均衡，走势相对稳健，可纳入观察池跟踪"
 
 
 def _build_badges(stock: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -123,6 +174,10 @@ def _build_badges(stock: Dict[str, Any]) -> List[Dict[str, str]]:
         badges.append({"text": "资金强势", "color": "#22c55e", "bg": "#f0fdf4"})
     if factors.get("情绪热度", 0) >= 75:
         badges.append({"text": "情绪高热", "color": "#f59e0b", "bg": "#fffbeb"})
+
+    sector = stock.get("sector_short") or ""
+    if "ST" in sector:
+        badges.append({"text": "ST高风险", "color": "#dc2626", "bg": "#fef2f2"})
 
     try:
         change_pct_5d = float(stock.get("change_pct_5d") or 0)
@@ -216,8 +271,8 @@ def _build_emotion_progress(cycle: str) -> Dict[str, Any]:
     }
 
 
-def _calc_recent_win_rate(past_recommendations: List[Dict[str, Any]]) -> Optional[float]:
-    """计算近N日推荐胜率（涨幅>0为胜）。"""
+def _calc_recent_win_rate(past_recommendations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """计算近N日推荐胜率（涨幅>0为胜），返回包含样本量的字典。"""
     total = 0
     wins = 0
     for day in past_recommendations:
@@ -229,7 +284,10 @@ def _calc_recent_win_rate(past_recommendations: List[Dict[str, Any]]) -> Optiona
                     wins += 1
     if total == 0:
         return None
-    return round(wins / total * 100, 1)
+    return {
+        "rate": round(wins / total * 100, 1),
+        "count": total,
+    }
 
 
 logger = logging.getLogger(__name__)
@@ -433,6 +491,18 @@ def fetch_watchlist(base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     return result
 
 
+def fetch_sector_heat_stocks(base_url: str = DEFAULT_BASE_URL, top_n: int = 30) -> List[Dict[str, Any]]:
+    """获取更大范围的龙头股票用于统计板块热度。"""
+    data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": top_n})
+    stocks = data.get("top_stocks", [])
+    result = []
+    for s in stocks:
+        result.append({
+            "sector_short": _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else ""),
+        })
+    return result
+
+
 def build_sector_heat(all_top: List[Dict[str, Any]], top_n: int = 5) -> List[Dict[str, Any]]:
     """从 Top 股票列表聚合板块热度排行。"""
     sector_counts: Dict[str, int] = {}
@@ -483,7 +553,13 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
     top_stocks = all_top[:TOP_N_LEADERS]
     top_ts_codes = {s["ts_code"] for s in top_stocks}
     watchlist_excluding_top5 = [s for s in all_top[TOP_N_LEADERS:] if s["ts_code"] not in top_ts_codes]
-    sector_heat = build_sector_heat(all_top, top_n=5)
+
+    try:
+        sector_heat_all = fetch_sector_heat_stocks(base_url=base_url, top_n=30)
+    except Exception as e:
+        logger.warning(f"获取板块热度数据失败: {e}")
+        sector_heat_all = []
+    sector_heat = build_sector_heat(sector_heat_all, top_n=5)
 
     try:
         signal_stocks = fetch_signal_stocks(base_url)

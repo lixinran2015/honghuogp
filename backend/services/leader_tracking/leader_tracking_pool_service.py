@@ -275,7 +275,7 @@ class LeaderTrackingPoolService:
           "is_space": True,
           "is_new": False,
           "continuous_limit": stock.get("continuous_limit"),
-          "change_pct_5d": stock.get("period_return_pct"),  # 从sector_leader_snapshot获取
+          "change_pct_5d": stock.get("change_pct_5d"),  # 从sector_leader_snapshot获取
         }
     # sectors.chain 中的股票：提取所有连板数据，仅对符合标准的标记 is_new
     for sec in result.get("sectors", []) or []:
@@ -286,7 +286,7 @@ class LeaderTrackingPoolService:
           continue
         is_new = _qualifies_as_new_for_tracking_pool(c)
         cl = c.get("continuous_limit")
-        change_pct_5d = c.get("period_return_pct")  # 5日涨幅
+        change_pct_5d = c.get("change_pct_5d")  # 5日涨幅
         if tc in state_map:
           # 已经是空间龙头，补充 is_new 和更高的连板数
           if is_new:

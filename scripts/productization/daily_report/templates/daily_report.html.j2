@@ -35,19 +35,8 @@
     <li>涨停家数：<b>{{ limit_up_count|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(limit_up_count, yesterday_emotion.limit_up_count, '家') }}</span>{% endif %}</li>
     <li>跌停家数：<b>{{ limit_down_count|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(limit_down_count, yesterday_emotion.limit_down_count, '家') }}</span>{% endif %}</li>
     <li>市场最高连板：<b>{{ max_continuous_limit|default('-') }} 板</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(max_continuous_limit, yesterday_emotion.max_continuous_limit, '板') }}</span>{% endif %}</li>
-    <li>涨跌比：<b>{{ advance_decline_ratio|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(advance_decline_ratio, yesterday_emotion.advance_decline_ratio) }}</span>{% endif %}</li>
+    <li>涨跌比：<b>{{ advance_decline_ratio|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(advance_decline_ratio, yesterday_emotion.advance_decline_ratio) }}</span>{% endif %}<br/><span style="color: #9ca3af; font-size: 12px;">（涨跌比<1 表示下跌家数多于上涨家数）</span></li>
   </ul>
-
-  {% if sector_heat %}
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">🔥 板块热度排行</h3>
-  <div style="margin-bottom: 24px;">
-    {% for sec in sector_heat %}
-    <div style="display: inline-block; margin: 0 8px 8px 0; padding: 6px 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 16px; font-size: 14px; color: #c2410c;">
-      {{ sec.name }} <span style="font-weight: 600;">({{ sec.count }}只)</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
 
   <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">二、🔥 Top {{ top_stocks|length }} 空间龙头</h3>
   {% if top_stocks %}
@@ -58,7 +47,7 @@
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: left;">板块</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">等级</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">总分</th>
-        <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">预期收益</th>
+        <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">评分溢价</th>
         <th style="padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center;">5日涨幅</th>
       </tr>
     </thead>
@@ -84,6 +73,10 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <div style="font-size: 12px; color: #9ca3af; margin-bottom: 16px;">
+    *评分溢价：基于 LSTM-MAB 模型的综合评分溢价，非次日预测涨幅。
+  </div>
 
   <div style="background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; margin-bottom: 12px; color: #374151;">
     <b>简评</b><br/>
@@ -127,7 +120,7 @@
   {% else %}
     <p style="margin: 0 0 8px 0;">今日未监测到明显的技术形态触发信号。</p>
     {% if recent_win_rate is not none %}
-    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近期推荐胜率 <b>{{ recent_win_rate }}%</b>，空仓等待也是策略的一部分。</p>
+    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近期推荐胜率 <b>{{ recent_win_rate.rate }}%</b>（样本 {{ recent_win_rate.count }} 只），空仓等待也是策略的一部分。</p>
     {% endif %}
     <p style="margin: 0; color: #4b5563; font-size: 14px;"><b>解读</b>：情绪高涨期 + 买点信号空窗，说明市场以持筹博弈为主，新启动机会较少，明日重点观察早盘分歧后的承接力度，避免盲目追高。</p>
   {% endif %}
@@ -154,11 +147,12 @@
   <p style="color: #6b7280; margin-bottom: 24px;">暂无新增跟踪标的。</p>
   {% endif %}
 
-  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐表现追踪（往前第5个交易日）</h3>
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">六、📊 历史推荐追踪</h3>
   {% if past_recommendations %}
     {% for day in past_recommendations %}
     <div style="margin-bottom: 16px;">
-      <div style="font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 8px;">{{ day.trade_date[5:] }} 推荐</div>
+      <div style="font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 4px;">{{ day.trade_date[5:] }} 推荐</div>
+      <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">展示前第5个交易日推荐股票的至今表现</div>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 12px;">
         <thead>
           <tr style="background: #f3f4f6;">
