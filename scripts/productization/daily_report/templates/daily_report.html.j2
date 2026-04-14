@@ -38,6 +38,18 @@
     <li>涨跌比：<b>{{ advance_decline_ratio|default('-') }}</b> {% if yesterday_emotion %}<span style="color: #9ca3af; font-size: 13px;">{{ fmt_change(advance_decline_ratio, yesterday_emotion.advance_decline_ratio) }}</span>{% endif %}<br/><span style="color: #9ca3af; font-size: 12px;">（涨跌比<1 表示下跌家数多于上涨家数）</span></li>
   </ul>
 
+  {% if market_height_leader %}
+  <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">🔺 市场最高标</h3>
+  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+    <div style="font-weight: 600; font-size: 15px; color: #7f1d1d;">
+      {{ market_height_leader.name }} ({{ market_height_leader.ts_code }}) · <span style="color: #dc2626;">{{ market_height_leader.continuous_limit }} 连板</span>
+    </div>
+    <div style="font-size: 13px; color: #991b1b; margin-top: 4px;">
+      当前市场连板高度标杆，仅作情绪参考，不作为买入建议
+    </div>
+  </div>
+  {% endif %}
+
   <h3 style="font-size: 17px; font-weight: 700; color: #111827; margin: 24px 0 12px 0;">二、🔥 Top {{ top_stocks|length }} 空间龙头</h3>
   {% if top_stocks %}
   <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 12px;">

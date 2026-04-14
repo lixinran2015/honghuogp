@@ -479,6 +479,42 @@ def fetch_emotion_cycle(base_url: str = DEFAULT_BASE_URL) -> Dict[str, Any]:
     }
 
 
+def fetch_market_height_leader(trade_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """从 fact_limit_up_daily 获取当日市场最高连板股票（市场最高标）。"""
+    td = trade_date or date.today().isoformat()
+    try:
+        from sqlalchemy import text
+        from data_warehouse.service.warehouse_service import WarehouseService
+        ws = WarehouseService()
+        session = ws.get_session()
+        try:
+            row = session.execute(
+                text("""
+                    SELECT f.ts_code, d.name, f.continuous_days, f.change_pct
+                    FROM fact_limit_up_daily f
+                    LEFT JOIN dim_stock d ON f.ts_code = d.ts_code
+                    WHERE f.trade_date = (
+                        SELECT MAX(trade_date) FROM fact_limit_up_daily WHERE trade_date <= :td
+                    )
+                    ORDER BY f.continuous_days DESC, f.change_pct DESC
+                    LIMIT 1
+                """),
+                {"td": td},
+            ).fetchone()
+            if row:
+                return {
+                    "ts_code": row[0],
+                    "name": row[1] or row[0],
+                    "continuous_limit": int(row[2]) if row[2] is not None else 0,
+                    "change_pct": float(row[3]) if row[3] is not None else 0.0,
+                }
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"获取市场最高标失败: {e}")
+    return None
+
+
 def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_URL, trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
     data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": top_n})
     stocks = data.get("top_stocks", [])
@@ -645,6 +681,12 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
     recent_win_rate = _calc_recent_win_rate(past_recommendations)
     emotion_progress = _build_emotion_progress(emotion["cycle"])
 
+    try:
+        market_height_leader = fetch_market_height_leader(trade_date=actual_trade_date)
+    except Exception as e:
+        logger.warning(f"获取市场最高标失败: {e}")
+        market_height_leader = None
+
     context = {
         "trade_date": actual_trade_date,
         "emotion_cycle_description": format_emotion_cycle(emotion["cycle"]),
@@ -663,6 +705,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "sector_heat": sector_heat,
         "summary": _build_summary(signal_stocks, emotion),
         "strategy_list": _build_strategy_list(signal_stocks, emotion),
+        "market_height_leader": market_height_leader,
         "disclaimer": DISCLAIMER,
         "fmt_change": _format_day_change,
     }
