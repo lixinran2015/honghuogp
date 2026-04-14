@@ -100,7 +100,7 @@ def _build_brief_comment(stock: Dict[str, Any]) -> str:
     sector = stock.get("sector_short") or ""
 
     # 高辨识度特殊场景优先（涨幅优先于连板数，避免老妖股被误评"刚刚启动"）
-    if "ST" in sector:
+    if _is_st_stock(stock.get("name")):
         if continuous_limit >= 3:
             return "ST题材炒作中的高标股，波动极大，仅适合高风险偏好的短线选手"
         return "ST题材异动，存在摘帽或重组预期，但退市风险不可忽视"
@@ -119,7 +119,20 @@ def _build_brief_comment(stock: Dict[str, Any]) -> str:
     if continuous_limit == 2:
         if change_pct_5d > 40:
             return "2连板但短期涨幅已高，属于高位加速，追涨风险大于机会"
-        return f"在{sector}中刚刚2连板启动，处于发酵初期，次日竞价强度是关键" if sector and sector != "-" else "刚刚2连板启动，处于发酵初期，次日竞价强度是关键"
+        # 基于板块和因子生成差异化文案，避免复读机
+        templates = [
+            (lambda s, f: f"在{s}中刚刚2连板启动，处于发酵初期，次日竞价强度是关键"),
+            (lambda s, f: f"{s}板块内2连板突围，资金开始聚焦，关注明日承接力度"),
+            (lambda s, f: f"2连板确立{s}先锋地位，若板块延续强势仍有空间"),
+            (lambda s, f: f"在{s}中走出2连板，市场情绪初步认可，重点看明日封板质量"),
+        ]
+        # 如果龙头地位因子较高，用更积极的措辞
+        lp_score = factors.get("龙头地位", 0)
+        if lp_score >= 75:
+            templates.insert(0, lambda s, f: f"在{s}中2连板且龙头地位突出，若板块发酵有望继续领涨")
+        idx = hash(sector) % len(templates) if sector else 0
+        template_fn = templates[idx]
+        return template_fn(sector, factors) if sector and sector != "-" else "刚刚2连板启动，处于发酵初期，次日竞价强度是关键"
 
     # 基于因子组合
     sorted_factors = sorted(factors.items(), key=lambda x: x[1], reverse=True)
@@ -142,7 +155,14 @@ def _build_brief_comment(stock: Dict[str, Any]) -> str:
     if top_name == "龙头地位" and top_score >= 75:
         return "板块内辨识度高，若板块延续强势，有望继续领跑"
     if top_name == "技术形态" and top_score >= 75:
-        return "技术图形走突破，量价配合尚可，适合等回踩或板块共振时参与"
+        # 增加差异化，避免大面积重复
+        templates = [
+            "技术图形走突破，量价配合尚可，适合等回踩或板块共振时参与",
+            "技术形态评分占优，短期趋势向上，关注板块配合度",
+            "图形结构较好，处于相对强势区间，可纳入观察池跟踪",
+        ]
+        idx = hash(stock.get("name", "")) % len(templates)
+        return templates[idx]
     if top_name == "资金流向" and top_score >= 75:
         return "资金持续流入，筹码结构较好，关注能否走出持续性"
     if top_name == "情绪热度" and top_score >= 75:
@@ -175,8 +195,7 @@ def _build_badges(stock: Dict[str, Any]) -> List[Dict[str, str]]:
     if factors.get("情绪热度", 0) >= 75:
         badges.append({"text": "情绪高热", "color": "#f59e0b", "bg": "#fffbeb"})
 
-    sector = stock.get("sector_short") or ""
-    if "ST" in sector:
+    if _is_st_stock(stock.get("name")):
         badges.append({"text": "ST高风险", "color": "#dc2626", "bg": "#fef2f2"})
 
     try:
@@ -333,6 +352,45 @@ def _get_close_price(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_U
     return None
 
 
+def _is_st_stock(name: Optional[str]) -> bool:
+    """根据股票名称判断是否ST股票。"""
+    if not name:
+        return False
+    n = name.strip()
+    return n.startswith("ST") or n.startswith("*ST")
+
+
+def _calc_actual_continuous_limit(kline: List[Dict[str, Any]], ts_code: str) -> int:
+    """基于日线 change_pct 计算最近实际连续涨停天数（从最新交易日往前数）。"""
+    if not kline:
+        return 0
+    prefix = ts_code.split('.')[0]
+    threshold = 19.5 if prefix.startswith(('300', '301', '688')) else 9.5
+    # kline 是按时间正序排列的，取最后一条为最新交易日
+    count = 0
+    for day in reversed(kline):
+        pct = day.get("change_pct")
+        try:
+            pct = float(pct) if pct is not None else None
+        except (TypeError, ValueError):
+            pct = None
+        if pct is not None and pct >= threshold:
+            count += 1
+        else:
+            break
+    return count
+
+
+def _fetch_kline(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+    """获取股票日K线数据。"""
+    try:
+        data = _get("/api/stock/kline-20", base_url=base_url, params={"ts_code": ts_code, "end_date": end_date})
+        return data.get("kline", [])
+    except Exception as e:
+        logger.warning(f"获取 {ts_code} K线失败: {e}")
+        return []
+
+
 def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
     获取 base_date 往前第 days 个交易日（含 base_date 当日计）的 Top 5 推荐，并计算推荐日至 base_date 的涨跌幅。
@@ -421,15 +479,25 @@ def fetch_emotion_cycle(base_url: str = DEFAULT_BASE_URL) -> Dict[str, Any]:
     }
 
 
-def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
+def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_URL, trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
     data = _get("/api/leader-tracking/top-scored", base_url=base_url, params={"top_n": top_n})
     stocks = data.get("top_stocks", [])
     result = []
     for s in stocks[:top_n]:
         score = s.get("lstm_mab_score") or {}
         factor_scores = _map_factor_scores(score.get("factor_scores") or {})
+        ts_code = s.get("ts_code", "")
+        end_date = trade_date or date.today().isoformat()
+        kline = _fetch_kline(ts_code, end_date, base_url)
+        # 用实际最近连续涨停数替换历史最大连板数，避免数据矛盾
+        raw_continuous_limit = s.get("continuous_limit") or 0
+        if kline and kline[-1].get("change_pct") is not None:
+            actual_continuous_limit = _calc_actual_continuous_limit(kline, ts_code)
+        else:
+            # K线获取失败时保留原始值
+            actual_continuous_limit = raw_continuous_limit
         stock_item = {
-            "ts_code": s.get("ts_code", ""),
+            "ts_code": ts_code,
             "name": s.get("name", ""),
             "sectors": s.get("sectors", []),
             "sector_short": _short_sector(s.get("sectors", [""])[0] if s.get("sectors") else ""),
@@ -440,7 +508,8 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
             "confidence": _fmt_num(score.get("confidence"), 1),
             "change_pct_5d": _fmt_num(s.get("change_pct_5d"), 1),
             "factor_scores": factor_scores,
-            "continuous_limit": s.get("continuous_limit") or 0,
+            "continuous_limit": actual_continuous_limit,
+            "raw_continuous_limit": raw_continuous_limit,
         }
         stock_item["brief_comment"] = _build_brief_comment(stock_item)
         stock_item["badges"] = _build_badges(stock_item)
@@ -545,7 +614,7 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         yesterday_emotion = None
 
     try:
-        all_top = fetch_top_stocks(top_n=WATCHLIST_SIZE, base_url=base_url)
+        all_top = fetch_top_stocks(top_n=WATCHLIST_SIZE, base_url=base_url, trade_date=actual_trade_date)
     except Exception as e:
         logger.warning(f"获取龙头评分失败: {e}")
         all_top = []

@@ -120,7 +120,7 @@
   {% else %}
     <p style="margin: 0 0 8px 0;">今日未监测到明显的技术形态触发信号。</p>
     {% if recent_win_rate is not none %}
-    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：近期推荐胜率 <b>{{ recent_win_rate.rate }}%</b>（样本 {{ recent_win_rate.count }} 只），空仓等待也是策略的一部分。</p>
+    <p style="margin: 0 0 8px 0; color: #4b5563; font-size: 14px;"><b>胜率提示</b>：{% if recent_win_rate.rate == 100.0 %}近期 {{ recent_win_rate.count }} 只样本全部录得正收益，胜率仅供参考{% else %}近期推荐胜率 <b>{{ recent_win_rate.rate }}%</b>（样本 {{ recent_win_rate.count }} 只）{% endif %}，空仓等待也是策略的一部分。</p>
     {% endif %}
     <p style="margin: 0; color: #4b5563; font-size: 14px;"><b>解读</b>：情绪高涨期 + 买点信号空窗，说明市场以持筹博弈为主，新启动机会较少，明日重点观察早盘分歧后的承接力度，避免盲目追高。</p>
   {% endif %}
@@ -152,7 +152,7 @@
     {% for day in past_recommendations %}
     <div style="margin-bottom: 16px;">
       <div style="font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 4px;">{{ day.trade_date[5:] }} 推荐</div>
-      <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">展示前第5个交易日推荐股票的至今表现</div>
+      <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">前第 5 个交易日推荐股票截至今日的表现</div>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 12px;">
         <thead>
           <tr style="background: #f3f4f6;">
