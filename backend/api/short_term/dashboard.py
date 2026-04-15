@@ -3,10 +3,12 @@
 
 提供统一的短线信号查询和复盘接口
 """
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from typing import Optional, List
 from datetime import date, datetime
+import asyncio
 import logging
+import re
 
 from backend.services.short_term.core_service import (
     get_short_term_core_service,
@@ -20,6 +22,52 @@ from backend.utils.trade_date_utils import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/short-term/dashboard", tags=["短线仪表盘"])
+
+
+@router.post("/generate-daily-report")
+async def generate_daily_report(request: Request):
+    """
+    生成每日短线龙头日报 HTML 文件。
+    """
+    try:
+        import os
+        from pathlib import Path
+        from scripts.productization.daily_report.generate_daily_report import (
+            generate_report,
+            DEFAULT_BASE_URL,
+        )
+
+        project_root = Path(__file__).resolve().parents[3]
+        # 优先从环境变量或请求头推断基地址，避免硬编码 localhost:8000 在多端口/代理场景下失效
+        base_url = os.getenv("HH_API_BASE_URL", str(request.base_url).rstrip("/"))
+        if not base_url:
+            base_url = DEFAULT_BASE_URL
+
+        result = await asyncio.to_thread(
+            generate_report, output_path=None, base_url=base_url, quiet=True
+        )
+        trade_date = result["trade_date"]
+        html = result["html"]
+
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", trade_date):
+            raise ValueError(f"无效的交易日格式: {trade_date}")
+
+        output_dir = project_root / "frontend-vue" / "public" / "daily-reports"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"{trade_date}.html"
+        await asyncio.to_thread(output_path.write_text, html, encoding="utf-8")
+
+        logger.info(f"✅ 日报生成成功: {output_path}")
+        return {
+            "success": True,
+            "data": {
+                "trade_date": trade_date,
+                "file_path": str(output_path.name),
+            },
+        }
+    except Exception as e:
+        logger.error(f"❌ 生成日报失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成日报失败: {str(e)}")
 
 
 @router.get("/signals")

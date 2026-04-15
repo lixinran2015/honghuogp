@@ -15,10 +15,22 @@
           class="px-3 py-2 rounded-md border border-border bg-white text-sm text-warmgray-700 focus:outline-none focus:ring-2 focus:ring-cta/50"
         />
         <button
-          class="px-4 py-2 rounded-md text-sm font-medium text-warmgray-900 bg-cta hover:bg-cta-hover transition-colors"
+          class="px-4 py-2 rounded-md text-sm font-medium text-warmgray-900 bg-cta hover:bg-cta-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="generating"
           @click="loadReport"
         >
           加载日报
+        </button>
+        <button
+          class="px-4 py-2 rounded-md text-sm font-medium text-white bg-warmgray-800 hover:bg-warmgray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="generating"
+          @click="generateReport"
+        >
+          <span v-if="generating" class="inline-flex items-center gap-1">
+            <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            生成中...
+          </span>
+          <span v-else>生成日报</span>
         </button>
       </div>
     </div>
@@ -66,6 +78,7 @@ import { ref, onMounted } from 'vue'
 const selectedDate = ref(new Date().toISOString().split('T')[0])
 const htmlContent = ref('')
 const loading = ref(false)
+const generating = ref(false)
 const error = ref('')
 
 async function loadReport() {
@@ -85,6 +98,33 @@ async function loadReport() {
     error.value = e.message || '加载日报失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function generateReport() {
+  if (!confirm('生成日报需要调用多个数据接口，耗时约 10-30 秒，是否继续？')) {
+    return
+  }
+  generating.value = true
+  error.value = ''
+
+  try {
+    const res = await fetch('/api/short-term/dashboard/generate-daily-report', {
+      method: 'POST',
+    })
+    const json = await res.json()
+    if (!res.ok || !json.success) {
+      throw new Error(json.detail || json.message || '生成日报失败')
+    }
+    const tradeDate = json.data?.trade_date
+    if (tradeDate) {
+      selectedDate.value = tradeDate
+    }
+    await loadReport()
+  } catch (e) {
+    error.value = e.message || '生成日报失败'
+  } finally {
+    generating.value = false
   }
 }
 

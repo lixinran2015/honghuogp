@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from jinja2 import Template
+from jinja2 import Environment
 
 # 将项目根目录加入路径
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -244,32 +244,62 @@ def _build_factor_bars(factor_scores: Dict[str, float]) -> List[Dict[str, Any]]:
     return bars
 
 
-def _build_summary(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
+def _build_summary(signal_stocks: List[Dict], top_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
     cycle = emotion.get("cycle", "当前")
     if signal_stocks:
-        return f"监测到 {len(signal_stocks)} 只技术形态触发股，{cycle}短线氛围活跃，可重点关注早盘承接力度。"
+        names = "、".join([s["name"] for s in signal_stocks[:3]])
+        return f"监测到 {len(signal_stocks)} 只技术形态触发股（{names}），{cycle}短线氛围活跃，可重点关注早盘承接力度。"
+    if top_stocks:
+        names = "、".join([s["name"] for s in top_stocks[:3]])
+        return f"{cycle}市场以持筹博弈为主，前排龙头为 {names}，建议关注其持续性，避免盲目追高。"
     return f"技术形态触发池为空，说明{cycle}市场以持筹博弈为主，建议关注已有龙头的持续性，避免盲目追高。"
 
 
-def _build_strategy_list(signal_stocks: List[Dict], emotion: Dict[str, Any]) -> List[Dict[str, str]]:
-    """返回操作 checklist 列表。"""
+def _build_strategy_list(signal_stocks: List[Dict], top_stocks: List[Dict], emotion: Dict[str, Any]) -> List[Dict[str, str]]:
+    """基于 Top 5 空间龙头与信号池返回操作 checklist 列表。"""
     cycle = emotion.get("cycle", "")
     items = []
+
+    # 分析 Top 5 特征
+    s_grades = [s for s in top_stocks if (s.get("lstm_mab_score") or {}).get("grade") == "S"]
+    high_gainers = [s for s in top_stocks if float(s.get("change_pct_5d", 0) or 0) > 15]
+    buy_signals_in_top = [s for s in top_stocks if s.get("buy_signal")]
+
     if cycle in ["高涨期", "震荡期"]:
-        if signal_stocks:
+        if top_stocks:
+            top_names = "、".join([s["name"] for s in top_stocks[:3]])
+            if buy_signals_in_top:
+                sig_names = "、".join([s["name"] for s in buy_signals_in_top[:2]])
+                items.append({"type": "do", "text": f"前排龙头 {top_names} 中，{sig_names} 出现技术形态触发，可轻仓试错"})
+            else:
+                items.append({"type": "do", "text": f"重点关注前排龙头 {top_names} 的早盘分歧承接力度"})
+            if s_grades:
+                items.append({"type": "do", "text": f"S 级标的 {'、'.join([s['name'] for s in s_grades[:2]])} 保持跟踪，走弱即离场"})
+            if high_gainers:
+                items.append({"type": "dont", "text": f"{'、'.join([s['name'] for s in high_gainers[:2]])} 短期涨幅已高，避免追高开仓"})
+            else:
+                items.append({"type": "dont", "text": "避免盲目追高开仓"})
+        elif signal_stocks:
             items.append({"type": "do", "text": "情绪偏暖，明日可轻仓试错新启动标的"})
             items.append({"type": "do", "text": "做好止损计划，严守纪律"})
+            items.append({"type": "dont", "text": "避免盲目追高开仓"})
         else:
             items.append({"type": "do", "text": "情绪偏暖但无新买点，明日以观察为主"})
-            items.append({"type": "do", "text": "重点看前排龙头的分歧机会"})
-        items.append({"type": "dont", "text": "避免盲目追高开仓"})
+            items.append({"type": "dont", "text": "避免盲目追高开仓"})
     elif cycle in ["低迷期", "冰点期"]:
         items.append({"type": "do", "text": "情绪偏冷，控制仓位，优先处理持仓"})
         items.append({"type": "do", "text": "少开新仓，等待情绪修复信号"})
-        items.append({"type": "dont", "text": "不轻易抄底或重仓博反弹"})
+        if top_stocks:
+            items.append({"type": "dont", "text": "前排龙头若放量走弱，不补仓、不抄底"})
+        else:
+            items.append({"type": "dont", "text": "不轻易抄底或重仓博反弹"})
     else:
-        items.append({"type": "do", "text": "明日以观察为主，等待更明确的信号出现"})
+        if top_stocks:
+            items.append({"type": "do", "text": f"明日以观察为主，重点跟踪 {'、'.join([s['name'] for s in top_stocks[:2]])} 的方向选择"})
+        else:
+            items.append({"type": "do", "text": "明日以观察为主，等待更明确的信号出现"})
         items.append({"type": "dont", "text": "避免在方向不明时频繁操作"})
+
     return items
 
 
@@ -409,6 +439,29 @@ def _fetch_kline(ts_code: str, end_date: str, base_url: str = DEFAULT_BASE_URL) 
         return []
 
 
+def _get_historical_scores_from_db(td: str, ts_codes: List[str]) -> Dict[str, float]:
+    """从 fact_leader_score_history 查询指定日期和股票的评分。"""
+    if not ts_codes:
+        return {}
+    try:
+        from data_warehouse.db import SessionContext
+        from sqlalchemy import text
+
+        with SessionContext(autocommit=False) as session:
+            query = text(
+                """
+                SELECT ts_code, total_score
+                FROM fact_leader_score_history
+                WHERE trade_date = :td AND ts_code = ANY(:codes)
+                """
+            )
+            rows = session.execute(query, {"td": td, "codes": ts_codes}).fetchall()
+            return {r[0]: float(r[1]) if r[1] is not None else None for r in rows}
+    except Exception as e:
+        logger.warning(f"查询历史评分失败: {e}")
+        return {}
+
+
 def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
     获取 base_date 往前第 days 个交易日（含 base_date 当日计）的 Top 5 推荐，并计算推荐日至 base_date 的涨跌幅。
@@ -429,13 +482,18 @@ def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, b
         if not stocks:
             return []
 
+        # 优先从数据库历史表查询当日评分
+        ts_codes = [s.get("ts_code", "") for s in stocks[:TOP_N_LEADERS] if s.get("ts_code")]
+        historical_scores = _get_historical_scores_from_db(td, ts_codes)
+
         day_entry = {"trade_date": td, "stocks": []}
         for s in stocks[:TOP_N_LEADERS]:
             score = s.get("lstm_mab_score") or {}
             ts_code = s.get("ts_code", "")
             name = s.get("name", "")
             sector = _choose_sector(s.get("sectors", []), s.get("name", ""))
-            total_score = _fmt_num(score.get("total_score"), 1)
+            # 优先使用数据库中的历史评分，否则回退到 API 返回的评分
+            total_score = _fmt_num(historical_scores.get(ts_code, score.get("total_score")), 1)
 
             rec_close = _get_close_price(ts_code, td, base_url)
             latest_close = _get_close_price(ts_code, base_str, base_url)
@@ -633,14 +691,15 @@ def build_sector_heat(all_top: List[Dict[str, Any]], top_n: int = 5) -> List[Dic
     return [{"name": name, "count": count} for name, count in sorted_sectors[:top_n]]
 
 
-def load_template() -> Template:
+def load_template():
     template_path = Path(__file__).parent / "templates" / "daily_report.html.j2"
     if not template_path.exists():
         raise FileNotFoundError(f"日报模板不存在: {template_path}")
-    return Template(template_path.read_text(encoding="utf-8"))
+    env = Environment(autoescape=True)
+    return env.from_string(template_path.read_text(encoding="utf-8"))
 
 
-def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> str:
+def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_BASE_URL, quiet: bool = False) -> Dict[str, str]:
     # 以数据库实际最新数据日期作为报告日期（优先从 top-scored API 获取）
     actual_trade_date = date.today().isoformat()
     try:
@@ -712,8 +771,8 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         "past_recommendations": past_recommendations,
         "recent_win_rate": recent_win_rate,
         "sector_heat": sector_heat,
-        "summary": _build_summary(signal_stocks, emotion),
-        "strategy_list": _build_strategy_list(signal_stocks, emotion),
+        "summary": _build_summary(signal_stocks, top_stocks, emotion),
+        "strategy_list": _build_strategy_list(signal_stocks, top_stocks, emotion),
         "market_height_leader": market_height_leader,
         "disclaimer": DISCLAIMER,
         "fmt_change": _format_day_change,
@@ -726,11 +785,12 @@ def generate_report(output_path: Optional[str] = None, base_url: str = DEFAULT_B
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(markdown, encoding="utf-8")
-        print(f"日报已生成: {out.absolute()}")
-    else:
+        if not quiet:
+            print(f"日报已生成: {out.absolute()}")
+    elif not quiet:
         print(markdown)
 
-    return markdown
+    return {"trade_date": actual_trade_date, "html": markdown}
 
 
 def main():

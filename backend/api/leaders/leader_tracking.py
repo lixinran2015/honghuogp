@@ -76,6 +76,59 @@ def _build_trade_plan(
         "take_profit_2_pct": tp2_pct,
     }
 
+
+def _record_score_history(
+    scored_stocks: List[Dict[str, Any]],
+    trade_date_str: Optional[str],
+    emotion_cycle: Optional[str],
+    svc: LeaderTrackingPoolService,
+) -> None:
+    """将评分结果写入 fact_leader_score_history，仅当不存在时才插入。"""
+    if not scored_stocks or not trade_date_str:
+        return
+    try:
+        pool_td = date.fromisoformat(trade_date_str)
+    except Exception:
+        return
+
+    try:
+        from backend.services.leader_tracking.failed_case_tracker import ScoreHistoryRecorder
+        from data_warehouse.models import FactLeaderScoreHistory
+
+        session = svc.ws.get_session()
+        try:
+            codes = [s.get("ts_code") for s in scored_stocks if s.get("ts_code")]
+            existing_rows = session.query(FactLeaderScoreHistory.ts_code).filter(
+                FactLeaderScoreHistory.trade_date == pool_td,
+                FactLeaderScoreHistory.ts_code.in_(codes),
+            ).all()
+            existing_set = {r[0] for r in existing_rows}
+
+            recorder = ScoreHistoryRecorder(session)
+            for stock in scored_stocks:
+                tc = stock.get("ts_code", "")
+                if not tc or tc in existing_set:
+                    continue
+                score_info = stock.get("lstm_mab_score") or {}
+                recorder.record_score(
+                    ts_code=tc,
+                    trade_date=pool_td,
+                    score_result={
+                        "total_score": score_info.get("total_score"),
+                        "grade": score_info.get("grade"),
+                        "breakdown": score_info.get("factor_values"),
+                        "expected_return": score_info.get("expected_return"),
+                        "confidence": score_info.get("confidence"),
+                        "recommendation": score_info.get("recommendation"),
+                    },
+                    emotion_cycle=emotion_cycle,
+                )
+        finally:
+            session.close()
+    except Exception as e:
+        logger.warning(f"记录评分历史失败（不影响主逻辑）: {e}")
+
+
 # 数据仓库实例
 _warehouse_instance: Optional[PostgresWarehouse] = None
 
@@ -492,7 +545,10 @@ async def get_leader_tracking_pool(
             except Exception as e:
                 logger.warning(f"评分持久化失败（不影响主逻辑）: {e}")
 
-    # 附加买点信号（仅在未请求评分或模型未加载时补充）
+            emotion = scorer.model.mab.current_emotion if scorer.model and scorer.model.mab else None
+            _record_score_history(scored_stocks, td_str, emotion, svc)
+
+    # 附加买点信号（仅在未请求评分或模型未加载时补充，避免 batch_score 已计算后的重复执行）
     if result.get('success') and result.get('pool') and not (with_scores and result.get('model_scored')):
         try:
             td_str = result.get('trade_date')
@@ -671,6 +727,24 @@ async def get_top_scored_leaders(
             svc.update_pool_scores(pool_td, scored_stocks)
     except Exception as e:
         logger.warning(f"评分持久化失败（不影响主逻辑）: {e}")
+
+    emotion = scorer.model.mab.current_emotion if scorer.model and scorer.model.mab else None
+    _record_score_history(scored_stocks, td_str, emotion, svc)
+
+    # 附加买点信号
+    try:
+        warehouse = _get_warehouse()
+        emotion_cycle = _get_auto_emotion_cycle(td_str, warehouse)
+        buy_signals = get_buy_signals_for_pool(
+            scored_stocks,
+            trade_date_str=td_str,
+            warehouse=warehouse,
+            emotion_cycle=emotion_cycle,
+        )
+        for item in scored_stocks:
+            item['buy_signal'] = buy_signals.get(item.get('ts_code'))
+    except Exception as e:
+        logger.warning(f"买点信号计算失败（不影响主逻辑）: {e}")
 
     # 熔断检查
     circuit_breaker_warning = None

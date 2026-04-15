@@ -1,5 +1,4 @@
 import pytest
-import pandas as pd
 from unittest.mock import MagicMock, patch
 
 from backend.services.leader_tracking.buy_signal_integration import get_buy_signals_for_pool
@@ -31,57 +30,26 @@ def test_valid_pool_returns_signals():
     trade_date_str = "2026-04-05"
     emotion_cycle = "高涨期"
 
-    df = pd.DataFrame(
-        [
-            {
-                "code": "000001",
-                "change_pct": 10.0,
-                "turnover_rate": 5.0,
-                "volume_ratio": 2.2,
-                "is_today_limit_up": True,
-            }
-        ]
-    )
-
-    mock_warehouse = MagicMock()
-    mock_warehouse.load_stocks_data.return_value = df
-
-    mock_session = MagicMock()
-    mock_session.query.return_value.filter.return_value.scalar.return_value = None
-    mock_session.query.return_value.filter.return_value.all.return_value = []
-
-    mock_cm = MagicMock()
-    mock_cm.__enter__ = MagicMock(return_value=mock_session)
-    mock_cm.__exit__ = MagicMock(return_value=False)
-    mock_warehouse.warehouse_service.get_session.return_value = mock_cm
-
     expected_signal = {
-        "signal_type": "首板放量",
-        "strength_score": 80,
-        "confidence": "high",
-        "trigger_conditions": {
-            "continuous_limit": 1,
-            "volume_ratio": 2.2,
-            "is_limit_up": True,
-        },
-        "description": "首板涨停，量比2.2，量能配合良好",
-        "suggested_position": "中仓",
+        "signal_type": "刚启动",
+        "strength_score": 82,
+        "confidence": "medium",
+        "suggested_position": "轻仓",
     }
 
+    warehouse = MagicMock()
+
     with patch(
-        "backend.services.leader_tracking.buy_signal_integration.BuySignalDetector"
-    ) as MockDetector:
-        mock_signal = MagicMock()
-        mock_signal.to_dict.return_value = expected_signal
-        mock_detector = MagicMock()
-        mock_detector.get_primary_signal.return_value = mock_signal
-        MockDetector.return_value = mock_detector
+        "backend.services.leader_tracking.buy_signal_integration.get_frontend_buy_signals"
+    ) as mock_get_signals:
+        mock_get_signals.return_value = {"000001.SZ": expected_signal}
 
         result = get_buy_signals_for_pool(
-            pool, trade_date_str, mock_warehouse, emotion_cycle
+            pool, trade_date_str, warehouse, emotion_cycle
         )
 
         assert result == {"000001.SZ": expected_signal}
+        mock_get_signals.assert_called_once_with(pool, trade_date_str, warehouse)
 
 
 def test_pool_missing_ts_code():
@@ -90,97 +58,32 @@ def test_pool_missing_ts_code():
     assert result == {}
 
 
-def test_load_stocks_data_exception():
-    mock_warehouse = MagicMock()
-    mock_warehouse.load_stocks_data.side_effect = RuntimeError("data down")
-
-    mock_session = MagicMock()
-    mock_session.query.return_value.filter.return_value.scalar.return_value = None
-    mock_session.query.return_value.filter.return_value.all.return_value = []
-
-    mock_cm = MagicMock()
-    mock_cm.__enter__ = MagicMock(return_value=mock_session)
-    mock_cm.__exit__ = MagicMock(return_value=False)
-    mock_warehouse.warehouse_service.get_session.return_value = mock_cm
-
-    pool = [{"ts_code": "000001.SZ"}]
+def test_frontend_signals_exception_handled():
+    """get_frontend_buy_signals 异常时，直接向上透传（当前无额外包裹）"""
     with patch(
-        "backend.services.leader_tracking.buy_signal_integration.BuySignalDetector"
-    ) as MockDetector:
-        mock_signal = MagicMock()
-        mock_signal.to_dict.return_value = {"signal_type": "test"}
-        mock_detector = MagicMock()
-        mock_detector.get_primary_signal.return_value = mock_signal
-        MockDetector.return_value = mock_detector
+        "backend.services.leader_tracking.buy_signal_integration.get_frontend_buy_signals"
+    ) as mock_get_signals:
+        mock_get_signals.side_effect = RuntimeError("kline down")
 
-        result = get_buy_signals_for_pool(pool, "2026-04-05", mock_warehouse, "高涨期")
-        assert "000001.SZ" in result
+        with pytest.raises(RuntimeError, match="kline down"):
+            get_buy_signals_for_pool(
+                [{"ts_code": "000001.SZ"}], "2026-04-05", MagicMock(), "高涨期"
+            )
 
 
-def test_session_exception_yesterday():
+def test_emotion_cycle_ignored():
+    """emotion_cycle 参数仅保留兼容旧调用方，实际已不传递给底层"""
     mock_warehouse = MagicMock()
-    mock_warehouse.load_stocks_data.return_value = None
-    mock_warehouse.warehouse_service.get_session.side_effect = RuntimeError("session down")
 
-    pool = [{"ts_code": "000001.SZ"}]
     with patch(
-        "backend.services.leader_tracking.buy_signal_integration.BuySignalDetector"
-    ) as MockDetector:
-        mock_signal = MagicMock()
-        mock_signal.to_dict.return_value = {"signal_type": "test"}
-        mock_detector = MagicMock()
-        mock_detector.get_primary_signal.return_value = mock_signal
-        MockDetector.return_value = mock_detector
+        "backend.services.leader_tracking.buy_signal_integration.get_frontend_buy_signals"
+    ) as mock_get_signals:
+        mock_get_signals.return_value = {}
 
-        result = get_buy_signals_for_pool(pool, "2026-04-05", mock_warehouse, "高涨期")
-        assert "000001.SZ" in result
-
-
-def test_detector_exception_returns_none():
-    mock_warehouse = MagicMock()
-    mock_warehouse.load_stocks_data.return_value = None
-
-    mock_session = MagicMock()
-    mock_session.query.return_value.filter.return_value.scalar.return_value = None
-    mock_session.query.return_value.filter.return_value.all.return_value = []
-
-    mock_cm = MagicMock()
-    mock_cm.__enter__ = MagicMock(return_value=mock_session)
-    mock_cm.__exit__ = MagicMock(return_value=False)
-    mock_warehouse.warehouse_service.get_session.return_value = mock_cm
-
-    pool = [{"ts_code": "000001.SZ"}]
-    with patch(
-        "backend.services.leader_tracking.buy_signal_integration.BuySignalDetector"
-    ) as MockDetector:
-        mock_detector = MagicMock()
-        mock_detector.get_primary_signal.side_effect = RuntimeError("detect boom")
-        MockDetector.return_value = mock_detector
-
-        result = get_buy_signals_for_pool(pool, "2026-04-05", mock_warehouse, "高涨期")
-        assert result.get("000001.SZ") is None
-
-
-def test_emotion_cycle_passed_to_detector():
-    mock_warehouse = MagicMock()
-    mock_warehouse.load_stocks_data.return_value = None
-
-    mock_session = MagicMock()
-    mock_session.query.return_value.filter.return_value.scalar.return_value = None
-    mock_session.query.return_value.filter.return_value.all.return_value = []
-
-    mock_cm = MagicMock()
-    mock_cm.__enter__ = MagicMock(return_value=mock_session)
-    mock_cm.__exit__ = MagicMock(return_value=False)
-    mock_warehouse.warehouse_service.get_session.return_value = mock_cm
-
-    pool = [{"ts_code": "000001.SZ"}]
-    with patch(
-        "backend.services.leader_tracking.buy_signal_integration.BuySignalDetector"
-    ) as MockDetector:
-        mock_detector = MagicMock()
-        mock_detector.get_primary_signal.return_value = None
-        MockDetector.return_value = mock_detector
-
-        get_buy_signals_for_pool(pool, "2026-04-05", mock_warehouse, "退潮期")
-        MockDetector.assert_called_once_with(emotion_cycle="退潮期")
+        get_buy_signals_for_pool(
+            [{"ts_code": "000001.SZ"}], "2026-04-05", mock_warehouse, "退潮期"
+        )
+        # 验证调用时未将 emotion_cycle 传给 get_frontend_buy_signals
+        mock_get_signals.assert_called_once_with(
+            [{"ts_code": "000001.SZ"}], "2026-04-05", mock_warehouse
+        )

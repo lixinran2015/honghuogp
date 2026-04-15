@@ -43,7 +43,6 @@ def test_disclaimer_contains_investment():
 from scripts.productization.daily_report.generate_daily_report import (
     fetch_top_stocks,
     fetch_signal_stocks,
-    fetch_watchlist,
     load_template,
     generate_report,
 )
@@ -112,29 +111,9 @@ def test_fetch_signal_stocks(monkeypatch):
 
 def test_load_template():
     template = load_template()
-    rendered = template.render({})
+    rendered = template.render({"recent_win_rate": None})
     assert "情绪周期判断" in rendered
     assert "Top" in rendered
-
-
-def test_fetch_watchlist(monkeypatch):
-    def mock_get(url, **kwargs):
-        return MockResponse({
-            "success": True,
-            "top_stocks": [
-                {
-                    "ts_code": "000001.SZ",
-                    "name": "平安银行",
-                    "sectors": ["银行"],
-                    "lstm_mab_score": {"grade": "A", "total_score": 80},
-                }
-            ]
-        })
-
-    monkeypatch.setattr(requests, "get", mock_get)
-    result = fetch_watchlist(base_url="http://test")
-    assert len(result) == 1
-    assert result[0]["name"] == "平安银行"
 
 
 def test_generate_report_handles_api_failure(monkeypatch, caplog):
@@ -146,4 +125,4 @@ def test_generate_report_handles_api_failure(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         result = generate_report(base_url="http://test")
     assert "获取情绪周期失败" in caplog.text or "获取龙头评分失败" in caplog.text
-    assert "A股短线龙头日报" in result
+    assert "A股短线龙头日报" in result["html"]

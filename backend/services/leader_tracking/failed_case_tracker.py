@@ -304,6 +304,12 @@ class ScoreHistoryRecorder:
         Returns:
             是否记录成功
         """
+
+        def _to_native(obj):
+            if hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            return obj
+
         try:
             # 检查是否已存在
             existing = self.session.query(FactLeaderScoreHistory).filter(
@@ -311,29 +317,28 @@ class ScoreHistoryRecorder:
                 FactLeaderScoreHistory.trade_date == trade_date,
             ).first()
 
+            breakdown = score_result.get('breakdown', {})
             if existing:
                 # 更新现有记录
-                existing.total_score = score_result.get('total_score')
+                existing.total_score = _to_native(score_result.get('total_score'))
                 existing.grade = score_result.get('grade')
-                breakdown = score_result.get('breakdown', {})
-                existing.leader_position_score = breakdown.get('leader_position')
-                existing.technical_score = breakdown.get('technical')
-                existing.money_flow_score = breakdown.get('money_flow')
-                existing.sentiment_score = breakdown.get('sentiment')
+                existing.leader_position_score = _to_native(breakdown.get('leader_position'))
+                existing.technical_score = _to_native(breakdown.get('technical'))
+                existing.money_flow_score = _to_native(breakdown.get('money_flow'))
+                existing.sentiment_score = _to_native(breakdown.get('sentiment'))
                 existing.emotion_cycle = emotion_cycle
                 existing.market_status = market_status
             else:
                 # 创建新记录
-                breakdown = score_result.get('breakdown', {})
                 history = FactLeaderScoreHistory(
                     ts_code=ts_code,
                     trade_date=trade_date,
-                    total_score=score_result.get('total_score'),
+                    total_score=_to_native(score_result.get('total_score')),
                     grade=score_result.get('grade'),
-                    leader_position_score=breakdown.get('leader_position'),
-                    technical_score=breakdown.get('technical'),
-                    money_flow_score=breakdown.get('money_flow'),
-                    sentiment_score=breakdown.get('sentiment'),
+                    leader_position_score=_to_native(breakdown.get('leader_position')),
+                    technical_score=_to_native(breakdown.get('technical')),
+                    money_flow_score=_to_native(breakdown.get('money_flow')),
+                    sentiment_score=_to_native(breakdown.get('sentiment')),
                     emotion_cycle=emotion_cycle,
                     market_status=market_status,
                 )
