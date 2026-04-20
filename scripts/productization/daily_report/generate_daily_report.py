@@ -462,6 +462,41 @@ def _get_historical_scores_from_db(td: str, ts_codes: List[str]) -> Dict[str, fl
         return {}
 
 
+def _get_historical_top_stocks_from_db(td: str, top_n: int = TOP_N_LEADERS) -> List[Dict[str, Any]]:
+    """从 fact_leader_score_history JOIN dim_stock 查询指定日期的 Top N 推荐。"""
+    try:
+        from data_warehouse.db import SessionContext
+        from sqlalchemy import text
+
+        with SessionContext(autocommit=False) as session:
+            query = text(
+                """
+                SELECT h.ts_code, d.name, d.industry, h.total_score, h.grade
+                FROM fact_leader_score_history h
+                LEFT JOIN dim_stock d ON h.ts_code = d.ts_code
+                WHERE h.trade_date = :td
+                ORDER BY h.total_score DESC
+                LIMIT :top_n
+                """
+            )
+            rows = session.execute(query, {"td": td, "top_n": top_n}).fetchall()
+            stocks = []
+            for r in rows:
+                name = r[1] or r[0]
+                industry = r[2] or "-"
+                stocks.append({
+                    "ts_code": r[0],
+                    "name": name,
+                    "sector_short": _short_sector(industry),
+                    "total_score": float(r[3]) if r[3] is not None else None,
+                    "grade": r[4],
+                })
+            return stocks
+    except Exception as e:
+        logger.warning(f"查询历史 Top 推荐失败: {e}")
+        return []
+
+
 def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, base_url: str = DEFAULT_BASE_URL) -> List[Dict[str, Any]]:
     """
     获取 base_date 往前第 days 个交易日（含 base_date 当日计）的 Top 5 推荐，并计算推荐日至 base_date 的涨跌幅。
@@ -476,24 +511,33 @@ def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, b
 
     td = target_dates[-1]
     try:
-        data = _get("/api/leader-tracking/top-scored", base_url=base_url,
-                    params={"trade_date": td, "top_n": TOP_N_LEADERS})
-        stocks = data.get("top_stocks", [])
+        # 优先从历史评分表获取，避免调用 top-scored API 重新计算导致数据不一致
+        stocks = _get_historical_top_stocks_from_db(td, top_n=TOP_N_LEADERS)
         if not stocks:
-            return []
+            # 数据库无记录时回退到 API（兼容旧数据）
+            data = _get("/api/leader-tracking/top-scored", base_url=base_url,
+                        params={"trade_date": td, "top_n": TOP_N_LEADERS})
+            stocks = data.get("top_stocks", [])
+            if not stocks:
+                return []
 
-        # 优先从数据库历史表查询当日评分
-        ts_codes = [s.get("ts_code", "") for s in stocks[:TOP_N_LEADERS] if s.get("ts_code")]
-        historical_scores = _get_historical_scores_from_db(td, ts_codes)
+            # 从 API 结果中提取需要的字段
+            api_stocks = []
+            for s in stocks[:TOP_N_LEADERS]:
+                score = s.get("lstm_mab_score") or {}
+                api_stocks.append({
+                    "ts_code": s.get("ts_code", ""),
+                    "name": s.get("name", ""),
+                    "sector_short": _choose_sector(s.get("sectors", []), s.get("name", "")),
+                    "total_score": score.get("total_score"),
+                })
+            stocks = api_stocks
 
         day_entry = {"trade_date": td, "stocks": []}
         for s in stocks[:TOP_N_LEADERS]:
-            score = s.get("lstm_mab_score") or {}
             ts_code = s.get("ts_code", "")
-            name = s.get("name", "")
-            sector = _choose_sector(s.get("sectors", []), s.get("name", ""))
-            # 优先使用数据库中的历史评分，否则回退到 API 返回的评分
-            total_score = _fmt_num(historical_scores.get(ts_code, score.get("total_score")), 1)
+            if not ts_code:
+                continue
 
             rec_close = _get_close_price(ts_code, td, base_url)
             latest_close = _get_close_price(ts_code, base_str, base_url)
@@ -505,9 +549,9 @@ def fetch_past_recommendations(days: int = 5, base_date: Optional[str] = None, b
 
             day_entry["stocks"].append({
                 "ts_code": ts_code,
-                "name": name,
-                "sector_short": sector,
-                "total_score": total_score,
+                "name": s.get("name", ""),
+                "sector_short": s.get("sector_short", "-"),
+                "total_score": _fmt_num(s.get("total_score"), 1),
                 "change_pct": change_pct,
             })
 
