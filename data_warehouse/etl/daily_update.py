@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def get_last_trade_date() -> Optional[date]:
     """
     获取最后一个交易日
-    
+
     Returns:
         date: 最后一个交易日，如果没有数据返回None
     """
@@ -45,6 +45,29 @@ def get_last_trade_date() -> Optional[date]:
         while yesterday.weekday() >= 5:
             yesterday -= timedelta(days=1)
         return yesterday
+
+
+def _get_expected_latest_report_date(today: Optional[date] = None) -> date:
+    """
+    根据当前日期，计算应该有的最新财务报告期。
+
+    A股披露截止日：
+    - 年报（12-31）：次年4月底
+    - 一季报（03-31）：4月底
+    - 半年报（06-30）：8月底
+    - 三季报（09-30）：10月底
+    """
+    if today is None:
+        today = date.today()
+    year, month = today.year, today.month
+    if month <= 4:
+        return date(year - 1, 12, 31)
+    elif month <= 8:
+        return date(year, 3, 31)
+    elif month <= 10:
+        return date(year, 6, 30)
+    else:
+        return date(year, 9, 30)
 
 
 def update_daily_prices(target_date: Optional[date] = None, batch_size: int = 50, delay: float = 0.3):
@@ -316,13 +339,28 @@ def update_fundamental(limit: Optional[int] = None, batch_size: int = 120, delay
         failed_count = 0
         skipped_count = 0
         
-        # 只对「数据库中缺失财务数据」的股票请求接口，已有任意报告期的均不请求
-        missing_codes = [c for c in ts_codes if c not in latest_reports]
-        skipped_count = len(ts_codes) - len(missing_codes)
+        # 计算当前应该有的最新报告期，对比库中数据决定是否更新
+        expected_latest = _get_expected_latest_report_date(date.today())
+
+        missing_codes = []
+        up_to_date_codes = []
+        for c in ts_codes:
+            if c not in latest_reports:
+                missing_codes.append(c)
+            else:
+                latest_end_date = latest_reports[c]['end_date']
+                if isinstance(latest_end_date, str):
+                    latest_end_date = date.fromisoformat(latest_end_date)
+                if latest_end_date < expected_latest:
+                    missing_codes.append(c)
+                else:
+                    up_to_date_codes.append(c)
+
+        skipped_count = len(up_to_date_codes)
         if skipped_count > 0:
-            logger.info(f"📊 库中已有财务数据: {skipped_count} 只，不请求接口；待补全: {len(missing_codes)} 只")
+            logger.info(f"📊 库中已有最新财务数据 ({expected_latest}): {skipped_count} 只，不请求接口；待补全: {len(missing_codes)} 只")
         if not missing_codes:
-            logger.info("✅ 无缺失财务数据，跳过更新")
+            logger.info(f"✅ 所有股票财务数据已是最新报告期 ({expected_latest})，跳过更新")
             if log_entry:
                 log_entry.update_records_processed(0)
             return True
