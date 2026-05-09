@@ -226,24 +226,6 @@ def _build_badges(stock: Dict[str, Any]) -> List[Dict[str, str]]:
     return badges
 
 
-def _build_factor_bars(factor_scores: Dict[str, float]) -> List[Dict[str, Any]]:
-    """构建四维因子进度条数据。"""
-    bars = []
-    for name in ["龙头地位", "技术形态", "资金流向", "情绪热度"]:
-        score = factor_scores.get(name, 0)
-        try:
-            score = float(score)
-        except (TypeError, ValueError):
-            score = 0
-        bars.append({
-            "name": name,
-            "score": round(score, 1),
-            "width": min(score, 100),
-            "color": _FACTOR_COLORS.get(name, "#6b7280"),
-        })
-    return bars
-
-
 def _build_summary(signal_stocks: List[Dict], top_stocks: List[Dict], emotion: Dict[str, Any]) -> str:
     cycle = emotion.get("cycle", "当前")
     if signal_stocks:
@@ -682,7 +664,6 @@ def fetch_top_stocks(top_n: int = TOP_N_LEADERS, base_url: str = DEFAULT_BASE_UR
         stock["brief_comment"] = comment
         used_comments.add(comment)
         stock["badges"] = _build_badges(stock)
-        stock["factor_bars"] = _build_factor_bars(stock["factor_scores"])
     return result
 
 
