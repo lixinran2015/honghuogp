@@ -28,8 +28,8 @@ class BuyRequest(BaseModel):
     ts_code: str
     name: Optional[str] = None
     industry: Optional[str] = None
-    price: float
-    shares: int
+    price: float = Field(gt=0)
+    shares: int = Field(gt=0)
     weight: Optional[float] = None
     darwin_score: Optional[float] = None
     pe_percentile_5y: Optional[float] = None
@@ -39,8 +39,8 @@ class BuyRequest(BaseModel):
 
 class SellRequest(BaseModel):
     ts_code: str
-    price: float
-    shares: int
+    price: float = Field(gt=0)
+    shares: int = Field(gt=0)
     reason: Optional[str] = None
 
 

@@ -288,11 +288,11 @@ class EntryAnalyzer:
             session = self.warehouse_service.get_session()
             try:
                 result = session.execute(text("""
-                    SELECT SUM(net_amount)
-                    FROM fact_north_flow
-                    WHERE trade_date <= :trade_date
-                    ORDER BY trade_date DESC
-                    LIMIT 5
+                    SELECT SUM(net_amount) FROM (
+                        SELECT net_amount FROM fact_north_flow
+                        WHERE trade_date <= :trade_date
+                        ORDER BY trade_date DESC LIMIT 5
+                    ) t
                 """), {"trade_date": trade_date})
                 row = result.fetchone()
                 if row and row[0]:

@@ -135,7 +135,11 @@ class LongTermSelector:
                       AND (s.list_date IS NULL OR s.list_date <= :min_list_date)
                     ORDER BY s.ts_code
                 """)
-                min_list_date = date(trade_date.year - 3, trade_date.month, trade_date.day)
+                try:
+                    min_list_date = date(trade_date.year - 3, trade_date.month, trade_date.day)
+                except ValueError:
+                    # 处理闰年2月29日 -> 回退到2月28日
+                    min_list_date = date(trade_date.year - 3, trade_date.month, 28)
                 result = session.execute(sql, {
                     "trade_date": trade_date,
                     "min_list_date": min_list_date,

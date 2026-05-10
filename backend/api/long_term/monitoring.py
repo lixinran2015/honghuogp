@@ -30,7 +30,7 @@ async def get_alerts(
     try:
         from sqlalchemy import text
 
-        conditions = ["1=1"]
+        conditions = []
         params = {"limit": limit}
 
         if is_resolved is not None:
@@ -43,7 +43,7 @@ async def get_alerts(
             conditions.append("ts_code = :ts_code")
             params["ts_code"] = ts_code
 
-        where_clause = " AND ".join(conditions)
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         result = session.execute(text(f"""
             SELECT id, ts_code, alert_type, level, message,

@@ -140,10 +140,10 @@ class ValueTrapFilter:
                 if len(values) < periods + 1:
                     return False
 
-                # 检查是否连续下滑
+                # 检查是否连续下滑（数据按日期DESC，values[0]为最新）
                 for i in range(len(values) - 1):
                     if values[i] >= values[i + 1]:
-                        return False
+                        return False  # 未持续下滑
                 return True
 
             finally:
