@@ -209,6 +209,11 @@ const allMenuGroups = [
       { path: '/industry-cycle', label: '行业周期', icon: 'ArrowPathIcon' },
       { path: '/theme-rotation', label: '长期主题轮动', icon: 'ArrowTrendingUpIcon' },
       { path: '/darwin', label: '达尔文长期策略', icon: 'ChartBarIcon' },
+      { path: '/long-term-selection', label: '长线选股', icon: 'MagnifyingGlassIcon' },
+      { path: '/long-term-portfolio', label: '长线组合', icon: 'BriefcaseIcon' },
+      { path: '/long-term-monitoring', label: '持仓监控', icon: 'EyeIcon' },
+      { path: '/long-term-journal', label: '投资日志', icon: 'ClipboardDocumentListIcon' },
+      { path: '/long-term-daily-report', label: '长线日报', icon: 'ClipboardDocumentListIcon' },
     ]
   },
   {

@@ -52,6 +52,98 @@ if not logger.handlers:
 _daily_basic_cache = None
 _cache_trade_date = None
 
+
+def update_fundamental_valuation(daily_basic_df, trade_date):
+    """
+    将daily_basic中的估值数据（pe_ttm, pb, dv_ratio）更新到fact_daily_fundamental
+
+    Args:
+        daily_basic_df: daily_basic接口返回的DataFrame，需包含ts_code, pe_ttm, pb, dv_ratio
+        trade_date: 交易日期（字符串YYYYMMDD）
+    """
+    if daily_basic_df is None or daily_basic_df.empty:
+        return
+
+    # 检查必要的列是否存在
+    required_cols = ['ts_code']
+    if not all(col in daily_basic_df.columns for col in required_cols):
+        logger.warning("daily_basic数据缺少ts_code列，跳过更新")
+        return
+
+    try:
+        wh_service = WarehouseService()
+        session = wh_service.get_session()
+
+        updated_count = 0
+        skipped_count = 0
+
+        for _, row in daily_basic_df.iterrows():
+            ts_code = row.get('ts_code')
+            if not ts_code:
+                continue
+
+            # 准备更新字段
+            update_fields = []
+            params = {'ts_code': ts_code, 'trade_date': trade_date}
+
+            # PE_TTM
+            if 'pe_ttm' in daily_basic_df.columns and pd.notna(row.get('pe_ttm')):
+                pe_val = float(row['pe_ttm'])
+                if pe_val > 0:  # 只更新有效值
+                    update_fields.append("pe_ttm = :pe_ttm")
+                    params['pe_ttm'] = pe_val
+
+            # PB -> pb_lyr
+            if 'pb' in daily_basic_df.columns and pd.notna(row.get('pb')):
+                pb_val = float(row['pb'])
+                if pb_val > 0:
+                    update_fields.append("pb_lyr = :pb_lyr")
+                    params['pb_lyr'] = pb_val
+
+            # dv_ratio -> dividend_yield_ttm (Tushare返回百分比，如3.5表示3.5%)
+            if 'dv_ratio' in daily_basic_df.columns and pd.notna(row.get('dv_ratio')):
+                dv_val = float(row['dv_ratio'])
+                if dv_val >= 0:
+                    update_fields.append("dividend_yield_ttm = :dividend_yield_ttm")
+                    params['dividend_yield_ttm'] = dv_val
+
+            if not update_fields:
+                skipped_count += 1
+                continue
+
+            try:
+                sql = text(f"""
+                    UPDATE fact_daily_fundamental
+                    SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP
+                    WHERE ts_code = :ts_code
+                """)
+                result = session.execute(sql, params)
+                if result.rowcount > 0:
+                    updated_count += 1
+                else:
+                    # 如果该行不存在，插入新行（fact_daily_fundamental 主键只有 ts_code）
+                    col_names = [f.split('=')[0].strip() for f in update_fields]
+                    insert_sql = text(f"""
+                        INSERT INTO fact_daily_fundamental
+                        (ts_code, trade_date, {', '.join(col_names)}, source, updated_at)
+                        VALUES (:ts_code, :trade_date, {', '.join([':' + c for c in col_names])}, 'tushare_daily_basic', CURRENT_TIMESTAMP)
+                    """)
+                    session.execute(insert_sql, params)
+                    updated_count += 1
+            except Exception as e:
+                logger.debug(f"更新 {ts_code} 估值数据失败: {e}")
+                skipped_count += 1
+                continue
+
+        session.commit()
+        if updated_count > 0:
+            logger.info(f"✅ 已更新 {updated_count} 只股票估值数据到 fact_daily_fundamental（跳过 {skipped_count} 只）")
+    except Exception as e:
+        logger.error(f"❌ 批量更新估值数据失败: {e}")
+    finally:
+        if 'session' in locals():
+            session.close()
+
 def get_industry_leaders_by_market_cap(industry_name: str, top_n: int = 3) -> List[Dict]:
     """
     根据市值获取行业龙头（市值最大的N只股票）
@@ -163,7 +255,7 @@ def get_industry_leaders_by_market_cap(industry_name: str, top_n: int = 3) -> Li
                     try:
                         daily_basic_all = tushare_service.pro.daily_basic(
                             trade_date=latest_trade_date,  # 只传trade_date，获取所有股票
-                            fields='ts_code,trade_date,total_mv,circ_mv'
+                            fields='ts_code,trade_date,total_mv,circ_mv,pe_ttm,pb,dv_ratio'
                         )
                         
                         if daily_basic_all is not None and not daily_basic_all.empty:
@@ -224,6 +316,10 @@ def get_industry_leaders_by_market_cap(industry_name: str, top_n: int = 3) -> Li
                     time.sleep(5)
                 continue
         
+        # 更新估值数据到 fact_daily_fundamental
+        if _daily_basic_cache is not None and not _daily_basic_cache.empty:
+            update_fundamental_valuation(_daily_basic_cache, latest_trade_date)
+
         # 3. 对所有市值数据进行排序，取前top_n
         if not all_market_caps:
             logger.warning(f"  ⚠️ 未获取到任何市值数据")
@@ -1068,12 +1164,16 @@ def get_industry_leaders_by_value(industry_name: str, top_n: int = 3) -> List[Di
         try:
             daily_basic_all = tushare_service.pro.daily_basic(
                 trade_date=latest_trade_date,
-                fields='ts_code,total_mv,pe,pb'
+                fields='ts_code,total_mv,pe_ttm,pb,dv_ratio'
             )
         except Exception as e:
             logger.warning(f"批量获取市值数据失败: {e}")
             daily_basic_all = pd.DataFrame()
-        
+
+        # 更新估值数据到 fact_daily_fundamental
+        if daily_basic_all is not None and not daily_basic_all.empty:
+            update_fundamental_valuation(daily_basic_all, latest_trade_date)
+
         # 批量获取财务指标（分批处理，每批50只）
         # 优化：优先从数据库读取，减少API调用
         batch_size = 50
@@ -2233,9 +2333,15 @@ def get_industry_leaders_by_comprehensive_score(industry_name: str, top_n: int =
                 daily_basic = tushare_service.pro.daily_basic(
                     ts_code=codes_str,
                     trade_date='',
-                    fields='ts_code,total_mv'
+                    fields='ts_code,trade_date,total_mv,pe_ttm,pb,dv_ratio'
                 )
-                
+
+                # 更新估值数据到 fact_daily_fundamental
+                if daily_basic is not None and not daily_basic.empty:
+                    batch_trade_date = str(daily_basic.iloc[0]['trade_date']) if 'trade_date' in daily_basic.columns else None
+                    if batch_trade_date:
+                        update_fundamental_valuation(daily_basic, batch_trade_date)
+
                 # 获取财务指标
                 fina_indicator = tushare_service.pro.fina_indicator(
                     ts_code=codes_str,

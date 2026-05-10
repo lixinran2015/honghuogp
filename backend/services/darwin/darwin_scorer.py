@@ -267,8 +267,8 @@ class DarwinScorer:
             pe_score = max(0, 5 - (pe - 50) * 0.1)  # 5-0分
         
         # PB评分：0-50分（PB越低越好）
-        if pb <= 0:
-            pb_score = 0  # 负PB或0
+        if pb is None or pb <= 0:
+            pb_score = 0  # 负PB或0或缺失
         elif pb < 1:
             pb_score = 50  # PB < 1，估值很低，满分
         elif pb < 2:

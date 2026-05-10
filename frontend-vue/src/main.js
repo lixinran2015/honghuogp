@@ -54,6 +54,11 @@ const routes = [
   { path: '/monitor-dashboard', component: () => import('./views/MonitorDashboardView.vue') },
   { path: '/short-term-dashboard', component: () => import('./views/ShortTermLeaderDashboard.vue') },
   { path: '/daily-report', component: () => import('./views/DailyReportView.vue') },
+  { path: '/long-term-selection', component: () => import('./views/LongTermSelectionView.vue') },
+  { path: '/long-term-portfolio', component: () => import('./views/LongTermPortfolioView.vue') },
+  { path: '/long-term-monitoring', component: () => import('./views/LongTermMonitoringView.vue') },
+  { path: '/long-term-journal', component: () => import('./views/LongTermJournalView.vue') },
+  { path: '/long-term-daily-report', component: () => import('./views/LongTermDailyReportView.vue') },
 ]
 
 const router = createRouter({

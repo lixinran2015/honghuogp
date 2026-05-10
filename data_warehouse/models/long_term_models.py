@@ -8,6 +8,10 @@ from .generated_models import (
     DimIndustryLeader,
     FactNorthFlow,
     FactNorthHolding,
+    FactValuationPercentile,
+    FactLongTermHolding,
+    FactLongTermJournal,
+    FactLongTermAlert,
 )
 
 __all__ = [
@@ -19,4 +23,9 @@ __all__ = [
     # 其他长线指标
     'FactHigh180dBroken',
     'DimIndustryLeader',
+    # 长线投资模块
+    'FactValuationPercentile',
+    'FactLongTermHolding',
+    'FactLongTermJournal',
+    'FactLongTermAlert',
 ]

@@ -372,6 +372,15 @@ const TASK_TYPE_CATEGORIES = [
       { value: 'guba_popularity_crawl_noon', label: '股吧人气榜爬虫（午盘）' },
     ],
   },
+  {
+    key: 'long_term',
+    label: '长线投资',
+    options: [
+      { value: 'long_term_selection_scan', label: '长线选股扫描' },
+      { value: 'calc_valuation_percentile', label: '估值分位数计算' },
+      { value: 'long_term_monitor_scan', label: '持仓监控扫描' },
+    ],
+  },
 ]
 
 const ALL_TASK_OPTIONS = TASK_TYPE_CATEGORIES.flatMap(c => c.options)
@@ -386,6 +395,7 @@ const CATEGORY_MAP = {
   strategy: { label: '投资策略', class: 'bg-emerald-100 text-emerald-700' },
   ai_model: { label: 'AI模型', class: 'bg-violet-100 text-violet-700' },
   crawler: { label: '资讯爬虫', class: 'bg-amber-100 text-amber-700' },
+  long_term: { label: '长线投资', class: 'bg-teal-100 text-teal-700' },
   other: { label: '其他', class: 'bg-gray-100 text-gray-700' },
 }
 
@@ -400,6 +410,7 @@ const getTaskCategory = (task) => {
   if (['s1_universe_update'].includes(type)) return 'strategy'
   if (['lstm_mab_daily_feedback', 'lstm_mab_retrain_check'].includes(type)) return 'ai_model'
   if (['guba_popularity_crawl', 'guba_popularity_crawl_morning', 'guba_popularity_crawl_noon'].includes(type)) return 'crawler'
+  if (['long_term_selection_scan', 'calc_valuation_percentile', 'long_term_monitor_scan'].includes(type)) return 'long_term'
   return 'other'
 }
 

@@ -1477,3 +1477,91 @@ class ShortTermSignalTracking(Base):
     actual_quantity: Mapped[Optional[int]] = mapped_column(Integer, comment='实际成交数量')
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
+
+
+class FactValuationPercentile(Base):
+    __tablename__ = 'fact_valuation_percentile'
+    __table_args__ = (
+        UniqueConstraint('ts_code', 'trade_date', name='uq_valuation_percentile_ts_date'),
+        Index('idx_val_percentile_date', 'trade_date'),
+    )
+
+    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, server_default=text("nextval('fact_valuation_percentile_id_seq'::regclass)"), comment='自增ID')
+    ts_code: Mapped[str] = mapped_column(String(20), nullable=False, comment='股票代码')
+    trade_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, comment='交易日期')
+    pe_ttm: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(12, 4), comment='PE(TTM)')
+    pe_percentile_5y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PE 5年分位数')
+    pe_percentile_10y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PE 10年分位数')
+    pb: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 4), comment='PB')
+    pb_percentile_5y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PB 5年分位数')
+    pb_percentile_10y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PB 10年分位数')
+    peg: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 4), comment='PEG')
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='创建时间')
+
+
+class FactLongTermHolding(Base):
+    __tablename__ = 'fact_long_term_holding'
+    __table_args__ = (
+        Index('idx_ltholding_status', 'status'),
+    )
+
+    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, server_default=text("nextval('fact_long_term_holding_id_seq'::regclass)"), comment='自增ID')
+    ts_code: Mapped[str] = mapped_column(String(20), nullable=False, comment='股票代码')
+    name: Mapped[Optional[str]] = mapped_column(String(50), comment='股票名称')
+    industry: Mapped[Optional[str]] = mapped_column(String(50), comment='所属行业')
+    first_buy_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, comment='首次买入日期')
+    avg_cost: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(12, 4), comment='平均成本')
+    total_shares: Mapped[Optional[int]] = mapped_column(BigInteger, comment='总持股数')
+    current_weight: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='当前仓位权重')
+    target_weight: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='目标仓位权重')
+    darwin_score: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(6, 4), comment='达尔文评分')
+    pe_percentile_5y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PE 5年分位数')
+    pb_percentile_5y: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PB 5年分位数')
+    status: Mapped[Optional[str]] = mapped_column(String(20), server_default=text("'holding'::character varying"), comment='状态：holding/reducing/exited')
+    exit_date: Mapped[Optional[datetime.date]] = mapped_column(Date, comment='退出日期')
+    exit_price: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(12, 4), comment='退出价格')
+    return_pct: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(8, 4), comment='收益率(%)')
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='创建时间')
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='更新时间')
+
+
+class FactLongTermJournal(Base):
+    __tablename__ = 'fact_long_term_journal'
+    __table_args__ = (
+        Index('idx_ltjournal_ts_code', 'ts_code'),
+        Index('idx_ltjournal_date', 'trade_date'),
+    )
+
+    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, server_default=text("nextval('fact_long_term_journal_id_seq'::regclass)"), comment='自增ID')
+    ts_code: Mapped[str] = mapped_column(String(20), nullable=False, comment='股票代码')
+    action: Mapped[Optional[str]] = mapped_column(String(20), comment='操作：buy/add/reduce/sell/hold_review')
+    trade_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, comment='交易日期')
+    price: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 4), comment='成交价格')
+    shares: Mapped[Optional[int]] = mapped_column(Integer, comment='成交股数')
+    weight_change: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='权重变动')
+    reason: Mapped[Optional[str]] = mapped_column(Text, comment='投资逻辑/卖出理由')
+    darwin_score: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(6, 4), comment='达尔文评分')
+    pe_percentile: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PE分位数')
+    pb_percentile: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(5, 4), comment='PB分位数')
+    market_trend: Mapped[Optional[str]] = mapped_column(String(20), comment='市场环境')
+    emotion_cycle: Mapped[Optional[str]] = mapped_column(String(20), comment='情绪周期')
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='创建时间')
+
+
+class FactLongTermAlert(Base):
+    __tablename__ = 'fact_long_term_alert'
+    __table_args__ = (
+        Index('idx_ltalert_unresolved', 'is_resolved', 'created_at'),
+        Index('idx_ltalert_ts_code', 'ts_code'),
+    )
+
+    id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True, server_default=text("nextval('fact_long_term_alert_id_seq'::regclass)"), comment='自增ID')
+    ts_code: Mapped[str] = mapped_column(String(20), nullable=False, comment='股票代码')
+    alert_type: Mapped[Optional[str]] = mapped_column(String(50), comment='告警类型')
+    level: Mapped[Optional[str]] = mapped_column(String(20), comment='级别：CRITICAL/WARNING/NOTICE')
+    message: Mapped[Optional[str]] = mapped_column(Text, comment='告警内容')
+    metric_value: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 4), comment='触发时指标值')
+    threshold_value: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric(10, 4), comment='阈值')
+    is_resolved: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text('false'), comment='是否已解决')
+    resolved_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, comment='解决时间')
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('now()'), comment='创建时间')

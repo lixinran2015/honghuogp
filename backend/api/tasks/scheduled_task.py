@@ -417,6 +417,9 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'break_board_price_monitor': 'break_board_price_monitor',
                 'lstm_mab_daily_feedback': 'lstm_mab_daily_feedback',
                 'lstm_mab_retrain_check': 'lstm_mab_retrain_check',
+                'long_term_selection_scan': 'long_term_selection_scan',
+                'calc_valuation_percentile': 'calc_valuation_percentile',
+                'long_term_monitor_scan': 'long_term_monitor_scan',
             }
             
             task_type = task_type_mapping.get(task.task_type)
@@ -538,6 +541,59 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 task.is_running = True
                 session.commit()
                 _start_task_thread(task_name, run_lstm_retrain_check)
+                return {
+                    "success": True,
+                    "message": f"任务 {task_name} 已触发执行"
+                }
+
+            # 长线选股扫描
+            if task_type == 'long_term_selection_scan':
+                def run_long_term_selection():
+                    try:
+                        from backend.scripts.scheduled_tasks.long_term_selection_scan import run_selection_scan
+                        run_selection_scan()
+                    except Exception as e:
+                        logger.error(f"执行长线选股扫描失败: {e}", exc_info=True)
+
+                task.is_running = True
+                session.commit()
+                _start_task_thread(task_name, run_long_term_selection)
+                return {
+                    "success": True,
+                    "message": f"任务 {task_name} 已触发执行"
+                }
+
+            # 估值分位数计算
+            if task_type == 'calc_valuation_percentile':
+                def run_calc_percentile():
+                    try:
+                        from backend.scripts.scheduled_tasks.calc_valuation_percentile import calc_and_save_percentiles
+                        from data_warehouse.service.warehouse_service import WarehouseService
+                        warehouse = WarehouseService()
+                        calc_and_save_percentiles(warehouse)
+                    except Exception as e:
+                        logger.error(f"执行估值分位数计算失败: {e}", exc_info=True)
+
+                task.is_running = True
+                session.commit()
+                _start_task_thread(task_name, run_calc_percentile)
+                return {
+                    "success": True,
+                    "message": f"任务 {task_name} 已触发执行"
+                }
+
+            # 持仓监控扫描
+            if task_type == 'long_term_monitor_scan':
+                def run_monitor_scan():
+                    try:
+                        from backend.scripts.scheduled_tasks.long_term_monitor_scan import run_monitor_scan
+                        run_monitor_scan()
+                    except Exception as e:
+                        logger.error(f"执行持仓监控扫描失败: {e}", exc_info=True)
+
+                task.is_running = True
+                session.commit()
+                _start_task_thread(task_name, run_monitor_scan)
                 return {
                     "success": True,
                     "message": f"任务 {task_name} 已触发执行"

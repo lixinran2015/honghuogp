@@ -20,6 +20,7 @@ export default defineConfig({
         changeOrigin: true,
         timeout: 60000, // 60秒超时
         proxyTimeout: 60000,
+        rewrite: (path) => path.replace(/^\/api/, ''),
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('代理错误:', err);

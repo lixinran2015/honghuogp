@@ -34,6 +34,41 @@ except Exception as e:
     logger.warning(f"⚠️ 长线推荐路由加载失败: {e}")
 
 try:
+    from backend.api.long_term import selection
+    router.include_router(selection.router, prefix="/selection", tags=["长线选股"])
+    logger.info("✅ 长线选股路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 长线选股路由加载失败: {e}")
+
+try:
+    from backend.api.long_term import portfolio
+    router.include_router(portfolio.router, prefix="/portfolio", tags=["长线组合"])
+    logger.info("✅ 长线组合路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 长线组合路由加载失败: {e}")
+
+try:
+    from backend.api.long_term import monitoring
+    router.include_router(monitoring.router, prefix="/monitoring", tags=["长线监控"])
+    logger.info("✅ 长线监控路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 长线监控路由加载失败: {e}")
+
+try:
+    from backend.api.long_term import journal
+    router.include_router(journal.router, prefix="/journal", tags=["长线日志"])
+    logger.info("✅ 长线日志路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 长线日志路由加载失败: {e}")
+
+try:
+    from backend.api.long_term import daily_report
+    router.include_router(daily_report.router, prefix="/daily-report", tags=["长线日报"])
+    logger.info("✅ 长线日报路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 长线日报路由加载失败: {e}")
+
+try:
     from backend.api import recommendation
     router.include_router(recommendation.router, prefix="/recommendation-v2", tags=["推荐池V2"])
     logger.info("✅ 推荐池V2路由已加载")

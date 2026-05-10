@@ -124,6 +124,10 @@ def _fallback_import():
         FactGubaPopularityRank,
         FactGubaRankHistory,
         ShortTermSignalTracking,
+        FactValuationPercentile,
+        FactLongTermHolding,
+        FactLongTermJournal,
+        FactLongTermAlert,
     )
 
     # 别名：FactDailyPrice 指向 FactDailyPriceQfq（前复权价格）
@@ -224,6 +228,11 @@ def _fallback_import():
         'FactOperationAdviceHistory',
         # 短线信号跟踪
         'ShortTermSignalTracking',
+        # 长线投资模块
+        'FactValuationPercentile',
+        'FactLongTermHolding',
+        'FactLongTermJournal',
+        'FactLongTermAlert',
     ]
 
     # 将所有模型添加到 globals
