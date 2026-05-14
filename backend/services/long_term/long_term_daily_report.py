@@ -65,7 +65,9 @@ class LongTermDailyReport:
         existing = self._get_existing_holdings_detail(trade_date)
         comparison = None
         if existing and new_candidates:
-            comparison = self._call_deepseek_compare(existing, new_candidates, market_context)
+            # 传入全部10只候选（不只是入选的5只），方便AI做同行业对比
+            all_candidates = self.selector.select_stocks(trade_date=trade_date, limit=20).get("candidates", [])[:10]
+            comparison = self._call_deepseek_compare(existing, new_candidates, all_candidates, market_context)
 
         html_report = self._build_html_report(
             trade_date, new_candidates, exit_candidates, exited_candidates,
@@ -248,29 +250,35 @@ class LongTermDailyReport:
             selected = [c for c in candidates if c.get("ts_code") in selected_codes]
             remaining = [c for c in candidates if c.get("ts_code") not in selected_codes]
 
-            # 4. 价格>150元替代逻辑：必须替换，优先找<=150的，找不到则从remaining中找价格最低的兜底
+            # 4. 价格>150元替代逻辑：必须替换，绝不保留高价票
             final_selected = []
             for s in selected:
                 cp = s.get("close_price") or 0
                 if cp > 150:
-                    # 优先从剩余候选中找 close_price<=150 的替代
                     replacement = None
+                    # 优先从剩余候选中找 close_price<=150 的替代
                     for r in sorted(remaining, key=lambda x: x.get("darwin_score") or 0, reverse=True):
                         rp = r.get("close_price") or 0
                         if rp <= 150:
                             replacement = r
                             remaining.remove(r)
                             break
-                    # 兜底：如果找不到<=150的，从remaining中找价格最低的
+                    # 兜底：从remaining中找价格最低且<=150的
                     if not replacement and remaining:
                         affordable = [r for r in remaining if (r.get("close_price") or float('inf')) <= 150]
                         if affordable:
                             replacement = max(affordable, key=lambda x: x.get("darwin_score") or 0)
                             remaining.remove(replacement)
-                        else:
-                            # 真的没有<=150的了，从remaining中找价格最低的兜底
-                            replacement = min(remaining, key=lambda x: x.get("close_price") or float('inf'))
-                            remaining.remove(replacement)
+                    # 终极兜底：从全部候选中找尚未入池且<=150的
+                    if not replacement:
+                        pool_codes = {x.get("ts_code") for x in final_selected}
+                        all_affordable = [
+                            c for c in candidates
+                            if c.get("ts_code") not in pool_codes
+                            and (c.get("close_price") or 0) <= 150
+                        ]
+                        if all_affordable:
+                            replacement = max(all_affordable, key=lambda x: x.get("darwin_score") or 0)
 
                     if replacement:
                         replacement["ai_replaced_by"] = {
@@ -281,11 +289,8 @@ class LongTermDailyReport:
                         }
                         final_selected.append(replacement)
                     else:
-                        # 没有remaining可替代，保留原推荐但标记
-                        s["ai_replaced_by"] = {
-                            "reason": f"原推荐股价{cp:.2f}元>150元，但候选池中无更低价格标的可替代",
-                        }
-                        final_selected.append(s)
+                        logger.warning(f"无法为 {s.get('name')}({s.get('ts_code')}) 找到<=150元的替代，跳过")
+                        # 不 append 任何股票，该位置空缺，后续兜底补满
                 else:
                     final_selected.append(s)
 
@@ -305,10 +310,10 @@ class LongTermDailyReport:
                             break
                         removed = same_industry_sorted[i]
                         final_selected.remove(removed)
-                        # 从剩余候选中找其他行业的替代
+                        # 从剩余候选中找其他行业且价格<=150的替代
                         replacement = None
                         for r in sorted(remaining, key=lambda x: x.get("darwin_score") or 0, reverse=True):
-                            if (r.get("industry") or "其他") != ind:
+                            if (r.get("industry") or "其他") != ind and (r.get("close_price") or 0) <= 150:
                                 replacement = r
                                 remaining.remove(r)
                                 break
@@ -320,6 +325,22 @@ class LongTermDailyReport:
                             industry_counts[new_ind] = industry_counts.get(new_ind, 0) + 1
                         else:
                             final_selected.append(removed)
+
+            # 5.5 价格红线最终防线：过滤掉任何 >150 的股票，并从全部候选中补满
+            final_selected = [s for s in final_selected if (s.get("close_price") or 0) <= 150]
+            if len(final_selected) < 5:
+                pool_codes = {s.get("ts_code") for s in final_selected}
+                available = [
+                    c for c in candidates
+                    if c.get("ts_code") not in pool_codes
+                    and (c.get("close_price") or 0) <= 150
+                ]
+                available.sort(key=lambda x: x.get("darwin_score") or 0, reverse=True)
+                needed = 5 - len(final_selected)
+                for c in available[:needed]:
+                    c["ai_replaced_by"] = {"reason": "价格红线兜底补位（股价<=150元）"}
+                    final_selected.append(c)
+                logger.info(f"价格红线兜底：补入 {len(available[:needed])} 只，当前共 {len(final_selected)} 只")
 
             # 6. 组装最终返回数据
             results = []
@@ -491,7 +512,11 @@ class LongTermDailyReport:
         config = self._load_deepseek_config()
         if not config.get('enabled') or not config.get('api_key'):
             logger.warning("DeepSeek未启用或配置不完整，跳过AI筛选")
-            return {"selected": [c.get("ts_code") for c in candidates[:5]], "reasoning": "AI服务未启用，按综合评分排序取前5只"}
+            affordable = [c for c in candidates if (c.get("close_price") or 0) <= 150]
+            return {
+                "selected": [c.get("ts_code") for c in affordable[:5]],
+                "reasoning": "AI服务未启用，按价格<=150元过滤后取前5只",
+            }
 
         candidate_map = {c.get("ts_code"): c for c in candidates}
         valid_codes = set(candidate_map.keys())
@@ -663,9 +688,11 @@ class LongTermDailyReport:
         return {"selected": deduped[:5], "reasoning": combined_reasoning}
 
     def _call_deepseek_compare(self, existing: List[Dict], new_candidates: List[Dict],
+                               all_candidates: List[Dict] = None,
                                market_context: Optional[Dict] = None) -> Dict:
         """
         调用DeepSeek对比现有持仓与新入选候选，输出持仓优化建议。
+        all_candidates 为全部10只候选（含未入选的），供AI做同行业全量对比。
         返回 {
             "keep": [{"ts_code": "...", "position_pct": "30%", "reason": "..."}],
             "replace": [{"from_ts_code": "...", "to_ts_code": "...", "position_pct": "20%", "reason": "..."}],
@@ -677,6 +704,10 @@ class LongTermDailyReport:
         if not config.get('enabled') or not config.get('api_key'):
             logger.warning("DeepSeek未启用，跳过持仓对比")
             return self._fallback_compare(existing, new_candidates)
+
+        all_candidates = all_candidates or new_candidates
+        candidate_map = {c.get("ts_code"): c for c in all_candidates}
+        valid_codes = set(candidate_map.keys())
 
         existing_lines = []
         for i, e in enumerate(existing, 1):
@@ -696,6 +727,17 @@ class LongTermDailyReport:
                     f"PB{c.get('pb') or '-'} - ROE{c.get('roe_ttm') or '-'}%")
             new_lines.append(line)
 
+        # 同行业全部候选（含未入选的），供AI做横向对比
+        peer_lines = []
+        used_ts = {e.get("ts_code") for e in existing} | {c.get("ts_code") for c in new_candidates}
+        peer_candidates = [c for c in all_candidates if c.get("ts_code") not in used_ts]
+        for i, c in enumerate(peer_candidates, 1):
+            line = (f"{i}. {c.get('name','')}({c.get('ts_code','')}) 【同批次候选】 - {c.get('industry','')} - "
+                    f"股价{c.get('close_price') or '-'}元 - "
+                    f"Darwin{c.get('darwin_score') or '-'} - PE{c.get('pe_ttm') or '-'} - "
+                    f"PB{c.get('pb') or '-'} - ROE{c.get('roe_ttm') or '-'}%")
+            peer_lines.append(line)
+
         # 市场环境信息
         market_info = ""
         if market_context:
@@ -712,25 +754,28 @@ class LongTermDailyReport:
             if market_parts:
                 market_info = "；".join(market_parts)
 
-        prompt = f"""你是资深价值投资组合经理。当前用户【我的持仓】中有以下股票，同时今日有{len(new_candidates)}只新入选候选。请从组合优化角度，对比分析新入选候选是否比持仓中的某些股票更值得持有，给出明确的调仓建议。
+        peer_section = f"\n=== 同批次其他候选（同行业横向对比参考） ===\n{'\n'.join(peer_lines)}" if peer_lines else ""
+
+        prompt = f"""你是资深价值投资组合经理。当前用户【我的持仓】中有以下股票，同时今日有{len(new_candidates)}只新入选候选。请从组合优化角度，给出明确的调仓建议。
 
 === 我的持仓 ===
 {"\n".join(existing_lines)}
 
 === 新入选候选 ===
-{"\n".join(new_lines)}
+{"\n".join(new_lines)}{peer_section}
 
 === 市场环境 ===
 {market_info or "暂无市场环境数据"}
 
 请基于以下原则给出调仓方案：
-1. 行业分散度：同一行业不宜超过3只，避免过度集中
-2. 估值性价比：优先保留/新增估值合理（PE分位<60%）且ROE>15%的标的
-3. 质量优先：Darwin评分越高越值得重仓
-4. 替换逻辑：如果新入选标的在同行中明显优于自选股（估值更低或质量更高），建议替换；如果自选股质量明显优于新入选，建议保留
-5. 仓位分配：单只标的建议仓位10%-30%，总仓位建议控制在60%-80%
-6. 现有持仓 vs 新入选：现有持仓若无明显劣势，优先保留；若新入选明显更优，可果断替换
-7. 市场环境：若市场情绪偏冷（冰点期/低迷期），建议控制总仓位，暂缓新增；若市场情绪偏热，可积极调仓
+1. 同行业替换优先：若持仓某股票质量一般，优先用同行业的更优候选替换，保持行业配置稳定性；只有同行业无更优替代时，才允许跨行业替换
+2. 行业集中度上限：最终组合（保留+替换后+新增）中同一行业不得超过2只，避免过度集中
+3. 亏损持仓强制评估：持仓中亏损超过-5%的标的，必须与新入选候选中同行业标的做量化对比；若新候选Darwin更高且估值更低，必须建议止损替换，不允许以"等待反弹"为由保留
+4. 减少不必要的替换：现有持仓若无明显劣势（Darwin、估值、ROE均不差于新候选），优先保留；不要为了调仓而调仓
+5. 估值性价比：优先保留/新增估值合理（PE分位<60%）且ROE>15%的标的
+6. 质量优先：Darwin评分越高越值得重仓，仓位不要平均分配（10%-30%区间按质量差异拉开）
+7. 仓位控制：单只标的建议仓位10%-30%，总仓位建议控制在60%-80%
+8. 市场环境：若市场情绪偏冷，建议控制总仓位，暂缓新增；若市场情绪偏热，可积极调仓
 
 请严格返回JSON格式，不要有任何其他文字：
 {{"keep": [{{"ts_code": "代码", "position_pct": "建议仓位如20%", "reason": "保留理由"}}], "replace": [{{"from_ts_code": "被替换代码", "to_ts_code": "新代码", "position_pct": "建议仓位", "reason": "替换理由"}}], "new_add": [{{"ts_code": "新代码", "position_pct": "建议仓位", "reason": "新增理由"}}], "summary": "一句话总结调仓思路"}}
@@ -760,6 +805,8 @@ class LongTermDailyReport:
                 if json_match:
                     result = json.loads(json_match.group())
                     logger.info(f"DeepSeek持仓对比完成: {result.get('summary', '')}")
+                    # 代码层后处理：校验行业集中度、价格红线、标的存在性
+                    result = self._validate_compare_result(result, existing, new_candidates, all_candidates)
                     return result
                 else:
                     logger.warning(f"DeepSeek对比返回无法解析JSON: {content}")
@@ -769,6 +816,136 @@ class LongTermDailyReport:
             logger.error(f"调用DeepSeek对比失败: {e}", exc_info=True)
 
         return self._fallback_compare(existing, new_candidates)
+
+    def _validate_compare_result(self, result: Dict, existing: List[Dict],
+                                 new_candidates: List[Dict], all_candidates: List[Dict]) -> Dict:
+        """
+        代码层后处理：校验并修正AI持仓优化建议。
+        规则：
+        1. 所有涉及的股票必须在 all_candidates 或 existing 中存在
+        2. 同一行业不得超过2只
+        3. 所有股票价格必须 <= 150
+        4. replace 的 from 必须确实在 existing 中
+        """
+        candidate_map = {c.get("ts_code"): c for c in all_candidates}
+        existing_map = {e.get("ts_code"): e for e in existing}
+        valid_new_codes = set(candidate_map.keys())
+        valid_existing_codes = set(existing_map.keys())
+
+        keep = result.get("keep", [])
+        replace = result.get("replace", [])
+        new_add = result.get("new_add", [])
+        summary = result.get("summary", "")
+
+        # ── 1. 过滤掉无效的股票代码 ──
+        def _is_valid_new(ts_code: str) -> bool:
+            return ts_code in valid_new_codes
+
+        def _is_valid_existing(ts_code: str) -> bool:
+            return ts_code in valid_existing_codes
+
+        keep = [k for k in keep if _is_valid_existing(k.get("ts_code"))]
+        replace = [r for r in replace
+                   if _is_valid_existing(r.get("from_ts_code")) and _is_valid_new(r.get("to_ts_code"))]
+        new_add = [n for n in new_add if _is_valid_new(n.get("ts_code"))]
+
+        # ── 2. 价格红线过滤 ──
+        def _is_price_ok(ts_code: str) -> bool:
+            c = candidate_map.get(ts_code) or existing_map.get(ts_code)
+            if not c:
+                return False
+            cp = c.get("close_price") or 0
+            return cp <= 150
+
+        keep = [k for k in keep if _is_price_ok(k.get("ts_code"))]
+        replace = [r for r in replace if _is_price_ok(r.get("to_ts_code"))]
+        new_add = [n for n in new_add if _is_price_ok(n.get("ts_code"))]
+
+        # ── 3. 行业集中度校验与修正（同一行业不超过2只）──
+        # 组装最终组合中的股票对象
+        def _get_stock(ts_code: str):
+            return candidate_map.get(ts_code) or existing_map.get(ts_code)
+
+        final_stocks = []
+        for k in keep:
+            s = _get_stock(k.get("ts_code"))
+            if s:
+                s = dict(s)
+                s["_source"] = "keep"
+                s["_position_pct"] = k.get("position_pct", "20%")
+                s["_reason"] = k.get("reason", "")
+                final_stocks.append(s)
+        for r in replace:
+            s = _get_stock(r.get("to_ts_code"))
+            if s:
+                s = dict(s)
+                s["_source"] = "replace"
+                s["_from_ts_code"] = r.get("from_ts_code")
+                s["_position_pct"] = r.get("position_pct", "20%")
+                s["_reason"] = r.get("reason", "")
+                final_stocks.append(s)
+        for n in new_add:
+            s = _get_stock(n.get("ts_code"))
+            if s:
+                s = dict(s)
+                s["_source"] = "new_add"
+                s["_position_pct"] = n.get("position_pct", "20%")
+                s["_reason"] = n.get("reason", "")
+                final_stocks.append(s)
+
+        # 统计行业数量
+        industry_counts = {}
+        for s in final_stocks:
+            ind = s.get("industry") or "其他"
+            industry_counts[ind] = industry_counts.get(ind, 0) + 1
+
+        # 对超2只的行业，去掉Darwin最低的，直到<=2只
+        for ind, count in list(industry_counts.items()):
+            if count > 2:
+                same = [s for s in final_stocks if (s.get("industry") or "其他") == ind]
+                same.sort(key=lambda x: x.get("darwin_score") or 0)
+                to_remove = count - 2
+                for i in range(to_remove):
+                    if i < len(same):
+                        removed = same[i]
+                        final_stocks.remove(removed)
+                        logger.warning(f"行业集中度修正：去掉 {removed.get('name')}({removed.get('ts_code')})，"
+                                       f"{ind} 行业超限({count}只)")
+                industry_counts[ind] = 2
+
+        # ── 4. 如果replace导致某只existing被替掉但仍在keep中，去重 ──
+        # 实际上 replace 意味着 from 被替换，to 被加入；如果 from 也在 keep 中，那是AI逻辑错误，需要去重
+        replaced_from_codes = {r.get("from_ts_code") for r in replace}
+        keep = [k for k in keep if k.get("ts_code") not in replaced_from_codes]
+
+        # ── 5. 重新组装结果 ──
+        new_keep = []
+        new_replace = []
+        new_new_add = []
+        for s in final_stocks:
+            src = s.pop("_source", "")
+            pct = s.pop("_position_pct", "20%")
+            reason = s.pop("_reason", "")
+            if src == "keep":
+                new_keep.append({"ts_code": s.get("ts_code"), "position_pct": pct, "reason": reason})
+            elif src == "replace":
+                from_code = s.pop("_from_ts_code", "")
+                new_replace.append({
+                    "from_ts_code": from_code,
+                    "to_ts_code": s.get("ts_code"),
+                    "position_pct": pct,
+                    "reason": reason,
+                })
+            elif src == "new_add":
+                new_new_add.append({"ts_code": s.get("ts_code"), "position_pct": pct, "reason": reason})
+
+        logger.info(f"持仓对比后处理完成: keep={len(new_keep)} replace={len(new_replace)} new_add={len(new_new_add)}")
+        return {
+            "keep": new_keep,
+            "replace": new_replace,
+            "new_add": new_new_add,
+            "summary": summary,
+        }
 
     def _fallback_compare(self, existing: List[Dict], new_candidates: List[Dict]) -> Dict:
         """DeepSeek未启用或失败时的回退策略：现有持仓全部保留，新候选全部建议新增观察"""
