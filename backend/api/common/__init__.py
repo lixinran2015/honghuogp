@@ -160,6 +160,15 @@ except Exception as e:
     logger.error(f"❌ 推荐规则路由加载异常: {e}", exc_info=True)
 
 try:
+    from backend.api.recommendations import recommendation as recommendation_pool
+    router.include_router(recommendation_pool.router)
+    logger.info("✅ 推荐池路由已加载")
+except ImportError as e:
+    logger.warning(f"⚠️ 推荐池路由加载失败: {e}")
+except Exception as e:
+    logger.error(f"❌ 推荐池路由加载异常: {e}", exc_info=True)
+
+try:
     from backend.api.startup import router as startup_router
     router.include_router(startup_router)
     logger.info("✅ 启动模块路由已加载")

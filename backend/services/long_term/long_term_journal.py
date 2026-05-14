@@ -132,12 +132,14 @@ class LongTermJournal:
 
                 sql = text(f"""
                     SELECT
-                        id, ts_code, action, trade_date, price, shares,
-                        weight_change, reason, darwin_score, pe_percentile,
-                        pb_percentile, market_trend, emotion_cycle, created_at
-                    FROM fact_long_term_journal
+                        j.id, j.ts_code, j.action, j.trade_date, j.price, j.shares,
+                        j.weight_change, j.reason, j.darwin_score, j.pe_percentile,
+                        j.pb_percentile, j.market_trend, j.emotion_cycle, j.created_at,
+                        s.name as stock_name
+                    FROM fact_long_term_journal j
+                    LEFT JOIN dim_stock s ON j.ts_code = s.ts_code
                     {where_clause}
-                    ORDER BY trade_date DESC, id DESC
+                    ORDER BY j.trade_date DESC, j.id DESC
                     LIMIT :limit OFFSET :offset
                 """)
                 result = session.execute(sql, params)
@@ -159,6 +161,7 @@ class LongTermJournal:
                         "market_trend": row[11],
                         "emotion_cycle": row[12],
                         "created_at": str(row[13]) if row[13] else None,
+                        "name": row[14] or row[1],
                     })
                 return entries
             finally:

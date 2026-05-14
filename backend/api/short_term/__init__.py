@@ -155,6 +155,14 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ 短线监控路由加载失败: {e}")
 
+# 60日新高筛选（实时计算）
+try:
+    from backend.api.short_term import new_high_60d
+    router.include_router(new_high_60d.router)
+    logger.info("✅ 60日新高筛选路由已加载")
+except Exception as e:
+    logger.warning(f"⚠️ 60日新高筛选路由加载失败: {e}")
+
 # 龙头优化系统路由（Phase 1-6）
 try:
     from backend.api.leaders.leader_optimization_routes import register_leader_optimization_routes

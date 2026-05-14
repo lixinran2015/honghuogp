@@ -8,7 +8,7 @@ import { getModuleStatus, toggleModule, switchMode, reloadModuleConfig } from '.
 // 模块状态
 const moduleStatus = ref({
   short_term: { enabled: true, features: {} },
-  long_term: { enabled: false, features: {} },
+  long_term: { enabled: true, features: {} },
   common: { enabled: true, features: {} }
 })
 

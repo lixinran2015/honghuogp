@@ -1,11 +1,14 @@
 """
 长线日报 API
 
-GET /api/long-term/daily-report
-  生成长线投资日报
+GET /api/long-term/daily-report?trade_date=YYYY-MM-DD
+  加载已生成的长线日报（从静态文件读取）
+
+POST /api/long-term/daily-report/generate?trade_date=YYYY-MM-DD
+  生成长线日报并保存到静态文件
 
 GET /api/long-term/daily-report/history
-  获取历史日报列表
+  获取历史日报日期列表
 """
 
 import logging
@@ -19,20 +22,57 @@ from data_warehouse.service.warehouse_service import WarehouseService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["长线日报"])
+router = APIRouter(prefix="/api/long-term/daily-report", tags=["长线日报"])
 
 
 @router.get("")
 async def get_daily_report(trade_date: Optional[str] = Query(None, description="日期格式 YYYY-MM-DD，默认最新交易日")):
     """
-    生成长线投资日报
+    加载已生成的长线日报（从静态文件读取）。
 
-    包含：
-    - 市场环境摘要（趋势、情绪指数、策略建议）
-    - 新入选标的（符合长线标准的股票及选入理由）
-    - 持仓回顾（持仓天数、收益率、当前状态）
-    - 卖出分析（估值兑现信号、基本面告警）
-    - 告警汇总
+    如果文件不存在，返回 404 提示用户先生成。
+    """
+    try:
+        parsed_date = None
+        if trade_date:
+            try:
+                parsed_date = date.fromisoformat(trade_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
+
+        warehouse = WarehouseService()
+        report_service = LongTermDailyReport(warehouse)
+
+        # 确定日期
+        if parsed_date is None:
+            parsed_date = report_service._get_latest_trade_date()
+        date_str = str(parsed_date)
+
+        # 尝试从文件加载
+        html = report_service.load(date_str)
+        if html is None:
+            raise HTTPException(status_code=404, detail=f"未找到 {date_str} 的日报，请先生成。")
+
+        return {
+            "success": True,
+            "data": {
+                "report_date": date_str,
+                "html_report": html,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"加载长线日报失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"加载长线日报失败: {str(e)}")
+
+
+@router.post("/generate")
+async def generate_daily_report(trade_date: Optional[str] = Query(None, description="日期格式 YYYY-MM-DD，默认最新交易日")):
+    """
+    生成长线日报并保存到静态文件。
+
+    包含 AI 选股、新入选推荐、应退出标的、已退出历史等。
     """
     try:
         parsed_date = None
@@ -48,7 +88,10 @@ async def get_daily_report(trade_date: Optional[str] = Query(None, description="
 
         return {
             "success": True,
-            "data": result,
+            "data": {
+                "report_date": result["report_date"],
+                "generated_at": result["generated_at"],
+            },
         }
     except HTTPException:
         raise

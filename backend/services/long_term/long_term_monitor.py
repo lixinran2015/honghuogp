@@ -315,7 +315,7 @@ class LongTermMonitor:
 
                 # 检查北向持股比例变化（针对个股）
                 sql2 = text("""
-                    SELECT holding_ratio
+                    SELECT hold_ratio
                     FROM fact_north_holding
                     WHERE ts_code = :ts_code
                       AND trade_date <= :trade_date

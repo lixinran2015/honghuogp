@@ -20,13 +20,53 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load darwin router: {e}")
 
-    # 长线推荐
+    # 长线推荐 (旧)
     try:
-        from backend.api.long_term import router as long_term_router
+        from backend.api.long_term.long_term import router as long_term_router
         routers.append(long_term_router)
         logger.info("Loaded long_term route: long_term")
     except ImportError as e:
         logger.warning(f"Failed to load long_term router: {e}")
+
+    # 长线选股
+    try:
+        from backend.api.long_term.selection import router as selection_router
+        routers.append(selection_router)
+        logger.info("Loaded long_term route: selection")
+    except ImportError as e:
+        logger.warning(f"Failed to load selection router: {e}")
+
+    # 长线组合
+    try:
+        from backend.api.long_term.portfolio import router as portfolio_router
+        routers.append(portfolio_router)
+        logger.info("Loaded long_term route: portfolio")
+    except ImportError as e:
+        logger.warning(f"Failed to load portfolio router: {e}")
+
+    # 长线监控
+    try:
+        from backend.api.long_term.monitoring import router as monitoring_router
+        routers.append(monitoring_router)
+        logger.info("Loaded long_term route: monitoring")
+    except ImportError as e:
+        logger.warning(f"Failed to load monitoring router: {e}")
+
+    # 长线日志
+    try:
+        from backend.api.long_term.journal import router as journal_router
+        routers.append(journal_router)
+        logger.info("Loaded long_term route: journal")
+    except ImportError as e:
+        logger.warning(f"Failed to load journal router: {e}")
+
+    # 长线日报
+    try:
+        from backend.api.long_term.daily_report import router as daily_report_router
+        routers.append(daily_report_router)
+        logger.info("Loaded long_term route: daily_report")
+    except ImportError as e:
+        logger.warning(f"Failed to load daily_report router: {e}")
 
     # 行业龙头
     try:
@@ -59,6 +99,30 @@ def get_routers() -> List[APIRouter]:
         logger.info("Loaded long_term route: backtest")
     except ImportError as e:
         logger.warning(f"Failed to load backtest router: {e}")
+
+    # 四步精选选股
+    try:
+        from backend.api.long_term.four_step_selection import router as four_step_router
+        routers.append(four_step_router)
+        logger.info("Loaded long_term route: four_step_selection")
+    except ImportError as e:
+        logger.warning(f"Failed to load four_step_selection router: {e}")
+
+    # 长线跟踪池
+    try:
+        from backend.api.long_term.tracking_pool import router as tracking_pool_router
+        routers.append(tracking_pool_router)
+        logger.info("Loaded long_term route: tracking_pool")
+    except ImportError as e:
+        logger.warning(f"Failed to load tracking_pool router: {e}")
+
+    # 股票搜索
+    try:
+        from backend.api.long_term.search_stock import router as search_stock_router
+        routers.append(search_stock_router)
+        logger.info("Loaded long_term route: search_stock")
+    except ImportError as e:
+        logger.warning(f"Failed to load search_stock router: {e}")
 
     logger.info(f"Total long_term routes loaded: {len(routers)}")
     return routers

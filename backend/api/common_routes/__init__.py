@@ -85,5 +85,31 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load data_warehouse router: {e}")
 
+    # 推荐规则
+    try:
+        from backend.api.recommendations import recommendations as recommendations_rules
+        routers.append(recommendations_rules.router)
+        logger.info("Loaded common route: recommendations")
+    except ImportError as e:
+        logger.warning(f"Failed to load recommendations router: {e}")
+
+    # 推荐池
+    try:
+        from backend.api.recommendations import recommendation as recommendation_pool
+        routers.append(recommendation_pool.router)
+        logger.info("Loaded common route: recommendation_pool")
+    except ImportError as e:
+        logger.warning(f"Failed to load recommendation_pool router: {e}")
+
+    # 定时任务
+    try:
+        from backend.api.tasks.scheduled_task import router as scheduled_task_router
+        routers.append(scheduled_task_router)
+        logger.info("Loaded common route: scheduled_task")
+    except ImportError as e:
+        logger.warning(f"Failed to load scheduled_task router: {e}")
+
     logger.info(f"Total common routes loaded: {len(routers)}")
     return routers
+
+# 注意：scheduled_task 路由在 backend/api/tasks/ 下，需要单独加载

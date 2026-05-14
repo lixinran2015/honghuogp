@@ -10,7 +10,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date
 
@@ -21,7 +21,7 @@ from backend.services.long_term.long_term_journal import LongTermJournal
 from backend.services.long_term.exit_analyzer import ExitAnalyzer
 from data_warehouse.service.warehouse_service import WarehouseService
 
-router = APIRouter()
+router = APIRouter(prefix="/api/long-term")
 
 
 class BuyRequest(BaseModel):
@@ -50,6 +50,11 @@ class UpdateRequest(BaseModel):
     darwin_score: Optional[float] = None
     pe_percentile_5y: Optional[float] = None
     pb_percentile_5y: Optional[float] = None
+
+
+class RebalanceRequest(BaseModel):
+    candidates: Optional[List[str]] = None
+    market_environment: str = "balanced"
 
 
 @router.get("/portfolio")
@@ -124,10 +129,7 @@ async def get_portfolio():
 
 
 @router.post("/portfolio/rebalance")
-async def rebalance_portfolio(
-    candidates: Optional[List[str]] = None,
-    market_environment: str = "balanced",
-):
+async def rebalance_portfolio(request: RebalanceRequest):
     """
     执行再平衡分析
 
@@ -171,15 +173,15 @@ async def rebalance_portfolio(
         session.close()
 
     # 如果没有提供候选池，从选股结果获取
-    if not candidates:
+    if not request.candidates:
         from backend.services.long_term.long_term_selector import LongTermSelector
         selector = LongTermSelector(warehouse_service=warehouse)
         selection_result = selector.select_stocks()
-        candidates = [s["ts_code"] for s in selection_result.get("stocks", [])]
+        request.candidates = [s["ts_code"] for s in selection_result.get("stocks", [])]
 
     # 生成再平衡计划
     optimizer = PortfolioOptimizer(warehouse)
-    plan = optimizer.generate_rebalance_plan(holdings, candidates, market_environment)
+    plan = optimizer.generate_rebalance_plan(holdings, request.candidates, request.market_environment)
 
     return plan
 

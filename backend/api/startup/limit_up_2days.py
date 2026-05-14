@@ -98,13 +98,22 @@ def _get_popularity_stocks(session, query_date: date, min_rank: Optional[int], m
     query = session.query(FactGubaPopularityRank.ts_code).filter(
         FactGubaPopularityRank.crawl_date == query_date
     )
-    
+
     if min_rank is not None:
         query = query.filter(FactGubaPopularityRank.rank_position >= min_rank)
     if max_rank is not None:
         query = query.filter(FactGubaPopularityRank.rank_position <= max_rank)
-    
+
     results = query.all()
+    return [row[0] for row in results]
+
+
+def _get_all_stocks(session, trade_date: date) -> List[str]:
+    """获取指定交易日有价格数据的所有股票列表"""
+    from data_warehouse.models.generated_models import FactDailyPriceQfq
+    results = session.query(FactDailyPriceQfq.ts_code).filter(
+        FactDailyPriceQfq.trade_date == trade_date
+    ).distinct().all()
     return [row[0] for row in results]
 
 
@@ -674,95 +683,107 @@ async def query_limit_up_today_60d_high(
 @router.get("/limit-up-today-60d-high")
 async def find_limit_up_today_60d_high(
     trade_date: Optional[str] = Query(None, description="股票日期，格式YYYY-MM-DD，用于计算股票是否突破60日新高，默认今天"),
-    popularity_date: Optional[str] = Query(None, description="榜单日期，格式YYYY-MM-DD，用于获取人气榜数据，默认与股票日期相同"),
-    max_rank: Optional[int] = Query(100, description="最高排名（默认前100名）")
+    popularity_date: Optional[str] = Query(None, description="榜单日期，格式YYYY-MM-DD，用于获取人气榜数据。不传则计算全部股票"),
+    max_rank: Optional[int] = Query(100, description="最高排名（默认前100名），仅在使用人气榜时生效")
 ) -> Dict:
     """
-    实时计算股吧人气榜中第一次突破60日新高的股票
-    
-    根据指定日期的人气榜前N名，实时计算每只股票在指定日期是否第一次突破60日新高。
-    支持使用不同的榜单日期和股票日期。
-    
+    实时计算第一次突破60日新高的股票
+
+    支持两种模式：
+    1. 传 popularity_date：计算该日人气榜前N名股票在 trade_date 是否第一次突破60日新高
+    2. 不传 popularity_date：计算 trade_date 当天全部有数据的股票，找出第一次突破60日新高的
+
     Args:
         trade_date: 股票日期（格式YYYY-MM-DD，用于计算股票是否突破60日新高，默认今天）
-        popularity_date: 榜单日期（格式YYYY-MM-DD，用于获取人气榜数据，默认与股票日期相同）
-        max_rank: 最高排名（默认前100名）
-    
+        popularity_date: 榜单日期（格式YYYY-MM-DD，不传则计算全部股票）
+        max_rank: 最高排名（默认前100名），仅在使用人气榜时生效
+
     Returns:
         Dict: {
             'success': bool,
             'data': List[Dict],  # 第一次突破60日新高股票列表
             'count': int,
             'query_date': str,
-            'popularity_date': str
+            'popularity_date': str | None
         }
     """
     try:
         ws = WarehouseService()
         session = ws.get_session()
-        
+
         try:
             # 1. 确定股票日期
             if trade_date:
                 stock_date = datetime.strptime(trade_date, "%Y-%m-%d").date()
             else:
                 stock_date = datetime.now().date()
-            
-            # 2. 确定榜单日期（如果未指定，则使用股票日期）
+
+            # 2. 获取目标股票列表
             if popularity_date:
+                # 模式1：使用人气榜
                 rank_date = datetime.strptime(popularity_date, "%Y-%m-%d").date()
+                target_stocks = _get_popularity_stocks(session, rank_date, min_rank=1, max_rank=max_rank)
+                logger.info(f"🔢 开始计算：榜单日期={rank_date}，股票日期={stock_date}，人气榜前{max_rank}名")
+
+                if not target_stocks:
+                    logger.warning(f"⚠️ {rank_date} 未找到人气榜数据")
+                    return {
+                        'success': True,
+                        'data': [],
+                        'count': 0,
+                        'query_date': stock_date.isoformat(),
+                        'popularity_date': rank_date.isoformat(),
+                        'message': '未找到人气榜数据'
+                    }
+
+                logger.info(f"📊 从 {rank_date} 人气榜获取 {len(target_stocks)} 只股票")
             else:
-                rank_date = stock_date
-            
-            logger.info(f"🔢 开始计算：榜单日期={rank_date}，股票日期={stock_date}，人气榜前{max_rank}名")
-            
-            # 3. 获取股吧人气榜股票列表（使用榜单日期）
-            popularity_stocks = _get_popularity_stocks(session, rank_date, min_rank=1, max_rank=max_rank)
-            
-            if not popularity_stocks:
-                logger.warning(f"⚠️ {rank_date} 未找到人气榜数据")
-                return {
-                    'success': True,
-                    'data': [],
-                    'count': 0,
-                    'query_date': stock_date.isoformat(),
-                    'popularity_date': rank_date.isoformat(),
-                    'message': '未找到人气榜数据'
-                }
-            
-            logger.info(f"📊 从 {rank_date} 人气榜获取 {len(popularity_stocks)} 只股票，开始实时计算 {stock_date} 第一次突破60日新高...")
-            
-            # 4. 实时计算第一次突破60日新高的股票（使用股票日期）
-            result_stocks = _find_first_60d_high(session, popularity_stocks, stock_date)
-            
+                # 模式2：计算全部股票
+                target_stocks = _get_all_stocks(session, stock_date)
+                logger.info(f"🔢 开始计算：股票日期={stock_date}，全部 {len(target_stocks)} 只股票")
+
+                if not target_stocks:
+                    logger.warning(f"⚠️ {stock_date} 未找到股票价格数据")
+                    return {
+                        'success': True,
+                        'data': [],
+                        'count': 0,
+                        'query_date': stock_date.isoformat(),
+                        'popularity_date': None,
+                        'message': '未找到股票价格数据'
+                    }
+
+            # 3. 实时计算第一次突破60日新高的股票（使用股票日期）
+            result_stocks = _find_first_60d_high(session, target_stocks, stock_date)
+
             logger.info(f"✅ 计算完成：找到 {len(result_stocks)} 只第一次突破60日新高股票")
-            
-            # 5. 保存计算结果到数据库（使用股票日期）
+
+            # 4. 保存计算结果到数据库（使用股票日期）
             if result_stocks:
                 try:
                     saved_count = _save_limit_up_today_60d_high_results(
-                        session, 
-                        result_stocks, 
-                        stock_date, 
-                        max_rank
+                        session,
+                        result_stocks,
+                        stock_date,
+                        max_rank if popularity_date else len(target_stocks)
                     )
                     logger.info(f"💾 保存计算结果到数据库：{saved_count} 条记录")
                 except Exception as e:
                     logger.warning(f"⚠️ 保存计算结果失败: {e}", exc_info=True)
                     # 保存失败不影响返回结果
-            
+
             return {
                 'success': True,
                 'data': result_stocks,
                 'count': len(result_stocks),
                 'query_date': stock_date.isoformat(),
-                'popularity_date': rank_date.isoformat(),
-                'popularity_count': len(popularity_stocks)
+                'popularity_date': rank_date.isoformat() if popularity_date else None,
+                'popularity_count': len(target_stocks)
             }
-            
+
         finally:
             session.close()
-            
+
     except Exception as e:
         logger.error(f"查找第一次突破60日新高股票失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="查找失败，请稍后重试")
@@ -801,111 +822,163 @@ def _is_first_60d_high(session, ts_code: str, check_date: date) -> bool:
 
 def _find_first_60d_high(session, ts_codes: List[str], query_date: date) -> List[Dict]:
     """
-    查找第一次突破60日新高的股票
-    
+    查找第一次突破60日新高的股票（批量SQL优化版）
+
+    优化策略：
+    1. 先用批量SQL找出所有60日新高的股票
+    2. 再用批量SQL检查这些股票是否是第一次突破
+    3. 最后组装结果
+
     Args:
         session: 数据库会话
         ts_codes: 股票代码列表
         query_date: 查询日期
-    
+
     Returns:
         List[Dict]: 第一次突破60日新高股票列表
     """
+    from sqlalchemy import text
+
     results = []
-    
+    if not ts_codes:
+        return results
+
     # 获取查询日期当天或之前最近的交易日
     trading_dates = _get_recent_trading_dates(session, query_date, count=2)
-    
     if len(trading_dates) < 1:
         logger.warning(f"交易日数据不足")
         return results
-    
-    # 找到查询日期当天或之前最近的交易日作为"今天"
+
     today = None
-    for date in reversed(trading_dates):
-        if date <= query_date:
-            today = date
+    for d in reversed(trading_dates):
+        if d <= query_date:
+            today = d
             break
-    
+
     if today is None:
         logger.warning(f"无法找到查询日期 {query_date} 当天或之前的交易日")
         return results
-    
-    logger.info(f"📅 查询日期: {query_date}, 检查日期: {today} 是否第一次突破60日新高")
-    
-    # 批量查询价格数据（今天）
-    dates_to_query = [today]
-    price_data = _batch_get_price_data(session, ts_codes, dates_to_query)
-    
-    # 批量查询股票基本信息
-    stock_info = _batch_get_stock_info(session, ts_codes)
-    
-    for ts_code in ts_codes:
+
+    logger.info(f"📅 查询日期: {query_date}, 检查日期: {today}，共 {len(ts_codes)} 只股票")
+
+    # === 步骤1: 批量SQL找出所有60日新高的股票 ===
+    logger.info("步骤1: 批量SQL找出60日新高股票...")
+    sql_60d_high = text("""
+        WITH dates AS (
+            SELECT trade_date,
+                   ROW_NUMBER() OVER (ORDER BY trade_date DESC) as rn
+            FROM (SELECT DISTINCT trade_date FROM fact_daily_price_qfq WHERE trade_date <= :check_date) t
+        ),
+        check_date_row AS (SELECT trade_date FROM dates WHERE rn = 1),
+        hist_60d_dates AS (SELECT trade_date FROM dates WHERE rn > 1 AND rn <= 61),
+        max_60d AS (
+            SELECT ts_code, MAX(close) as max_close
+            FROM fact_daily_price_qfq
+            WHERE trade_date IN (SELECT trade_date FROM hist_60d_dates)
+              AND ts_code = ANY(:ts_codes)
+            GROUP BY ts_code
+        ),
+        check_prices AS (
+            SELECT ts_code, close, change_pct, amount
+            FROM fact_daily_price_qfq
+            WHERE trade_date = (SELECT trade_date FROM check_date_row)
+              AND ts_code = ANY(:ts_codes)
+        )
+        SELECT c.ts_code, c.close, c.change_pct, c.amount, m.max_close
+        FROM check_prices c
+        JOIN max_60d m ON c.ts_code = m.ts_code
+        WHERE c.close >= m.max_close
+        ORDER BY c.ts_code
+    """)
+
+    rows_60d = session.execute(sql_60d_high, {
+        "check_date": today,
+        "ts_codes": ts_codes
+    }).fetchall()
+
+    high_stocks = {row[0]: {
+        'close': float(row[1]) if row[1] else None,
+        'change_pct': float(row[2]) if row[2] else None,
+        'amount': float(row[3]) if row[3] else None,
+        'max_60d': float(row[4]) if row[4] else None,
+    } for row in rows_60d}
+
+    logger.info(f"  找到 {len(high_stocks)} 只60日新高股票")
+    if not high_stocks:
+        return results
+
+    # === 步骤2: 批量检查是否是第一次突破60日新高 ===
+    logger.info("步骤2: 批量检查是否是第一次突破...")
+    high_ts_codes = list(high_stocks.keys())
+
+    # 使用已有的 _is_first_60d_high 逻辑，但批量查询更高效
+    # 方案：查询 FactLimitUpToday60dHigh 表中，这些股票在 today 之前是否有记录
+    try:
+        from data_warehouse.models.limit_up_today_60d_high import FactLimitUpToday60dHigh
+        from sqlalchemy import func
+
+        # 批量查询：找出在 today 之前有记录的股票
+        previous_records = session.query(FactLimitUpToday60dHigh.ts_code).filter(
+            FactLimitUpToday60dHigh.ts_code.in_(high_ts_codes),
+            FactLimitUpToday60dHigh.trade_date < today
+        ).distinct().all()
+
+        had_before = {row[0] for row in previous_records}
+        first_high_codes = [code for code in high_ts_codes if code not in had_before]
+
+        logger.info(f"  其中 {len(first_high_codes)} 只是第一次突破")
+    except Exception as e:
+        logger.warning(f"批量检查第一次突破失败，回退到逐只检查: {e}")
+        # 回退到逐只检查
+        first_high_codes = []
+        for code in high_ts_codes:
+            if _is_first_60d_high(session, code, today):
+                first_high_codes.append(code)
+
+    if not first_high_codes:
+        return results
+
+    # === 步骤3: 获取股票名称和计算涨幅 ===
+    logger.info("步骤3: 组装结果...")
+    stock_info = _batch_get_stock_info(session, first_high_codes)
+
+    # 批量获取排名信息（仅当查询日期在人气榜数据范围内时）
+    rank_info_map = {}
+    for code in first_high_codes:
+        rank_info_map[code] = _get_rank_info(session, code, query_date)
+
+    # 批量计算近5日/10日涨幅
+    for ts_code in first_high_codes:
         try:
-            # 获取价格数据
-            today_data = price_data.get(ts_code, {}).get(today)
-            
-            if not today_data:
-                continue
-            
-            # 获取今日收盘价
-            today_close_val = today_data.get('close')
-            if today_close_val is None:
-                continue
-            
-            today_close = float(today_close_val)
-            
-            # 判断是否60日新高
-            is_60d_high = _check_is_60d_high(session, ts_code, today, today_close)
-            
-            if not is_60d_high:
-                continue
-            
-            # 判断是否是第一次突破60日新高
-            is_first = _is_first_60d_high(session, ts_code, today)
-            
-            if not is_first:
-                continue  # 不是第一次，跳过
-            
-            # 获取人气榜排名信息
-            rank_info = _get_rank_info(session, ts_code, query_date)
-            
-            # 判断是否是首次入榜单
-            first_entry_info = _get_first_entry_info(session, ts_code, query_date)
-            
-            # 计算近5日涨幅
+            info = high_stocks[ts_code]
+            today_close = info['close']
+
             change_5d = _calculate_5d_change(session, ts_code, today, today_close)
-            
-            # 计算近10日涨幅
             change_10d = _calculate_10d_change(session, ts_code, today, today_close)
-            
-            # 获取成交额
-            amount = today_data.get('amount')
-            
+            rank_info = rank_info_map.get(ts_code, {})
+
             results.append({
                 'ts_code': ts_code,
                 'name': stock_info.get(ts_code, {}).get('name', ''),
                 'rank_position': rank_info.get('rank_position'),
                 'rank_change': rank_info.get('rank_change'),
-                'change_5d': change_5d,  # 近5日涨幅
-                'change_10d': change_10d,  # 近10日涨幅
-                'is_60d_high': is_60d_high,  # 是否60日新高
-                'is_first_60d_high': True,  # 是否是第一次突破60日新高
-                'is_first_entry': first_entry_info.get('is_first_entry', False),  # 是否是首次入榜单
-                'first_entry_date': first_entry_info.get('first_entry_date'),  # 首次入榜日期
+                'change_5d': change_5d,
+                'change_10d': change_10d,
+                'is_60d_high': True,
+                'is_first_60d_high': True,
                 'today_date': today.isoformat(),
                 'today_close': today_close,
-                'change_pct': today_data.get('change_pct'),
-                'amount': amount  # 成交额
+                'change_pct': info['change_pct'],
+                'amount': info['amount']
             })
-                
         except Exception as e:
             logger.warning(f"处理 {ts_code} 失败: {e}")
             continue
-    
-    # 按人气榜排名排序
-    results.sort(key=lambda x: x['rank_position'] if x['rank_position'] else 999)
-    
+
+    # 按人气榜排名排序（有排名的在前）
+    results.sort(key=lambda x: (x['rank_position'] is None, x['rank_position'] or 999))
+
+    logger.info(f"✅ 计算完成: {len(results)} 只第一次突破60日新高")
     return results
 
 

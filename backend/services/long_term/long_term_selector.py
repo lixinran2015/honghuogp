@@ -1,11 +1,12 @@
 """
 长线选股引擎
 
-四层筛选漏斗：
+五层筛选漏斗：
 1. 基础排除（ST/停牌/上市不满3年）
 2. 行业差异化财务筛选（ROE/负债率按行业类型差异化阈值）
 3. 价值陷阱过滤
-4. 估值安全边际（PE/PB分位数 < 50%，相对行业低估）
+4. 估值安全边际（PE/PB分位数 < 70%，相对行业低估）
+5. 质量精选层（PE>0、成交额>=1亿、Darwin>=60、PE/PB分位<50%）
 
 输出：按 Darwin评分 × 财务健康系数 排序的候选股票池
 """
@@ -80,7 +81,12 @@ class LongTermSelector:
         filter_stats["step4_after_valuation"] = len(stocks)
         logger.info(f"Step 4 - 估值安全边际后：{len(stocks)} 只")
 
-        # Step 5: 排序输出（按 Darwin评分 × 财务健康系数）
+        # Step 5: 质量精选层（流动性 + 质量门槛 + 评分严格化）
+        stocks = self._apply_quality_filters(stocks, trade_date)
+        filter_stats["step5_after_quality"] = len(stocks)
+        logger.info(f"Step 5 - 质量精选后：{len(stocks)} 只")
+
+        # Step 6: 排序输出（按 Darwin评分 × 财务健康系数）
         stocks.sort(key=lambda s: s.get("composite_score", 0), reverse=True)
         candidates = stocks[:limit]
 
@@ -118,7 +124,8 @@ class LongTermSelector:
                         d.dividend_yield_ttm,
                         d.peg_ttm_3y as peg,
                         p.close,
-                        p.change_pct
+                        p.change_pct,
+                        p.amount
                     FROM dim_stock s
                     LEFT JOIN fact_daily_fundamental d
                         ON s.ts_code = d.ts_code
@@ -160,6 +167,7 @@ class LongTermSelector:
                         "peg": self._to_float(row[9]),
                         "close_price": self._to_float(row[10]),
                         "change_pct": self._to_float(row[11]),
+                        "amount": self._to_float(row[12]),
                         "sector_type": classify_industry(row[2] or ""),
                     }
                     stocks.append(stock)
@@ -257,6 +265,43 @@ class LongTermSelector:
             financial_health = stock.get("financial_health", 0.7)
             composite_score = darwin_score * financial_health
             stock["composite_score"] = round(composite_score, 2)
+
+            passed.append(stock)
+
+        return passed
+
+    def _apply_quality_filters(
+        self,
+        stocks: List[Dict[str, Any]],
+        trade_date: date,
+    ) -> List[Dict[str, Any]]:
+        """质量精选层：流动性 + 数据有效性 + 评分严格化"""
+        passed = []
+
+        for stock in stocks:
+            # 1. PE 必须为正（排除亏损和异常数据）
+            pe_ttm = stock.get("pe_ttm")
+            if pe_ttm is None or pe_ttm <= 0:
+                continue
+
+            # 2. 成交额门槛 >= 1亿元（amount 字段单位为千元）
+            amount = stock.get("amount")
+            if amount is None or amount < 100_000:  # 100000 千元 = 1 亿元
+                continue
+
+            # 3. Darwin 评分严格化 >= 60
+            darwin_score = stock.get("darwin_score", 0)
+            if darwin_score < 60:
+                continue
+
+            # 4. 估值分位数双保险：PE分位 < 50% 且 PB分位 < 50%
+            percentiles = stock.get("valuation_percentile", {})
+            pe_pct = percentiles.get("pe_percentile_5y")
+            pb_pct = percentiles.get("pb_percentile_5y")
+            if pe_pct is not None and pe_pct >= 0.50:
+                continue
+            if pb_pct is not None and pb_pct >= 0.50:
+                continue
 
             passed.append(stock)
 

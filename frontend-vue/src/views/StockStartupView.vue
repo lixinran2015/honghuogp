@@ -1717,7 +1717,7 @@ async function autoCheckAllFinancial() {
       )
 
       // 自动刷新数据
-      await loadStocks()
+      await loadData()
       await reloadFinancialCheckResultsFromDb()
     } else {
       alert('自动检测失败: ' + (result.error || '未知错误'))

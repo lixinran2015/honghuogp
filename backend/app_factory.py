@@ -174,18 +174,36 @@ def _register_routers(app: FastAPI, service_type: ServiceType):
     """注册路由"""
     from backend.api import common_routes, short_term_routes, long_term_routes
 
+    logger.info("=== _register_routers start ===")
+
     # 始终注册共享路由
-    for router in common_routes.get_routers():
+    logger.info("Loading common_routes...")
+    common_routers = common_routes.get_routers()
+    logger.info(f"common_routes returned {len(common_routers)} routers")
+    for i, router in enumerate(common_routers):
+        logger.info(f"Including common router {i}: prefix={getattr(router, 'prefix', '')}")
         app.include_router(router)
+        logger.info(f"Included common router {i}")
+    logger.info("common_routes done")
 
     # 根据服务类型注册专用路由
     if service_type in [ServiceType.SHORT_TERM, ServiceType.ALL]:
-        for router in short_term_routes.get_routers():
+        logger.info("Loading short_term_routes...")
+        short_routers = short_term_routes.get_routers()
+        logger.info(f"short_term_routes returned {len(short_routers)} routers")
+        for i, router in enumerate(short_routers):
+            logger.info(f"Including short router {i}: prefix={getattr(router, 'prefix', '')}")
             app.include_router(router)
+        logger.info("short_term_routes done")
 
     if service_type in [ServiceType.LONG_TERM, ServiceType.ALL]:
-        for router in long_term_routes.get_routers():
+        logger.info("Loading long_term_routes...")
+        long_routers = long_term_routes.get_routers()
+        logger.info(f"long_term_routes returned {len(long_routers)} routers")
+        for i, router in enumerate(long_routers):
+            logger.info(f"Including long router {i}: prefix={getattr(router, 'prefix', '')}")
             app.include_router(router)
+        logger.info("long_term_routes done")
 
     logger.info(f"Router registration complete for {service_type.value}")
 

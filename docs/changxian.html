@@ -1,0 +1,1944 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>长线投资方案：从选股到卖出的完整执行框架</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy': '#1e3a8a',
+                        'navy-dark': '#1e40af',
+                        'navy-light': '#3b82f6',
+                        'gold': '#fbbf24',
+                        'gold-light': '#fcd34d',
+                        'cream': '#fef7ed',
+                        'warm-gray': '#78716c'
+                    },
+                    fontFamily: {
+                        'serif': ['Crimson Text', 'serif'],
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #fef7ed 0%, #f8fafc 100%);
+        }
+        .hero-title {
+            font-family: 'Crimson Text', serif;
+            font-style: italic;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-title {
+            font-family: 'Crimson Text', serif;
+            color: #1e3a8a;
+        }
+        .toc-fixed {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 280px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 58, 138, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .content-wrapper {
+            margin-left: 320px;
+            padding: 20px;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(30, 58, 138, 0.05);
+        }
+        .citation {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px dotted #3b82f6;
+        }
+        .citation:hover {
+            background-color: #eff6ff;
+            border-bottom: 1px solid #3b82f6;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #fbbf24 0%, #fcd34d 100%);
+            color: #1e3a8a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #1e40af;
+        }
+        .mermaid-container {
+            display: flex;
+            justify-content: center;
+            min-height: 300px;
+            max-height: 800px;
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mermaid-container .mermaid {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            cursor: grab;
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .mermaid-container .mermaid svg {
+            max-width: 100%;
+            height: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .mermaid-container .mermaid:active {
+            cursor: grabbing;
+        }
+
+        .mermaid-container.zoomed .mermaid {
+            height: 100%;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .mermaid-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .mermaid-control-btn {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #374151;
+            font-size: 14px;
+            min-width: 36px;
+            height: 36px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-control-btn:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .mermaid-control-btn:active {
+            transform: scale(0.95);
+        }
+        @media (max-width: 1024px) {
+            .toc-fixed {
+                display: none;
+            }
+            .content-wrapper {
+                margin-left: 0;
+            }
+            .mermaid-control-btn:not(.reset-zoom) {
+                display: none;
+            }
+            .mermaid-controls {
+                top: auto;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+
+        /* Responsive adjustments for small screens */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5rem;
+                line-height: 1.2;
+            }
+            .section-title {
+                font-size: 2rem;
+                line-height: 1.3;
+            }
+            .content-wrapper {
+                padding: 10px;
+            }
+            .grid-cols-3, .grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .highlight-box, .bg-white, .chart-container {
+                padding: 15px;
+            }
+        }
+    </style>
+  <base target="_blank">
+</head>
+
+  <body class="bg-gradient-to-br from-cream to-slate-50 text-slate-800">
+    <!-- Fixed Table of Contents -->
+    <nav class="toc-fixed">
+      <h3 class="text-lg font-semibold text-navy mb-4 border-b border-navy/20 pb-2">目录导航</h3>
+      <ul class="space-y-2 text-sm">
+        <li>
+          <a href="#philosophy" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">投资哲学与目标设定</a>
+        </li>
+        <li>
+          <a href="#stock-selection" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">选股体系：三层筛选漏斗</a>
+        </li>
+        <li>
+          <a href="#valuation" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">估值体系：内在价值锚定</a>
+        </li>
+        <li>
+          <a href="#buying" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">买入策略：时机选择与仓位构建</a>
+        </li>
+        <li>
+          <a href="#holding" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">持有策略：动态跟踪与心态管理</a>
+        </li>
+        <li>
+          <a href="#selling" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">卖出策略：离场纪律与再配置</a>
+        </li>
+        <li>
+          <a href="#risk-management" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">风险管理体系</a>
+        </li>
+        <li>
+          <a href="#execution" class="block py-1 px-2 rounded hover:bg-navy/5 transition-colors">执行保障与持续优化</a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="content-wrapper">
+      <!-- Hero Section with Bento Grid -->
+      <section class="mb-16">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <!-- Main Title Card -->
+          <div class="lg:col-span-2 bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+            <h1 class="hero-title text-5xl font-bold leading-tight mb-6">
+              长线投资方案：从选股到卖出的完整执行框架
+            </h1>
+            <p class="text-xl text-warm-gray leading-relaxed mb-6">
+              基于价值投资哲学的系统性投资方法论，涵盖选股、估值、买入、持有、卖出全流程，构建可复制的长期投资体系
+            </p>
+            <div class="flex items-center space-x-4 text-sm text-warm-gray">
+              <span class="flex items-center"><i class="fas fa-chart-line mr-2"></i>年化目标 8%-15%</span>
+              <span class="flex items-center"><i class="fas fa-clock mr-2"></i>投资期限 3-5年+</span>
+              <span class="flex items-center"><i class="fas fa-shield-alt mr-2"></i>风险控制 严格纪律</span>
+            </div>
+          </div>
+
+          <!-- Key Metrics Card -->
+          <div class="bg-navy text-white rounded-2xl p-6 shadow-lg">
+            <h3 class="text-lg font-semibold mb-4 text-gold">核心指标</h3>
+            <div class="space-y-4">
+              <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">选股通过率</span>
+                <span class="font-bold text-gold">3%</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">平均持有期</span>
+                <span class="font-bold text-gold">5-10年</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">换手率上限</span>
+                <span class="font-bold text-gold">50%/年</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">单股仓位上限</span>
+                <span class="font-bold text-gold">20%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Philosophy Highlights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="highlight-box">
+            <i class="fas fa-gem text-2xl mb-3"></i>
+            <h4 class="font-semibold mb-2">价值投资导向</h4>
+            <p class="text-sm">以企业内在价值为锚，追求安全边际，让时间成为投资的朋友</p>
+          </div>
+          <div class="highlight-box">
+            <i class="fas fa-layer-group text-2xl mb-3"></i>
+            <h4 class="font-semibold mb-2">三层筛选体系</h4>
+            <p class="text-sm">行业筛选→企业质地→财务健康，漏斗式精选优质标的</p>
+          </div>
+          <div class="highlight-box">
+            <i class="fas fa-balance-scale text-2xl mb-3"></i>
+            <h4 class="font-semibold mb-2">风险收益平衡</h4>
+            <p class="text-sm">严格仓位管理，分散配置，控制下行风险，追求风险调整后收益</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 1: Investment Philosophy -->
+      <section id="philosophy" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-brain mr-3"></i>投资哲学与目标设定
+          </h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-4">核心投资理念</h3>
+              <div class="space-y-4">
+                <div class="border-l-4 border-gold pl-4">
+                  <h4 class="font-semibold text-navy mb-2">价值投资导向</h4>
+                  <p class="text-warm-gray text-sm leading-relaxed">
+                    市场短期是投票机，长期是称重机。以企业内在价值为锚，建立系统化分析框架，
+                    通过财务报表分析、行业竞争格局评估、管理层质量考察等多维度研究，
+                    形成独立的价值判断。<a href="#" class="citation">本杰明·格雷厄姆</a>提出的
+                    <strong>&#34;安全边际&#34;</strong>概念是长线投资的基石。
+                  </p>
+                </div>
+                <div class="border-l-4 border-navy-light pl-4">
+                  <h4 class="font-semibold text-navy mb-2">长期持有原则</h4>
+                  <p class="text-warm-gray text-sm leading-relaxed">
+                    复利是世界第八大奇迹。<strong>假设年化收益率12%，初始本金100万元，
+                      30年后将增长至约2996万元</strong>，而单利计算仅为460万元。
+                    频繁交易不仅消耗成本，更重要的是打断复利积累过程。
+                    <a href="#" class="citation">菲利普·费雪</a>指出：&#34;短期的价格波动本质上难以捉摸，
+                    不易预测。&#34;
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-4">能力圈边界</h3>
+              <div class="bg-navy/5 rounded-lg p-4">
+                <p class="text-warm-gray text-sm leading-relaxed mb-4">
+                  能力圈原则强调投资者应当明确认知边界，只在能够深度理解的领域内进行投资。
+                  <a href="#" class="citation">巴菲特</a>所言，&#34;风险来自于你不知道自己在做什么&#34;。
+                </p>
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>行业知识的深度积累</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>财务分析的专业能力</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>管理层的评估能力</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-r from-navy to-navy-light text-white rounded-lg p-6">
+            <h3 class="text-xl font-semibold mb-4 text-gold">投资目标量化</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-gold mb-2">8%-15%</div>
+                <div class="text-sm opacity-90">年化预期收益率</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-gold mb-2">3-5年+</div>
+                <div class="text-sm opacity-90">最低投资期限</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-gold mb-2">Alpha &gt; 0</div>
+                <div class="text-sm opacity-90">风险调整后超额收益</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Stock Selection System -->
+      <section id="stock-selection" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-filter mr-3"></i>选股体系：三层筛选漏斗
+          </h2>
+
+          <div class="mb-8">
+            <img src="https://kimi-web-img.moonshot.cn/img/cdn2.slidemodel.com/866b0a60fa266da43eb3098130635ce702985190.jpg" alt="三层筛选漏斗示意图" class="w-full h-64 object-cover rounded-lg shadow-md mb-4" size="medium" aspect="wide" query="三层筛选漏斗" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+          </div>
+
+          <div class="space-y-8">
+            <!-- Layer 1: Industry Screening -->
+            <div class="border-l-4 border-navy pl-6">
+              <h3 class="text-xl font-semibold text-navy mb-4">第一层：行业与赛道筛选</h3>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h4 class="font-semibold text-navy mb-3">行业生命周期判断</h4>
+                  <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center p-2 bg-green-50 rounded">
+                      <span class="text-green-800 font-medium">成长期</span>
+                      <span class="text-green-600 text-xs">新能源汽车、生物医药</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-blue-50 rounded">
+                      <span class="text-blue-800 font-medium">成熟期</span>
+                      <span class="text-blue-600 text-xs">白酒、家电、银行</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-red-50 rounded">
+                      <span class="text-red-800 font-medium">衰退期</span>
+                      <span class="text-red-600 text-xs">传统胶卷、功能手机</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="font-semibold text-navy mb-3">竞争格局审视</h4>
+                  <div class="space-y-2">
+                    <div class="border rounded p-3">
+                      <div class="font-medium text-sm text-navy">品牌壁垒</div>
+                      <div class="text-xs text-warm-gray">奢侈品、高端白酒</div>
+                    </div>
+                    <div class="border rounded p-3">
+                      <div class="font-medium text-sm text-navy">成本壁垒</div>
+                      <div class="text-xs text-warm-gray">制造业、资源品</div>
+                    </div>
+                    <div class="border rounded p-3">
+                      <div class="font-medium text-sm text-navy">网络效应</div>
+                      <div class="text-xs text-warm-gray">互联网平台、支付系统</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Layer 2: Company Quality -->
+            <div class="border-l-4 border-gold pl-6">
+              <h3 class="text-xl font-semibold text-navy mb-4">第二层：企业质地评估</h3>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">商业模式分析</h4>
+                  <p class="text-sm text-warm-gray mb-3">护城河类型与可持续性</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 多重护城河叠加最佳</div>
+                    <div>• 价值捕获能力关键</div>
+                    <div>• 茅台案例：品牌+成本+牌照</div>
+                  </div>
+                </div>
+
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">管理层评价</h4>
+                  <p class="text-sm text-warm-gray mb-3">诚信记录、战略执行力</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 分红募资比 &gt; 1</div>
+                    <div>• 战略执行一致性</div>
+                    <div>• 任何诚信污点一票否决</div>
+                  </div>
+                </div>
+
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">竞争优势持续性</h4>
+                  <p class="text-sm text-warm-gray mb-3">ROE稳定性、现金流创造</p>
+                  <div class="text-xs space-y-1">
+                    <div>• ROE &gt; 15%且稳定</div>
+                    <div>• 经营现金流/净利润 &gt; 1</div>
+                    <div>• 再投资效率评估</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Layer 3: Financial Health -->
+            <div class="border-l-4 border-navy-light pl-6">
+              <h3 class="text-xl font-semibold text-navy mb-4">第三层：财务健康诊断</h3>
+
+              <div class="bg-gradient-to-r from-cream to-white rounded-lg p-6">
+                <h4 class="font-semibold text-navy mb-4">关键财务指标</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-navy mb-1">ROE &gt; 15%</div>
+                    <div class="text-sm text-warm-gray">盈利能力门槛</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-navy mb-1">现金流/利润 &gt; 1</div>
+                    <div class="text-sm text-warm-gray">利润质量</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-navy mb-1">有息负债率 &lt; 40%</div>
+                        <div class="text-sm text-warm-gray">财务稳健</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold text-navy mb-1">商誉/净资产 &lt; 30%</div>
+                          <div class="text-sm text-warm-gray">并购风险</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-400 rounded">
+                    <h5 class="font-semibold text-red-800 mb-2">风险排除清单</h5>
+                    <div class="text-sm text-red-700 space-y-1">
+                      <div>• 大股东高质押（&gt;50%）</div>
+                      <div>• 分红募资比异常（&lt;0.5）</div>
+                      <div>• 频繁更换审计机构</div>
+                      <div>• 审计意见非标</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section></div>
+      
+
+      <!-- Section 3: Valuation System -->
+      <section id="valuation" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-calculator mr-3"></i>估值体系：内在价值锚定
+          </h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Absolute Valuation -->
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-4">绝对估值方法</h3>
+
+              <div class="space-y-4">
+                <div class="border rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">DCF现金流折现</h4>
+                  <p class="text-sm text-warm-gray mb-3">三阶段增长模型与关键假设敏感性</p>
+
+                  <div class="bg-navy/5 rounded p-3 mb-3">
+                    <div class="text-sm font-medium text-navy mb-2">三阶段模型</div>
+                    <div class="space-y-1 text-xs">
+                      <div class="flex justify-between">
+                        <span>高速增长期</span>
+                        <span>5-10年</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>过渡增长期</span>
+                        <span>5-10年</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>永续增长期</span>
+                        <span>无限</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="text-xs text-warm-gray">
+                    <strong>敏感性分析：</strong>WACC±1%导致价值变动±15%
+                  </div>
+                </div>
+
+                <div class="border rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">DDM股利折现模型</h4>
+                  <p class="text-sm text-warm-gray mb-3">适用于稳定分红型企业的估值</p>
+                  <div class="bg-navy/5 rounded p-3">
+                    <div class="text-sm font-medium text-navy">戈登增长模型</div>
+                    <div class="text-xs text-warm-gray">P=D₁/(r-g)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Relative Valuation -->
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-4">相对估值方法</h3>
+
+              <div class="space-y-3">
+                <div class="bg-gradient-to-r from-gold/20 to-gold/10 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">PE估值法</h4>
+                  <div class="text-sm text-warm-gray">
+                    历史分位、行业对比与增长调整
+                    <br/>
+                    <span class="text-xs">应优先采用滚动PE（TTM）或远期PE</span>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-navy/10 to-navy/5 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">PB估值法</h4>
+                  <div class="text-sm text-warm-gray">
+                    适用于重资产与周期型企业的净资产锚定
+                    <br/>
+                    <span class="text-xs">银行业是PB估值的典型应用场景</span>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-navy-light/10 to-navy-light/5 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">EV/EBITDA法</h4>
+                  <div class="text-sm text-warm-gray">
+                    剔除资本结构的跨企业可比估值
+                    <br/>
+                    <span class="text-xs">国际经验法则：&lt;8为低估，&gt;12为高估</span>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-green-100 to-green-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">PEG指标</h4>
+                  <div class="text-sm text-warm-gray">
+                    平衡估值与成长的动态衡量工具
+                    <br/>
+                    <span class="text-xs">PEG&lt;1通常被视为低估信号</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Valuation Safety Margin -->
+          <div class="bg-gradient-to-r from-navy to-navy-light text-white rounded-lg p-6">
+            <h3 class="text-xl font-semibold mb-6 text-gold">估值安全边际</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 class="font-semibold mb-3 text-gold-light">折扣率设定</h4>
+                <p class="text-sm opacity-90 mb-3">内在价值7折以下作为买入触发区</p>
+
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span>高确定性龙头</span>
+                    <span class="text-gold">8-9折</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>中等确定性成长</span>
+                    <span class="text-gold">7折</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>高不确定性周期</span>
+                    <span class="text-gold">5-6折</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>困境反转标的</span>
+                    <span class="text-gold">4-5折</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="font-semibold mb-3 text-gold-light">估值区间划分</h4>
+                <div class="space-y-3">
+                  <div class="bg-green-500/20 rounded p-3">
+                    <div class="font-semibold text-green-200">低估区（买入区）</div>
+                    <div class="text-xs opacity-90">PE&lt;历史30%分位，价格&lt;内在价值7折</div>
+                    </div>
+                    <div class="bg-yellow-500/20 rounded p-3">
+                      <div class="font-semibold text-yellow-200">合理区（持有区）</div>
+                      <div class="text-xs opacity-90">PE历史30%-70%分位</div>
+                    </div>
+                    <div class="bg-red-500/20 rounded p-3">
+                      <div class="font-semibold text-red-200">高估区（卖出区）</div>
+                      <div class="text-xs opacity-90">PE&gt;历史70%分位，PEG&gt;2</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+      </section>
+
+      <!-- Section 4: Buying Strategy -->
+      <section id="buying" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-shopping-cart mr-3"></i>买入策略：时机选择与仓位构建
+          </h2>
+
+          <div class="mb-8">
+            <img src="https://kimi-web-img.moonshot.cn/img/truth.bahamut.com.tw/5c26fb3aa45274451eb46b59b87c00dbb591e5d2.JPG" alt="金字塔式分批建仓示意图" class="w-full h-48 object-cover rounded-lg shadow-md mb-4" size="medium" aspect="wide" query="金字塔式分批建仓" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Buying Triggers -->
+            <div class="border-l-4 border-navy pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">买入条件触发</h3>
+
+              <div class="space-y-4">
+                <div class="bg-navy/5 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">估值条件</h4>
+                  <p class="text-xs text-warm-gray mb-2">PE低于历史中位数或行业均值</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 市场整体熊市导致的普跌</div>
+                    <div>• 行业特定利空导致的错杀</div>
+                    <div>• 个股黑天鹅事件导致的过度反应</div>
+                  </div>
+                </div>
+
+                <div class="bg-gold/10 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">趋势条件</h4>
+                  <p class="text-xs text-warm-gray mb-2">底部区域放量突破或长期上升通道确立</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 底部放量突破：长期资金介入信号</div>
+                    <div>• 长期上升通道：沿20周均线稳步上升</div>
+                  </div>
+                </div>
+
+                <div class="bg-green-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">基本面条件</h4>
+                  <p class="text-xs text-warm-gray mb-2">季度业绩验证、催化剂出现</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 最新财报超预期验证</div>
+                    <div>• 重大合同签订等催化剂</div>
+                    <div>• 悲观预期反转机会</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Position Building -->
+            <div class="border-l-4 border-gold pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">分批建仓机制</h3>
+
+              <div class="space-y-4">
+                <div class="text-center">
+                  <div class="bg-navy text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-2">
+                    <span class="font-bold">30-40%</span>
+                  </div>
+                  <div class="font-semibold text-navy text-sm">首次建仓</div>
+                  <div class="text-xs text-warm-gray">确认进入低估区</div>
+                </div>
+
+                <div class="text-center">
+                  <div class="bg-gold text-navy rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-2">
+                    <span class="font-bold">20-30%</span>
+                  </div>
+                  <div class="font-semibold text-navy text-sm">第一次加仓</div>
+                  <div class="text-xs text-warm-gray">下跌10%-15%</div>
+                </div>
+
+                <div class="text-center">
+                  <div class="bg-navy-light text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-2">
+                    <span class="font-bold">20-30%</span>
+                  </div>
+                  <div class="font-semibold text-navy text-sm">第二次加仓</div>
+                  <div class="text-xs text-warm-gray">基本面确认</div>
+                </div>
+
+                <div class="text-center">
+                  <div class="bg-green-600 text-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-2">
+                    <span class="font-bold">完成</span>
+                  </div>
+                  <div class="font-semibold text-navy text-sm">建仓完成</div>
+                  <div class="text-xs text-warm-gray">达到仓位上限</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Position Structure -->
+            <div class="border-l-4 border-navy-light pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">核心-卫星仓位架构</h3>
+
+              <div class="space-y-4">
+                <div class="bg-blue-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">核心层配置 (60-70%)</h4>
+                  <div class="text-xs text-warm-gray space-y-1">
+                    <div>• 高确定性蓝筹</div>
+                    <div>• 行业龙头ETF</div>
+                    <div>• 稳定收益压舱石</div>
+                  </div>
+                </div>
+
+                <div class="bg-orange-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">卫星层配置 (30-40%)</h4>
+                  <div class="text-xs text-warm-gray space-y-1">
+                    <div>• 高成长潜力标的</div>
+                    <div>• 阶段性机会</div>
+                    <div>• 进攻性配置</div>
+                  </div>
+                </div>
+
+                <div class="bg-green-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-navy mb-2">现金储备 (10-20%)</h4>
+                  <div class="text-xs text-warm-gray space-y-1">
+                    <div>• 应对极端机会</div>
+                    <div>• 流动性管理</div>
+                    <div>• 心理缓冲</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Case Study -->
+          <div class="bg-gradient-to-r from-cream to-white rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-navy mb-4">
+              <i class="fas fa-lightbulb text-gold mr-2"></i>实战案例：段永平投资网易
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p class="text-sm text-warm-gray leading-relaxed mb-4">
+                  2001年互联网泡沫破裂后，网易面临退市风险，市场极度悲观，股价跌至0.8美元。
+                  段永平基于对游戏业务潜力的深度理解，判断悲观预期已过度反映，重仓买入。
+                </p>
+                <div class="bg-green-100 rounded p-3">
+                  <div class="font-semibold text-green-800 mb-1">投资成果</div>
+                  <div class="text-green-700 text-sm">最终获得超过100倍的回报</div>
+                </div>
+              </div>
+              <div>
+                <div class="space-y-3">
+                  <div class="border-l-4 border-gold pl-3">
+                    <div class="font-semibold text-navy text-sm">估值条件</div>
+                    <div class="text-xs text-warm-gray">极度低估，安全边际充足</div>
+                  </div>
+                  <div class="border-l-4 border-navy pl-3">
+                    <div class="font-semibold text-navy text-sm">基本面条件</div>
+                    <div class="text-xs text-warm-gray">游戏业务潜力被低估</div>
+                  </div>
+                  <div class="border-l-4 border-navy-light pl-3">
+                    <div class="font-semibold text-navy text-sm">预期反转</div>
+                    <div class="text-xs text-warm-gray">悲观预期过度反映</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Holding Strategy -->
+      <section id="holding" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-chart-line mr-3"></i>持有策略：动态跟踪与心态管理
+          </h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Regular Review Mechanism -->
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-6">定期复盘机制</h3>
+
+              <div class="space-y-4">
+                <div class="border rounded-lg p-4">
+                  <div class="flex items-center mb-3">
+                    <div class="bg-navy text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                      <span class="text-sm font-bold">季</span>
+                    </div>
+                    <h4 class="font-semibold text-navy">季度跟踪</h4>
+                  </div>
+                  <p class="text-sm text-warm-gray mb-3">财报数据对比、经营指标变动分析</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 财务数据与预期对比</div>
+                    <div>• 关键经营指标变动</div>
+                    <div>• 管理层业绩说明会要点</div>
+                    <div>• 行业竞争动态更新</div>
+                  </div>
+                </div>
+
+                <div class="border rounded-lg p-4">
+                  <div class="flex items-center mb-3">
+                    <div class="bg-gold text-navy rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                      <span class="text-sm font-bold">年</span>
+                    </div>
+                    <h4 class="font-semibold text-navy">年度深度评估</h4>
+                  </div>
+                  <p class="text-sm text-warm-gray mb-3">行业格局变化、管理层变动、战略执行复盘</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 行业层面：市场规模和增速变化</div>
+                    <div>• 公司层面：战略执行情况对比</div>
+                    <div>• 财务层面：多年财务趋势分析</div>
+                    <div>• 估值层面：内在价值重新估算</div>
+                  </div>
+                </div>
+
+                <div class="border rounded-lg p-4">
+                  <div class="flex items-center mb-3">
+                    <div class="bg-navy-light text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                      <i class="fas fa-sync-alt text-sm"></i>
+                    </div>
+                    <h4 class="font-semibold text-navy">估值动态调整</h4>
+                  </div>
+                  <p class="text-sm text-warm-gray mb-3">根据最新信息修正内在价值估算</p>
+                  <div class="text-xs space-y-1">
+                    <div>• 业绩超预期修正现金流预测</div>
+                    <div>• 行业格局变化调整增长假设</div>
+                    <div>• 利率环境变化调整折现率</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Monitoring Indicators -->
+            <div>
+              <h3 class="text-xl font-semibold text-navy mb-6">关键监控指标</h3>
+
+              <div class="space-y-4">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 class="font-semibold text-red-800 mb-3">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>基本面红线
+                  </h4>
+                  <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center">
+                      <span class="text-red-700">ROE持续下滑</span>
+                      <span class="text-xs text-red-600">连续两季同比↓</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-red-700">现金流恶化</span>
+                      <span class="text-xs text-red-600">经营现金流&lt;净利润50%</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-red-700">市场份额丢失</span>
+                      <span class="text-xs text-red-600">核心产品市占率↓</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 class="font-semibold text-orange-800 mb-3">
+                    <i class="fas fa-shield-alt mr-2"></i>治理风险信号
+                  </h4>
+                  <div class="space-y-2 text-sm text-orange-700">
+                    <div>• 大股东清仓式减持</div>
+                    <div>• 关联交易异常激增</div>
+                    <div>• 审计意见变化</div>
+                    <div>• 频繁更换审计机构</div>
+                  </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 class="font-semibold text-blue-800 mb-3">
+                    <i class="fas fa-chart-area mr-2"></i>行业景气拐点
+                  </h4>
+                  <div class="space-y-2 text-sm text-blue-700">
+                    <div>• 技术替代威胁</div>
+                    <div>• 政策转向风险</div>
+                    <div>• 需求结构性萎缩</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Psychological Management -->
+          <div class="bg-gradient-to-r from-navy to-navy-light text-white rounded-lg p-6">
+            <h3 class="text-xl font-semibold mb-6 text-gold">波动应对心理建设</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="text-center">
+                <div class="bg-white/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <i class="fas fa-eye text-2xl text-gold"></i>
+                </div>
+                <h4 class="font-semibold text-gold-light mb-2">区分波动与风险</h4>
+                <p class="text-sm opacity-90">股价下跌≠投资失败，聚焦价值本身</p>
+              </div>
+
+              <div class="text-center">
+                <div class="bg-white/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <i class="fas fa-lock text-2xl text-gold"></i>
+                </div>
+                <h4 class="font-semibold text-gold-light mb-2">避免过度交易</h4>
+                <p class="text-sm opacity-90">设定最低持有期，抑制短期操作冲动</p>
+              </div>
+
+              <div class="text-center">
+                <div class="bg-white/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <i class="fas fa-filter text-2xl text-gold"></i>
+                </div>
+                <h4 class="font-semibold text-gold-light mb-2">信息过滤机制</h4>
+                <p class="text-sm opacity-90">减少噪音干扰，坚持独立判断</p>
+              </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-white/10 rounded-lg">
+              <p class="text-sm italic">
+                &#34;频繁查看账户即使股票市场是长期上涨的，也抵不过市场下跌所累计的痛苦。
+                但如果把查看账户的间隔拉长，亏钱的痛苦和盈利的快乐之间的落差感就会小很多。&#34;
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Selling Strategy -->
+      <section id="selling" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-sign-out-alt mr-3"></i>卖出策略：离场纪律与再配置
+          </h2>
+
+          <div class="mb-8">
+            <img src="https://kimi-web-img.moonshot.cn/img/developer.nvidia.cn/ef64c2f99b61bdf86f1453eed9200ed19ebeb92b.png" alt="分批减仓示意图" class="w-full h-48 object-cover rounded-lg shadow-md mb-4" size="medium" aspect="wide" query="分批减仓" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Fundamental Deterioration -->
+            <div class="border-l-4 border-red-500 pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">
+                <i class="fas fa-arrow-down text-red-500 mr-2"></i>基本面恶化卖出
+              </h3>
+
+              <div class="space-y-4">
+                <div class="bg-red-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-red-800 mb-2">核心竞争优势丧失</h4>
+                  <p class="text-xs text-red-700 mb-2">护城河被侵蚀、盈利模式失效</p>
+                  <div class="text-xs text-red-600 space-y-1">
+                    <div>• 品牌溢价能力下降</div>
+                    <div>• 成本优势丧失</div>
+                    <div>• 网络效应减弱</div>
+                    <div>• 牌照壁垒打破</div>
+                  </div>
+                </div>
+
+                <div class="bg-red-100 rounded-lg p-3">
+                  <h4 class="font-semibold text-red-800 mb-2">财务指标持续恶化</h4>
+                  <p class="text-xs text-red-700 mb-2">连续两季低于预期且无改善迹象</p>
+                  <div class="text-xs text-red-600 space-y-1">
+                    <div>• 收入连续两季度同比下滑</div>
+                    <div>• 毛利率持续压缩</div>
+                    <div>• ROE连续两年度下降</div>
+                    <div>• 经营现金流持续低于净利润</div>
+                  </div>
+                </div>
+
+                <div class="bg-red-200 rounded-lg p-3">
+                  <h4 class="font-semibold text-red-800 mb-2">管理层诚信危机</h4>
+                  <p class="text-xs text-red-700 mb-2">财务造假、重大违规</p>
+                  <div class="text-xs text-red-600 font-bold">
+                    &#34;一票否决&#34; - 立即卖出
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Valuation Realization -->
+            <div class="border-l-4 border-green-500 pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">
+                <i class="fas fa-arrow-up text-green-500 mr-2"></i>估值兑现卖出
+              </h3>
+
+              <div class="space-y-4">
+                <div class="bg-green-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-green-800 mb-2">极度高估触发</h4>
+                  <p class="text-xs text-green-700 mb-2">PE超过历史90%分位或PEG&gt;2</p>
+                  <div class="text-xs text-green-600 space-y-1">
+                    <div>• PE达历史90%分位开始减仓</div>
+                    <div>• PEG&gt;2加速减仓</div>
+                    <div>• 分批减仓保留尾部收益</div>
+                  </div>
+                </div>
+
+                <div class="bg-green-100 rounded-lg p-3">
+                  <h4 class="font-semibold text-green-800 mb-2">预期收益实现</h4>
+                  <p class="text-xs text-green-700 mb-2">股价达到预设内在价值上限</p>
+                  <div class="text-xs text-green-600 space-y-1">
+                    <div>• 基于保守内在价值估计</div>
+                    <div>• 设定明确目标价位</div>
+                    <div>• 避免贪婪导致收益回吐</div>
+                  </div>
+                </div>
+
+                <div class="bg-green-200 rounded-lg p-3">
+                  <h4 class="font-semibold text-green-800 mb-2">机会成本比较</h4>
+                  <p class="text-xs text-green-700 mb-2">发现明显更优标的时的主动切换</p>
+                  <div class="text-xs text-green-600 space-y-1">
+                    <div>• 新标的风险调整后收益更高</div>
+                    <div>• 确定性不低于现有持仓</div>
+                    <div>• 当前持仓已处合理或高估区</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Systematic Risk -->
+            <div class="border-l-4 border-blue-500 pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">
+                <i class="fas fa-exclamation-triangle text-blue-500 mr-2"></i>系统性风险卖出
+              </h3>
+
+              <div class="space-y-4">
+                <div class="bg-blue-50 rounded-lg p-3">
+                  <h4 class="font-semibold text-blue-800 mb-2">宏观环境剧变</h4>
+                  <p class="text-xs text-blue-700 mb-2">利率持续飙升、战争冲突</p>
+                  <div class="text-xs text-blue-600 space-y-1">
+                    <div>• 10年期国债收益率快速上升150bp+</div>
+                    <div>• 重大地缘政治冲突</div>
+                    <div>• 全球经济衰退确认</div>
+                  </div>
+                </div>
+
+                <div class="bg-blue-100 rounded-lg p-3">
+                  <h4 class="font-semibold text-blue-800 mb-2">行业政策颠覆</h4>
+                  <p class="text-xs text-blue-700 mb-2">监管框架根本性重构</p>
+                  <div class="text-xs text-blue-600 space-y-1">
+                    <div>• 2021年教培&#34;双减&#34;政策</div>
+                    <div>• 2018年游戏版号暂停</div>
+                    <div>• 2020年蚂蚁上市叫停</div>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-blue-200 to-blue-100 rounded-lg p-3">
+                  <div class="font-semibold text-blue-800 mb-2">应对策略</div>
+                  <div class="text-xs text-blue-700 font-bold">
+                    降低整体仓位至50%以下
+                  </div>
+                  <div class="text-xs text-blue-600">
+                    增加现金和避险资产比例
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selling Execution Methods -->
+          <div class="bg-gradient-to-r from-cream to-white rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-navy mb-4">卖出执行方式</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="text-center">
+                <div class="bg-green-100 rounded-lg p-4 mb-3">
+                  <i class="fas fa-chart-line text-2xl text-green-600 mb-2"></i>
+                  <h4 class="font-semibold text-green-800 mb-2">分批减仓</h4>
+                  <p class="text-xs text-green-700">高估区间分3-4次减持，保留尾部收益</p>
+                </div>
+              </div>
+
+              <div class="text-center">
+                <div class="bg-red-100 rounded-lg p-4 mb-3">
+                  <i class="fas fa-running text-2xl text-red-600 mb-2"></i>
+                  <h4 class="font-semibold text-red-800 mb-2">急变清仓</h4>
+                  <p class="text-xs text-red-700">基本面黑天鹅事件时的快速离场纪律</p>
+                </div>
+              </div>
+
+              <div class="text-center">
+                <div class="bg-blue-100 rounded-lg p-4 mb-3">
+                  <i class="fas fa-exchange-alt text-2xl text-blue-600 mb-2"></i>
+                  <h4 class="font-semibold text-blue-800 mb-2">资金再配置</h4>
+                  <p class="text-xs text-blue-700">卖出后30日内完成新标的筛选或指数化过渡</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Risk Management -->
+      <section id="risk-management" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-shield-alt mr-3"></i>风险管理体系
+          </h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Single Stock Risk Control -->
+            <div class="border-l-4 border-navy pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">单一标的风险控制</h3>
+
+              <div class="space-y-4">
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">持仓上限</h4>
+                  <div class="text-center mb-3">
+                    <div class="text-3xl font-bold text-navy mb-1">20%</div>
+                    <div class="text-sm text-warm-gray">单只个股不超过总资产</div>
+                  </div>
+                  <p class="text-xs text-warm-gray">
+                    假设个股极端下跌50%，组合最大损失10%，在多数投资者风险承受范围内
+                  </p>
+                </div>
+
+                <div class="bg-navy/10 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">行业集中度</h4>
+                  <div class="text-center mb-3">
+                    <div class="text-3xl font-bold text-navy mb-1">40%</div>
+                    <div class="text-sm text-warm-gray">单一行业配置上限</div>
+                  </div>
+                  <p class="text-xs text-warm-gray">
+                    防范系统性行业风险，政策敏感型行业更严格（30%）
+                  </p>
+                </div>
+
+                <div class="bg-gold/10 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">止损纪律</h4>
+                  <div class="text-center mb-3">
+                    <div class="text-3xl font-bold text-navy mb-1">30%</div>
+                    <div class="text-sm text-warm-gray">下跌触发强制复盘</div>
+                  </div>
+                  <p class="text-xs text-warm-gray">
+                    基本面未变但股价下跌30%时，避免&#34;鸵鸟心态&#34;
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Portfolio Level Risk -->
+            <div class="border-l-4 border-gold pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">组合层面风险管理</h3>
+
+              <div class="space-y-4">
+                <div class="bg-gold/10 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">相关性控制</h4>
+                  <p class="text-sm text-warm-gray mb-3">低相关性行业的分散配置原则</p>
+
+                  <div class="space-y-2 text-xs">
+                    <div class="flex justify-between">
+                      <span>金融与地产</span>
+                      <span class="text-red-600">相关性 &gt; 0.7</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>消费与医药</span>
+                      <span class="text-green-600">相关性 &lt; 0.4</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>科技与传统制造</span>
+                      <span class="text-yellow-600">0.5-0.6</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>黄金与股票</span>
+                      <span class="text-blue-600">负相关</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">流动性管理</h4>
+                  <div class="text-center mb-3">
+                    <div class="text-2xl font-bold text-navy mb-1">60%</div>
+                    <div class="text-sm text-warm-gray">中大盘股占比</div>
+                  </div>
+                  <p class="text-xs text-warm-gray">
+                    确保极端环境下能够以合理价格快速成交
+                  </p>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-blue-800 mb-3">汇率与宏观对冲</h4>
+                  <p class="text-sm text-blue-700 mb-2">海外配置时的货币风险考量</p>
+                  <div class="text-xs text-blue-600 space-y-1">
+                    <div>• 海外配置比例：10%-30%</div>
+                    <div>• 自然对冲：外币支出需求</div>
+                    <div>• 货币对冲ETF</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Extreme Scenario Planning -->
+            <div class="border-l-4 border-red-500 pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">极端情景预案</h3>
+
+              <div class="space-y-4">
+                <div class="bg-red-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-red-800 mb-3">
+                    <i class="fas fa-chart-line-down mr-2"></i>熊市应对
+                  </h4>
+                  <div class="space-y-2 text-xs">
+                    <div class="flex justify-between">
+                      <span>大盘下跌10%</span>
+                      <span class="text-red-600">观察筛选</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>大盘下跌20%</span>
+                      <span class="text-orange-600">核心层加仓</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>大盘下跌30%</span>
+                      <span class="text-yellow-600">大幅加仓</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>大盘下跌40%+</span>
+                      <span class="text-green-600">尽可能满仓</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-orange-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-orange-800 mb-3">
+                    <i class="fas fa-exclamation-circle mr-2"></i>黑天鹅响应
+                  </h4>
+                  <div class="space-y-2 text-xs text-orange-700">
+                    <div><strong>第一阶段：冻结</strong>（1-3天）</div>
+                    <div><strong>第二阶段：评估</strong>（1-2周）</div>
+                    <div><strong>第三阶段：行动</strong>（评估后）</div>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-red-100 to-orange-100 rounded-lg p-4">
+                  <div class="font-semibold text-red-800 mb-2">核心原则</div>
+                  <div class="text-sm text-red-700">
+                    &#34;先保全、再评估、后行动&#34;
+                  </div>
+                  <div class="text-xs text-red-600 mt-2">
+                    区分&#34;情绪冲击&#34;和&#34;实质冲击&#34;，逆向布局
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Risk Management Framework Diagram -->
+          <div class="bg-gradient-to-r from-navy/5 to-navy-light/5 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-navy mb-4">风险管理框架图</h3>
+            <div class="mermaid-container">
+              <div class="mermaid-controls">
+                <button class="mermaid-control-btn zoom-in" title="放大">
+                  <i class="fas fa-search-plus"></i>
+                </button>
+                <button class="mermaid-control-btn zoom-out" title="缩小">
+                  <i class="fas fa-search-minus"></i>
+                </button>
+                <button class="mermaid-control-btn reset-zoom" title="重置">
+                  <i class="fas fa-expand-arrows-alt"></i>
+                </button>
+                <button class="mermaid-control-btn fullscreen" title="全屏查看">
+                  <i class="fas fa-expand"></i>
+                </button>
+              </div>
+              <div class="mermaid">
+                graph TD
+                A[&#34;风险管理体系&#34;] --&gt; B[&#34;单一标的风险控制&#34;]
+                A --&gt; C[&#34;组合层面风险管理&#34;]
+                A --&gt; D[&#34;极端情景预案&#34;]
+
+                B --&gt; B1[&#34;持仓上限 20%&#34;]
+                B --&gt; B2[&#34;行业集中度 40%&#34;]
+                B --&gt; B3[&#34;止损复盘机制 30%&#34;]
+
+                C --&gt; C1[&#34;相关性控制 &lt; 0.5&#34;]
+                C --&gt; C2[&#34;流动性管理 60%+&#34;]
+                C --&gt; C3[&#34;汇率与宏观对冲&#34;]
+
+                D --&gt; D1[&#34;熊市应对预案&#34;]
+                D --&gt; D2[&#34;黑天鹅响应流程&#34;]
+
+                style A fill:#1e3a8a,color:#fff,stroke:#1e40af,stroke-width:3px
+                style B fill:#3b82f6,color:#fff,stroke:#2563eb,stroke-width:2px
+                style C fill:#fbbf24,color:#1e3a8a,stroke:#f59e0b,stroke-width:2px
+                style D fill:#10b981,color:#fff,stroke:#059669,stroke-width:2px
+                style B1 fill:#eff6ff,color:#1e3a8a,stroke:#3b82f6,stroke-width:2px
+                style B2 fill:#eff6ff,color:#1e3a8a,stroke:#3b82f6,stroke-width:2px
+                style B3 fill:#eff6ff,color:#1e3a8a,stroke:#3b82f6,stroke-width:2px
+                style C1 fill:#fef7ed,color:#1e3a8a,stroke:#fbbf24,stroke-width:2px
+                style C2 fill:#fef7ed,color:#1e3a8a,stroke:#fbbf24,stroke-width:2px
+                style C3 fill:#fef7ed,color:#1e3a8a,stroke:#fbbf24,stroke-width:2px
+                style D1 fill:#f0fdf4,color:#1e3a8a,stroke:#10b981,stroke-width:2px
+                style D2 fill:#f0fdf4,color:#1e3a8a,stroke:#10b981,stroke-width:2px
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 8: Execution &amp; Optimization -->
+      <section id="execution" class="mb-16">
+        <div class="bg-white rounded-2xl p-8 shadow-lg border border-navy/10">
+          <h2 class="section-title text-3xl font-bold mb-8 border-b-2 border-gold pb-4">
+            <i class="fas fa-cogs mr-3"></i>执行保障与持续优化
+          </h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Tools &amp; Data Support -->
+            <div class="border-l-4 border-navy pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">工具与数据支持</h3>
+
+              <div class="space-y-4">
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">
+                    <i class="fas fa-database mr-2"></i>筛选工具
+                  </h4>
+                  <div class="space-y-2 text-sm">
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">理杏仁</span>
+                      <span class="text-xs text-warm-gray">财务数据平台</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">聚宽量化</span>
+                      <span class="text-xs text-warm-gray">量化研究平台</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">同花顺iFinD</span>
+                      <span class="text-xs text-warm-gray">专业数据终端</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">Wind</span>
+                      <span class="text-xs text-warm-gray">金融数据服务</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-gold/10 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">
+                    <i class="fas fa-calculator mr-2"></i>估值工具
+                  </h4>
+                  <div class="space-y-2 text-sm">
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">ValueSense</span>
+                      <span class="text-xs text-warm-gray">DCF/DDM计算</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-navy font-medium mr-2">Gurufocus</span>
+                      <span class="text-xs text-warm-gray">价值分析平台</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-blue-800 mb-3">
+                    <i class="fas fa-chart-pie mr-2"></i>组合跟踪
+                  </h4>
+                  <div class="space-y-2 text-sm">
+                    <div class="flex items-center">
+                      <span class="text-blue-800 font-medium mr-2">StockRover</span>
+                      <span class="text-xs text-blue-600">美股组合分析</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-blue-800 font-medium mr-2">Morningstar</span>
+                      <span class="text-xs text-blue-600">全球资产配置</span>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="text-blue-800 font-medium mr-2">且慢</span>
+                      <span class="text-xs text-blue-600">A股基金投资</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Investment Journal -->
+            <div class="border-l-4 border-gold pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">投资日志与决策留痕</h3>
+
+              <div class="space-y-4">
+                <div class="bg-gold/10 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">
+                    <i class="fas fa-pen mr-2"></i>买入记录
+                  </h4>
+                  <div class="space-y-2 text-xs text-warm-gray">
+                    <div>• 决策日期与价格</div>
+                    <div>• 投资逻辑摘要</div>
+                    <div>• 估值假设与内在价值</div>
+                    <div>• 预期收益率与持有期</div>
+                    <div>• 风险因素与应对预案</div>
+                  </div>
+                </div>
+
+                <div class="bg-navy/5 rounded-lg p-4">
+                  <h4 class="font-semibold text-navy mb-3">
+                    <i class="fas fa-bookmark mr-2"></i>持有笔记
+                  </h4>
+                  <div class="space-y-2 text-xs text-warm-gray">
+                    <div>• 季度跟踪要点</div>
+                    <div>• 认知更新与修正记录</div>
+                    <div>• 年度评估总结</div>
+                    <div>• 认知升级轨迹</div>
+                  </div>
+                </div>
+
+                <div class="bg-green-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-green-800 mb-3">
+                    <i class="fas fa-clipboard-check mr-2"></i>卖出复盘
+                  </h4>
+                  <div class="space-y-2 text-xs text-green-700">
+                    <div>• 实际收益归因</div>
+                    <div>• 决策质量评估</div>
+                    <div>• 教训总结提炼</div>
+                    <div>• 框架优化建议</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Framework Iteration -->
+            <div class="border-l-4 border-green-500 pl-4">
+              <h3 class="text-lg font-semibold text-navy mb-4">框架迭代机制</h3>
+
+              <div class="space-y-4">
+                <div class="bg-green-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-green-800 mb-3">
+                    <i class="fas fa-sync-alt mr-2"></i>年度策略回顾
+                  </h4>
+                  <div class="space-y-2 text-xs text-green-700">
+                    <div>• 选股标准有效性检验</div>
+                    <div>• 估值参数合理性评估</div>
+                    <div>• 仓位管理效果分析</div>
+                    <div>• 买卖纪律执行情况</div>
+                    <div>• 风险管理成效评价</div>
+                  </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-blue-800 mb-3">
+                    <i class="fas fa-brain mr-2"></i>认知升级路径
+                  </h4>
+                  <div class="space-y-2 text-xs text-blue-700">
+                    <div>• 经典投资著作精读</div>
+                    <div>• 顶级投资者案例研究</div>
+                    <div>• 行业专家深度交流</div>
+                    <div>• 实践经验总结提炼</div>
+                  </div>
+                </div>
+
+                <div class="bg-orange-50 rounded-lg p-4">
+                  <h4 class="font-semibold text-orange-800 mb-3">
+                    <i class="fas fa-clipboard-list mr-2"></i>纪律执行审计
+                  </h4>
+                  <div class="space-y-2 text-xs text-orange-700">
+                    <div>• 交易频率 vs 预设上限</div>
+                    <div>• 持仓集中度 vs 纪律</div>
+                    <div>• 买卖时机 vs 估值区间</div>
+                    <div>• 持有期 vs 最低要求</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Execution Checklist -->
+          <div class="bg-gradient-to-r from-navy to-navy-light text-white rounded-lg p-6">
+            <h3 class="text-xl font-semibold mb-6 text-gold">执行保障清单</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 class="font-semibold text-gold-light mb-4">日常执行</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>每日查看持仓公告和重要新闻</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>每周更新观察清单估值</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>每月组合再平衡检查</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>季度深度复盘与估值调整</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="font-semibold text-gold-light mb-4">纪律监督</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>严格执行仓位上限纪律</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>遵守分批建仓和减仓规则</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>坚持最低持有期要求</span>
+                  </div>
+                  <div class="flex items-center">
+                    <i class="fas fa-check-circle text-gold mr-2"></i>
+                    <span>定期执行纪律执行审计</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Conclusion -->
+      <section class="mb-16">
+        <div class="bg-gradient-to-r from-navy to-navy-light text-white rounded-2xl p-8 shadow-lg">
+          <h2 class="text-3xl font-bold mb-6 text-center text-gold">
+            <i class="fas fa-flag-checkered mr-3"></i>构建可复制的长期投资体系
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 class="text-xl font-semibold text-gold-light mb-4">核心价值</h3>
+              <p class="text-sm opacity-90 leading-relaxed mb-4">
+                本投资方案基于价值投资哲学，构建了从选股、估值、买入、持有到卖出的完整执行框架。
+                通过三层筛选漏斗精选优质标的，以内在价值锚定投资决策，严格的风险管理体系确保长期稳健收益。
+              </p>
+              <p class="text-sm opacity-90 leading-relaxed">
+                关键在于将投资原则内化为行为习惯，在极端市场环境中保持理性判断，
+                让时间成为投资的朋友，实现复利的威力。
+              </p>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-gold-light mb-4">关键成功因素</h3>
+              <div class="space-y-3">
+                <div class="flex items-center">
+                  <i class="fas fa-gem text-gold mr-3"></i>
+                  <span class="text-sm">深度研究能力：建立真正的能力圈优势</span>
+                </div>
+                <div class="flex items-center">
+                  <i class="fas fa-clock text-gold mr-3"></i>
+                  <span class="text-sm">耐心等待：安全边际的等待需要纪律</span>
+                </div>
+                <div class="flex items-center">
+                  <i class="fas fa-heart text-gold mr-3"></i>
+                  <span class="text-sm">情绪控制：区分波动与风险的心态管理</span>
+                </div>
+                <div class="flex items-center">
+                  <i class="fas fa-shield-alt text-gold mr-3"></i>
+                  <span class="text-sm">风险纪律：严格的风控体系执行</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 text-center">
+            <div class="bg-white/10 rounded-lg p-4 inline-block">
+              <p class="text-lg italic text-gold">
+                &#34;投资不是一场短跑，而是一场马拉松。
+                建立系统化的投资框架，让每一步都走得稳健而坚定。&#34;
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#1e3a8a',
+                primaryTextColor: '#ffffff',
+                primaryBorderColor: '#1e40af',
+                lineColor: '#3b82f6',
+                secondaryColor: '#fbbf24',
+                tertiaryColor: '#fef7ed',
+                background: '#ffffff',
+                mainBkg: '#1e3a8a',
+                secondBkg: '#fbbf24',
+                tertiaryBkg: '#f8fafc',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontSize: '14px'
+            },
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            }
+        });
+
+        // Initialize Mermaid Controls for zoom and pan
+        function initializeMermaidControls() {
+            const containers = document.querySelectorAll('.mermaid-container');
+
+            containers.forEach(container => {
+            const mermaidElement = container.querySelector('.mermaid');
+            let scale = 1;
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+
+            // 触摸相关状态
+            let isTouch = false;
+            let touchStartTime = 0;
+            let initialDistance = 0;
+            let initialScale = 1;
+            let isPinching = false;
+
+            // Zoom controls
+            const zoomInBtn = container.querySelector('.zoom-in');
+            const zoomOutBtn = container.querySelector('.zoom-out');
+            const resetBtn = container.querySelector('.reset-zoom');
+            const fullscreenBtn = container.querySelector('.fullscreen');
+
+            function updateTransform() {
+                mermaidElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                if (scale > 1) {
+                container.classList.add('zoomed');
+                } else {
+                container.classList.remove('zoomed');
+                }
+
+                mermaidElement.style.cursor = isDragging ? 'grabbing' : 'grab';
+            }
+
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                scale = Math.min(scale * 1.25, 4);
+                updateTransform();
+                });
+            }
+
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                scale = Math.max(scale / 1.25, 0.3);
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+                updateTransform();
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateTransform();
+                });
+            }
+
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', () => {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                });
+            }
+
+            // Mouse Events
+            mermaidElement.addEventListener('mousedown', (e) => {
+                if (isTouch) return; // 如果是触摸设备，忽略鼠标事件
+
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                mermaidElement.style.cursor = 'grabbing';
+                updateTransform();
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging && !isTouch) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseleave', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            // 获取两点之间的距离
+            function getTouchDistance(touch1, touch2) {
+                return Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+                );
+            }
+
+            // Touch Events - 触摸事件处理
+            mermaidElement.addEventListener('touchstart', (e) => {
+                isTouch = true;
+                touchStartTime = Date.now();
+
+                if (e.touches.length === 1) {
+                // 单指拖动
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+
+                } else if (e.touches.length === 2) {
+                // 双指缩放
+                isPinching = true;
+                isDragging = false;
+
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = getTouchDistance(touch1, touch2);
+                initialScale = scale;
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging && !isPinching) {
+                // 单指拖动
+                const touch = e.touches[0];
+                translateX = touch.clientX - startX;
+                translateY = touch.clientY - startY;
+                updateTransform();
+
+                } else if (e.touches.length === 2 && isPinching) {
+                // 双指缩放
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = getTouchDistance(touch1, touch2);
+
+                if (initialDistance > 0) {
+                    const newScale = Math.min(Math.max(
+                    initialScale * (currentDistance / initialDistance),
+                    0.3
+                    ), 4);
+                    scale = newScale;
+                    updateTransform();
+                }
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchend', (e) => {
+                // 重置状态
+                if (e.touches.length === 0) {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                // 延迟重置isTouch，避免鼠标事件立即触发
+                setTimeout(() => {
+                    isTouch = false;
+                }, 100);
+                } else if (e.touches.length === 1 && isPinching) {
+                // 从双指变为单指，切换为拖动模式
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+                }
+
+                updateTransform();
+            });
+
+            mermaidElement.addEventListener('touchcancel', (e) => {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                setTimeout(() => {
+                isTouch = false;
+                }, 100);
+
+                updateTransform();
+            });
+
+            // Enhanced wheel zoom with better center point handling
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.min(Math.max(scale * delta, 0.3), 4);
+
+                // Adjust translation to zoom towards center
+                if (newScale !== scale) {
+                const scaleDiff = newScale / scale;
+                translateX = translateX * scaleDiff;
+                translateY = translateY * scaleDiff;
+                scale = newScale;
+
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+
+                updateTransform();
+                }
+            });
+
+            // Initialize display
+            updateTransform();
+            });
+        }
+
+        // Call the function after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMermaidControls();
+        });
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Highlight active section in TOC
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.toc-fixed a[href^="#"]');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 200) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('bg-navy/10', 'font-semibold');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('bg-navy/10', 'font-semibold');
+                }
+            });
+        });
+
+        // Add citation click handlers
+        document.querySelectorAll('.citation').forEach(citation => {
+            citation.addEventListener('click', function(e) {
+                e.preventDefault();
+                // In a real implementation, this would open the source
+                alert('引用来源：' + this.textContent);
+            });
+        });
+    </script>
+  
+
+</body></html>

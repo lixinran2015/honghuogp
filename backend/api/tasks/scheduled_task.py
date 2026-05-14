@@ -395,6 +395,8 @@ async def trigger_scheduled_task(task_name: str) -> Dict:
                 'moneyflow_update': 'moneyflow_update',
                 'money_flow_update': 'money_flow_update',
                 'industry_cycle_collect': 'industry_cycle_collect',
+                'industry_cycle_suggest': 'industry_cycle_suggest',
+                'pe_pb_update': 'pe_pb_update',
                 's1_universe_update': 's1_universe_update',
                 'sync_trade_calendar': 'sync_trade_calendar',
                 'guba_popularity_crawl': 'guba_popularity_crawl',

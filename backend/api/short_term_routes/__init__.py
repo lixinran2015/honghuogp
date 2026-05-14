@@ -140,6 +140,14 @@ def get_routers() -> List[APIRouter]:
     except ImportError as e:
         logger.warning(f"Failed to load short_term_dashboard router: {e}")
 
+    # 60日新高实时筛选
+    try:
+        from backend.api.short_term import new_high_60d
+        routers.append(new_high_60d.router)
+        logger.info("Loaded short_term route: new_high_60d")
+    except ImportError as e:
+        logger.warning(f"Failed to load new_high_60d router: {e}")
+
     # 龙头推荐
     try:
         from backend.api.leaders.leader_recommendation import router as leader_recommendation_router

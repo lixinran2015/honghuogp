@@ -17,7 +17,7 @@ from backend.services.long_term.entry_analyzer import EntryAnalyzer
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["长线选股"])
+router = APIRouter(prefix="/api/long-term/selection", tags=["长线选股"])
 
 
 def _get_warehouse_service():
@@ -38,13 +38,14 @@ async def get_long_term_selection(
     """
     获取长线候选股票池
 
-    四层筛选漏斗：
+    五层精选漏斗：
     1. 基础排除（ST/停牌/上市不满3年）
     2. 行业差异化财务筛选（ROE/负债率按行业类型差异化阈值）
     3. 价值陷阱过滤
     4. 估值安全边际（PE/PB分位数 < 70%，相对行业低估）
+    5. 质量精选层（PE>0、成交额≥1亿、Darwin≥60、PE/PB分位<50%）
 
-    返回按 Darwin评分 × 财务健康系数 排序的结果。
+    返回按 Darwin评分 × 财务健康系数 排序的约10-15只精选标的。
     """
     try:
         logger.info(f"收到长线选股请求: limit={limit}, sector_type={sector_type}, date={trade_date}")

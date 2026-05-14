@@ -66,7 +66,8 @@ class ValueTrapFilter:
 
         # 3. PB < 0.5 且 ROE < 5% -> 排除（价值陷阱）
         pb = self._to_float(fin_data.get("pb"))
-        roe = self._to_float(fin_data.get("roe"))
+        # 兼容两种字段名: roe (季度) / roe_ttm (日频)
+        roe = self._to_float(fin_data.get("roe_ttm") or fin_data.get("roe"))
         if pb is not None and pb < 0.5 and roe is not None and roe < 5:
             return {"pass": False, "reason": f"PB过低({pb:.2f})且ROE过低({roe:.2f}%)，疑似价值陷阱"}
 
@@ -84,8 +85,10 @@ class ValueTrapFilter:
             return {"pass": False, "reason": f"负债率过高({debt_ratio:.1%})"}
 
         # 6. 经营现金流/净利润 < 0.5（需要历史数据，简化版只检查最近一期）
-        op_cf = self._to_float(fin_data.get("op_cf"))
-        net_profit = self._to_float(fin_data.get("net_profit"))
+        # 兼容两种字段名: op_cf_ttm (日频) / op_cf (季度)
+        op_cf = self._to_float(fin_data.get("op_cf_ttm") or fin_data.get("op_cf"))
+        # 兼容两种字段名: net_profit_ttm (日频) / net_profit (季度)
+        net_profit = self._to_float(fin_data.get("net_profit_ttm") or fin_data.get("net_profit"))
         if op_cf is not None and net_profit and net_profit > 0:
             cf_to_profit = op_cf / net_profit
             if cf_to_profit < 0.5:

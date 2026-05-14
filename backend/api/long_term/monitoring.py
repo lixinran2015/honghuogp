@@ -14,7 +14,7 @@ from backend.services.long_term.long_term_monitor import LongTermMonitor
 from backend.services.long_term.valuation_service import ValuationService
 from data_warehouse.service.warehouse_service import WarehouseService
 
-router = APIRouter()
+router = APIRouter(prefix="/api/long-term")
 
 
 @router.get("/monitoring/alerts")
@@ -77,20 +77,25 @@ async def get_alerts(
 
 @router.post("/monitoring/scan")
 async def scan_holdings():
-    """手动触发持仓扫描，生成告警"""
+    """手动触发持仓扫描，生成告警。
+
+    优先从长线跟踪池(fact_long_term_tracking_pool)获取 watching/promoted 状态的股票进行监控。
+    若跟踪池为空，则回退到持仓表(fact_long_term_holding)。
+    """
     warehouse = WarehouseService()
     valuation = ValuationService(warehouse)
     monitor = LongTermMonitor(warehouse, valuation)
 
-    # 获取当前持仓
     session = warehouse.get_session()
     try:
         from sqlalchemy import text
+
+        # 1. 优先从跟踪池获取 watching / promoted 的股票
         result = session.execute(text("""
-            SELECT ts_code, name, industry, current_weight,
-                   darwin_score, pe_percentile_5y, pb_percentile_5y
-            FROM fact_long_term_holding
-            WHERE status = 'holding'
+            SELECT ts_code, name, industry, sector_type,
+                   composite_score, darwin_score, pe_ttm, pb, roe_ttm
+            FROM fact_long_term_tracking_pool
+            WHERE status IN ('watching', 'promoted')
         """))
 
         holdings = []
@@ -99,11 +104,32 @@ async def scan_holdings():
                 "ts_code": row[0],
                 "name": row[1],
                 "industry": row[2],
-                "current_weight": float(row[3]) if row[3] else 0,
-                "darwin_score": float(row[4]) if row[4] else None,
-                "pe_percentile_5y": float(row[5]) if row[5] else None,
-                "pb_percentile_5y": float(row[6]) if row[6] else None,
+                "sector_type": row[3],
+                "composite_score": float(row[4]) if row[4] else None,
+                "darwin_score": float(row[5]) if row[5] else None,
+                "pe_ttm": float(row[6]) if row[6] else None,
+                "pb": float(row[7]) if row[7] else None,
+                "roe_ttm": float(row[8]) if row[8] else None,
             })
+
+        # 2. 跟踪池为空时，回退到持仓表
+        if not holdings:
+            result2 = session.execute(text("""
+                SELECT ts_code, name, industry, current_weight,
+                       darwin_score, pe_percentile_5y, pb_percentile_5y
+                FROM fact_long_term_holding
+                WHERE status = 'holding'
+            """))
+            for row in result2.fetchall():
+                holdings.append({
+                    "ts_code": row[0],
+                    "name": row[1],
+                    "industry": row[2],
+                    "current_weight": float(row[3]) if row[3] else 0,
+                    "darwin_score": float(row[4]) if row[4] else None,
+                    "pe_percentile_5y": float(row[5]) if row[5] else None,
+                    "pb_percentile_5y": float(row[6]) if row[6] else None,
+                })
     finally:
         session.close()
 

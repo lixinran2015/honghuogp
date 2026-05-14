@@ -45,35 +45,70 @@ class BaostockDailySource(DailyDataSource):
         return cls._instance
     
     def __init__(self, timeout=5):
-        """初始化 Baostock 数据源
-        
+        """初始化 Baostock 数据源（懒登录，避免启动时阻塞）
+
         Args:
             timeout: 登录超时时间（秒），默认5秒
         """
-        if self._initialized:
+        if getattr(self, '_initialized', False):
             return
-        
+
         if not HAS_BAOSTOCK:
-            raise RuntimeError("需要安装 baostock: pip install baostock")
-        
-        global _baostock_logged_in
-        with _baostock_lock:
-            if not _baostock_logged_in:
-                # 使用线程 + 超时来避免阻塞
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(bs.login)
-                    try:
-                        lg = future.result(timeout=timeout)
-                        if lg.error_code != "0":
-                            raise RuntimeError(f"Baostock 登录失败: {lg.error_msg}")
-                        _baostock_logged_in = True
-                        logger.info("✅ Baostock 登录成功")
-                    except concurrent.futures.TimeoutError:
-                        raise RuntimeError(f"Baostock 登录超时（{timeout}秒），请检查网络连接")
-        
+            self.available = False
+            self._initialized = True
+            return
+
+        self._timeout = timeout
+        self._login_attempted = False
         self.available = True
         self._initialized = True
+
+    def _ensure_login(self) -> bool:
+        """懒登录：首次使用时尝试登录，带信号超时保护。"""
+        if self._login_attempted:
+            return self.available
+        self._login_attempted = True
+
+        global _baostock_logged_in
+        with _baostock_lock:
+            if _baostock_logged_in:
+                return True
+
+            try:
+                # macOS 上 bs.login() 在子线程中仍可能无限阻塞 GIL，
+                # 使用 SIGALRM 在主线程做超时保护（仅 POSIX）
+                import signal
+
+                class _LoginTimeout(Exception):
+                    pass
+
+                def _handler(signum, frame):
+                    raise _LoginTimeout()
+
+                old_handler = signal.signal(signal.SIGALRM, _handler)
+                signal.alarm(self._timeout)
+                try:
+                    lg = bs.login()
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+
+                if lg.error_code == "0":
+                    _baostock_logged_in = True
+                    logger.info("✅ Baostock 登录成功")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Baostock 登录失败: {lg.error_msg}")
+                    self.available = False
+                    return False
+            except _LoginTimeout:
+                logger.warning("⚠️ Baostock 登录超时，将标记为不可用")
+                self.available = False
+                return False
+            except Exception as e:
+                logger.warning(f"⚠️ Baostock 登录异常: {e}")
+                self.available = False
+                return False
     
     def __del__(self):
         """析构时登出"""
@@ -110,10 +145,10 @@ class BaostockDailySource(DailyDataSource):
         Returns:
             DataFrame: 标准化的快照数据
         """
-        if not self.available:
+        if not self._ensure_login():
             logger.error("❌ BaostockDailySource 不可用")
             return pd.DataFrame()
-        
+
         # 确定日期
         if date is None:
             date = datetime.today().strftime("%Y-%m-%d")
@@ -240,10 +275,10 @@ class BaostockDailySource(DailyDataSource):
         Returns:
             DataFrame: 包含 code, trade_date, open, high, low, close, volume, amount
         """
-        if not self.available:
+        if not self._ensure_login():
             logger.error("❌ BaostockDailySource 不可用")
             return pd.DataFrame()
-        
+
         # 统一日期格式为 YYYY-MM-DD
         if len(start_date) == 8:
             start_date = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:8]}"

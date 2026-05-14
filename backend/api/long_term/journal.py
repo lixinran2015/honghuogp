@@ -15,7 +15,7 @@ from datetime import date
 from backend.services.long_term.long_term_journal import LongTermJournal
 from data_warehouse.service.warehouse_service import WarehouseService
 
-router = APIRouter()
+router = APIRouter(prefix="/api/long-term")
 
 
 class JournalEntryCreate(BaseModel):
